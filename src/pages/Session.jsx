@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import useAuth from '../hooks/useAuth'
 import { TEST_CATEGORIES, getTest } from '../constants/tests'
-import { getAllAthletes, getAthletesByTeam } from '../services/athletes'
+import { getAllAthletes, getAthletesByTeamJunction } from '../services/athletes'
 import { getActiveSessionsToday, createSession, endSession, getAllTeams } from '../services/teams'
 import { getResultsForSession, saveTestResult, getResultsForAthlete, getBaselineResults } from '../services/testResults'
 import { supabase } from '../services/supabase'
@@ -112,7 +112,7 @@ const Session = () => {
       setStarting(true)
       let roster = []
       if (selectedTeamId) {
-        roster = await getAthletesByTeam(selectedTeamId)
+        roster = await getAthletesByTeamJunction(selectedTeamId)
       } else {
         roster = athletes.filter((a) => selectedAthleteIds.includes(a.id))
       }
@@ -151,7 +151,7 @@ const Session = () => {
     try {
       let roster = []
       if (session.team_id) {
-        roster = await getAthletesByTeam(session.team_id)
+        roster = await getAthletesByTeamJunction(session.team_id)
       } else {
         roster = athletes
       }

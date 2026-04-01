@@ -2,7 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import useAuth from '../hooks/useAuth'
 import { supabase } from '../services/supabase'
-import { getAllAthletes } from '../services/athletes'
+import {
+  getAllAthletes,
+  getAthleteTeams,
+  addAthleteToTeam,
+  removeAthleteFromTeam,
+} from '../services/athletes'
 import { getAllTeams, createTeam, updateTeam, getTeamRoster } from '../services/teams'
 import { createUser as createAdminUser, deleteUser as deleteAdminUser, updateUser as updateAdminUser } from '../services/adminUsers'
 import { SPORTS } from '../constants/sports'
@@ -67,6 +72,8 @@ const Admin = () => {
   const [athleteSportFilter, setAthleteSportFilter] = useState('All')
   const [athleteTeamFilter, setAthleteTeamFilter] = useState('All')
   const [expandedAthleteId, setExpandedAthleteId] = useState(null)
+  const [athleteTeamsMap, setAthleteTeamsMap] = useState({})
+  const [athleteTeamSelect, setAthleteTeamSelect] = useState({})
 
   const [passwordChange, setPasswordChange] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
@@ -148,6 +155,15 @@ const Admin = () => {
       console.error('Athletes load error', err)
     }
     setAthletesLoading(false)
+  }
+
+  const loadAthleteTeams = async (athleteId) => {
+    try {
+      const data = await getAthleteTeams(athleteId)
+      setAthleteTeamsMap((prev) => ({ ...prev, [athleteId]: data || [] }))
+    } catch (err) {
+      console.error('Athlete teams load error', err)
+    }
   }
 
   useEffect(() => {
@@ -793,7 +809,11 @@ const Admin = () => {
                 <React.Fragment key={a.id}>
                   <tr
                     className="hover:bg-white/5 cursor-pointer"
-                    onClick={() => setExpandedAthleteId(expandedAthleteId === a.id ? null : a.id)}
+                    onClick={() => {
+                      const nextId = expandedAthleteId === a.id ? null : a.id
+                      setExpandedAthleteId(nextId)
+                      if (nextId) loadAthleteTeams(a.id)
+                    }}
                   >
                     <td className="py-3 px-3">{a.full_name}</td>
                     <td className="py-3 px-3">{a.sport}</td>
@@ -813,6 +833,66 @@ const Admin = () => {
                           <div>Updated: {a.updated_at?.slice(0, 10) || '-'}</div>
                           <div>Created: {a.created_at?.slice(0, 10) || '-'}</div>
                           <div>Position: {a.position || '-'}</div>
+                        </div>
+                        <div className="mt-4 space-y-2">
+                          <div className="text-white font-semibold">Teams & Groups</div>
+                          <div className="flex flex-wrap gap-2">
+                            {(athleteTeamsMap[a.id] || []).map((t) => (
+                              <div
+                                key={t.id || t.team_id}
+                                className="flex items-center gap-2 bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2"
+                              >
+                                <div className="text-sm text-white/80">
+                                  {t.pfa_teams?.name || t.name}
+                                  {t.pfa_teams?.sport ? ` • ${t.pfa_teams.sport}` : ''}
+                                  {t.pfa_teams?.age_category ? ` • ${t.pfa_teams.age_category}` : ''}
+                                </div>
+                                <button
+                                  className="text-red-400 text-xs"
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    await removeAthleteFromTeam(a.id, t.team_id || t.id)
+                                    const updated = await getAthleteTeams(a.id)
+                                    setAthleteTeamsMap((prev) => ({ ...prev, [a.id]: updated || [] }))
+                                  }}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                            <select
+                              value={athleteTeamSelect[a.id] || ''}
+                              onChange={(e) =>
+                                setAthleteTeamSelect((prev) => ({ ...prev, [a.id]: e.target.value }))
+                              }
+                              className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                            >
+                              <option value="">Select team/group</option>
+                              {teams.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.name}
+                                  {t.sport ? ` • ${t.sport}` : ''}
+                                  {t.age_category ? ` • ${t.age_category}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              className="px-3 py-2 rounded-lg bg-pfa-green text-black text-sm font-semibold"
+                              onClick={async (e) => {
+                                e.stopPropagation()
+                                const teamId = athleteTeamSelect[a.id]
+                                if (!teamId) return
+                                await addAthleteToTeam(a.id, teamId)
+                                const updated = await getAthleteTeams(a.id)
+                                setAthleteTeamsMap((prev) => ({ ...prev, [a.id]: updated || [] }))
+                                setAthleteTeamSelect((prev) => ({ ...prev, [a.id]: '' }))
+                              }}
+                            >
+                              Add to Team/Group
+                            </button>
+                          </div>
                         </div>
                       </td>
                     </tr>
