@@ -10,6 +10,16 @@ export const getResultsForAthlete = async (athleteId) => {
   return data
 }
 
+export const getResultsForSession = async (sessionId) => {
+  const { data, error } = await supabase
+    .from('pfa_test_results')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('date_tested', { ascending: false })
+  if (error) throw error
+  return data
+}
+
 export const getLatestResults = async (athleteId) => {
   const { data, error } = await supabase
     .from('pfa_test_results')

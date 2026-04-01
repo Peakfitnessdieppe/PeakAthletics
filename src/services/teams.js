@@ -6,6 +6,39 @@ export const getAllTeams = async () => {
   return data
 }
 
+export const getActiveSessionsToday = async () => {
+  const today = new Date().toISOString().split('T')[0]
+  const { data, error } = await supabase
+    .from('test_sessions')
+    .select('*, pfa_teams(name)')
+    .eq('status', 'in_progress')
+    .gte('session_date', today)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export const createSession = async (sessionData) => {
+  const { data, error } = await supabase
+    .from('test_sessions')
+    .insert(sessionData)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export const endSession = async (sessionId) => {
+  const { data, error } = await supabase
+    .from('test_sessions')
+    .update({ status: 'completed' })
+    .eq('id', sessionId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 export const getTeam = async (id) => {
   const { data, error } = await supabase.from('pfa_teams').select('*').eq('id', id).single()
   if (error) throw error
