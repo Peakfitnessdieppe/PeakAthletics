@@ -25,6 +25,23 @@ const fetchProfileAndTeam = async (userId, setTeamTheme) => {
 
     if (profileError || !profile) {
       console.warn('[Auth] Profile fetch error or empty', profileError)
+      if (!profile && userId) {
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            role: 'athlete',
+            full_name: 'New Athlete',
+            email: '',
+          })
+          .select()
+          .single()
+
+        if (!insertError && newProfile) {
+          console.log('[Auth] Created new profile for OAuth user', userId)
+          return { profile: newProfile, team: null }
+        }
+      }
       return { profile: null, team: null }
     }
 
