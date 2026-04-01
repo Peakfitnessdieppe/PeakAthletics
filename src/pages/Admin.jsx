@@ -7,12 +7,19 @@ import {
   getAthleteTeams,
   addAthleteToTeam,
   removeAthleteFromTeam,
+  getRoster,
+  getRosterStats,
 } from '../services/athletes'
 import { getAllTeams, createTeam, updateTeam, getTeamRoster } from '../services/teams'
-import { createUser as createAdminUser, deleteUser as deleteAdminUser, updateUser as updateAdminUser } from '../services/adminUsers'
+import {
+  createUser as createAdminUser,
+  deleteUser as deleteAdminUser,
+  updateUser as updateAdminUser,
+  createAndLinkAthlete,
+} from '../services/adminUsers'
 import { SPORTS } from '../constants/sports'
 
-const sectionList = ['Dashboard', 'Users', 'Teams', 'Athletes', 'Settings']
+const sectionList = ['Dashboard', 'Users', 'Teams', 'Athletes', 'Roster', 'Settings']
 
 const navItemBase =
   'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium cursor-pointer transition-colors'
@@ -75,6 +82,19 @@ const Admin = () => {
   const [athleteTeamsMap, setAthleteTeamsMap] = useState({})
   const [athleteTeamSelect, setAthleteTeamSelect] = useState({})
 
+  const [roster, setRoster] = useState([])
+  const [rosterLoading, setRosterLoading] = useState(false)
+  const [rosterStats, setRosterStats] = useState({ total: 0, linked: 0, pending: 0, results: 0 })
+  const [rosterSearch, setRosterSearch] = useState('')
+  const [rosterSportFilter, setRosterSportFilter] = useState('All')
+  const [rosterTab, setRosterTab] = useState('Pending')
+  const [rosterModalOpen, setRosterModalOpen] = useState(false)
+  const [selectedRosterAthlete, setSelectedRosterAthlete] = useState(null)
+  const [rosterEmail, setRosterEmail] = useState('')
+  const [rosterPassword, setRosterPassword] = useState('PFA2025!')
+  const [rosterMessage, setRosterMessage] = useState('')
+  const [rosterResultCounts, setRosterResultCounts] = useState({})
+
   const [passwordChange, setPasswordChange] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
 
@@ -98,6 +118,13 @@ const Admin = () => {
       .filter((a) => (athleteTeamFilter === 'All' ? true : a.team_id === athleteTeamFilter))
       .filter((a) => a.full_name?.toLowerCase().includes(term))
   }, [athletes, athleteSearch, athleteSportFilter, athleteTeamFilter])
+
+  const filteredRoster = useMemo(() => {
+    const term = rosterSearch.toLowerCase()
+    return roster
+      .filter((r) => (rosterSportFilter === 'All' ? true : r.sport === rosterSportFilter))
+      .filter((r) => r.full_name?.toLowerCase().includes(term))
+  }, [roster, rosterSearch, rosterSportFilter])
 
   const loadMetrics = async () => {
     const [{ count: athletesCount }, { count: coachCount }, { count: staffCount }, { count: teamCount }] =
@@ -172,7 +199,72 @@ const Admin = () => {
     loadUsers()
     loadTeams()
     loadAthletes()
+    loadRoster()
+    loadRosterStats()
   }, [])
+
+  const loadRoster = async () => {
+    setRosterLoading(true)
+    try {
+      const data = await getRoster()
+      let rosterData = data || []
+
+      const linkedNames = rosterData.filter((r) => r.auth_linked).map((r) => r.full_name)
+      if (linkedNames.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('full_name', linkedNames)
+        const profileIds = (profilesData || []).map((p) => p.id)
+        const { data: resultsData } = await supabase
+          .from('pfa_test_results')
+          .select('athlete_id')
+          .in('athlete_id', profileIds)
+        const countByAthlete = (resultsData || []).reduce((acc, row) => {
+          acc[row.athlete_id] = (acc[row.athlete_id] || 0) + 1
+          return acc
+        }, {})
+        const emailByName = {}
+        ;(profilesData || []).forEach((p) => {
+          emailByName[p.full_name] = p.email
+          if (countByAthlete[p.id]) {
+            // Map counts by name (sum if multiple profiles share name)
+            emailByName[p.full_name] = p.email
+          }
+        })
+        const countsByName = {}
+        ;(profilesData || []).forEach((p) => {
+          const count = countByAthlete[p.id] || 0
+          countsByName[p.full_name] = (countsByName[p.full_name] || 0) + count
+        })
+        rosterData = rosterData.map((r) => ({
+          ...r,
+          linked_email: r.linked_email || emailByName[r.full_name],
+        }))
+        const countsMap = rosterData.reduce((acc, r) => {
+          acc[r.id] = countsByName[r.full_name] || 0
+          return acc
+        }, {})
+        setRosterResultCounts(countsMap)
+      } else {
+        setRosterResultCounts({})
+      }
+
+      setRoster(rosterData)
+    } catch (err) {
+      console.error('Roster load error', err)
+    }
+    setRosterLoading(false)
+  }
+
+  const loadRosterStats = async () => {
+    try {
+      const stats = await getRosterStats()
+      setRosterStats(stats)
+    } catch (err) {
+      console.error('Roster stats error', err)
+    }
+  }
 
   const openCreateUser = () => {
     setEditingUser(null)
@@ -326,6 +418,234 @@ const Admin = () => {
     <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-4">
       <div className="text-sm text-white/60">{label}</div>
       <div className="text-2xl font-bold text-pfa-green mt-2">{value}</div>
+    </div>
+  )
+
+  const renderRosterMetrics = () => (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {[
+        { label: 'Total in roster', value: rosterStats.total },
+        { label: 'Already linked', value: rosterStats.linked },
+        { label: 'Pending', value: rosterStats.pending },
+        { label: 'Test results ready', value: rosterStats.results },
+      ].map((m) => (
+        <div key={m.label} className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-4">
+          <div className="text-white/60 text-sm">{m.label}</div>
+          <div className="text-2xl font-bold text-white mt-1">{m.value}</div>
+        </div>
+      ))}
+    </div>
+  )
+
+  const renderRosterTable = (rows, linkedView = false) => (
+    <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
+      <table className="min-w-full text-sm">
+        <thead className="text-white/60">
+          {linkedView ? (
+            <tr className="border-b border-pfa-border">
+              <th className="py-3 px-3 text-left">Name</th>
+              <th className="py-3 px-3 text-left">Email</th>
+              <th className="py-3 px-3 text-left">Sport</th>
+              <th className="py-3 px-3 text-left">Results Migrated</th>
+            </tr>
+          ) : (
+            <tr className="border-b border-pfa-border">
+              <th className="py-3 px-3 text-left">Name</th>
+              <th className="py-3 px-3 text-left">DOB</th>
+              <th className="py-3 px-3 text-left">Sport</th>
+              <th className="py-3 px-3 text-left">Position</th>
+              <th className="py-3 px-3 text-left">Team</th>
+              <th className="py-3 px-3 text-left">Age Category</th>
+              <th className="py-3 px-3 text-left">Competition Level</th>
+              <th className="py-3 px-3 text-left">Action</th>
+            </tr>
+          )}
+        </thead>
+        <tbody className="divide-y divide-pfa-border">
+          {rosterLoading ? (
+            <tr>
+              <td className="py-3 px-3 text-white/60" colSpan={8}>
+                Loading...
+              </td>
+            </tr>
+          ) : rows.length === 0 ? (
+            <tr>
+              <td className="py-3 px-3 text-white/60" colSpan={8}>
+                No athletes found.
+              </td>
+            </tr>
+          ) : (
+            rows.map((r) => (
+              <tr key={r.id} className="hover:bg-white/5">
+                <td className="py-3 px-3 text-white">{r.full_name}</td>
+                {linkedView ? (
+                  <>
+                    <td className="py-3 px-3">{r.linked_email || r.email || '-'}</td>
+                    <td className="py-3 px-3">{r.sport || '-'}</td>
+                    <td className="py-3 px-3 text-pfa-green font-semibold">
+                      {rosterResultCounts[r.id] ?? 0}
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="py-3 px-3">{r.date_of_birth?.slice(0, 10) || '-'}</td>
+                    <td className="py-3 px-3">{r.sport || '-'}</td>
+                    <td className="py-3 px-3">{r.position || '-'}</td>
+                    <td className="py-3 px-3">{r.team || '-'}</td>
+                    <td className="py-3 px-3">{r.age_category || '-'}</td>
+                    <td className="py-3 px-3">{r.competition_level || '-'}</td>
+                    <td className="py-3 px-3">
+                      {r.auth_linked ? (
+                        <div className="flex items-center gap-2 text-pfa-green">✓ Linked</div>
+                      ) : (
+                        <button
+                          className="bg-pfa-green text-black font-semibold px-3 py-2 rounded-lg text-sm"
+                          onClick={() => {
+                            setSelectedRosterAthlete(r)
+                            setRosterEmail(r.email || '')
+                            setRosterPassword('PFA2025!')
+                            setRosterModalOpen(true)
+                          }}
+                        >
+                          Create Account
+                        </button>
+                      )}
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+
+  const linkedRosterRows = useMemo(
+    () => filteredRoster.filter((r) => r.auth_linked),
+    [filteredRoster]
+  )
+  const pendingRosterRows = useMemo(
+    () => filteredRoster.filter((r) => !r.auth_linked),
+    [filteredRoster]
+  )
+
+  const handleCreateAndLink = async () => {
+    if (!selectedRosterAthlete || !rosterEmail || rosterPassword.length < 8) return
+    setRosterMessage('')
+    try {
+      const { resultsCount } = await createAndLinkAthlete(selectedRosterAthlete, rosterEmail, rosterPassword)
+      setRosterMessage(`Account created for ${selectedRosterAthlete.full_name}. ${resultsCount} test results migrated.`)
+      setRoster((prev) =>
+        prev.map((r) =>
+          r.id === selectedRosterAthlete.id
+            ? { ...r, auth_linked: true, linked_email: rosterEmail }
+            : r
+        )
+      )
+      setRosterResultCounts((prev) => ({ ...prev, [selectedRosterAthlete.id]: resultsCount }))
+      setRosterModalOpen(false)
+      setSelectedRosterAthlete(null)
+      loadRosterStats()
+    } catch (err) {
+      console.error('Roster create error', err)
+      setRosterMessage(err.message || 'Failed to create account')
+    }
+  }
+
+  const renderRoster = () => (
+    <div className="space-y-4">
+      <div>
+        <div className="text-lg font-semibold text-white">Athlete Roster Import</div>
+        <div className="text-white/60 text-sm">Create accounts for athletes from the previous season.</div>
+      </div>
+
+      {rosterMessage && <div className="text-pfa-green text-sm">{rosterMessage}</div>}
+
+      {renderRosterMetrics()}
+
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-2">
+        <div className="flex gap-3">
+          <input
+            value={rosterSearch}
+            onChange={(e) => setRosterSearch(e.target.value)}
+            placeholder="Search name"
+            className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
+          />
+          <select
+            value={rosterSportFilter}
+            onChange={(e) => setRosterSportFilter(e.target.value)}
+            className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
+          >
+            <option value="All">All Sports</option>
+            {SPORTS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex gap-2 bg-[#0d1a0e] border border-pfa-border rounded-lg p-1 w-full md:w-auto">
+          {['Pending', 'Linked Athletes'].map((tab) => {
+            const active = rosterTab === tab
+            return (
+              <button
+                key={tab}
+                onClick={() => setRosterTab(tab)}
+                className={`px-3 py-2 text-sm rounded-md ${active ? 'bg-pfa-green text-black' : 'text-white/70'}`}
+              >
+                {tab}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {rosterTab === 'Pending'
+        ? renderRosterTable(pendingRosterRows, false)
+        : renderRosterTable(linkedRosterRows, true)}
+
+      {rosterModalOpen && selectedRosterAthlete && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-white font-semibold">Create Account</div>
+                <div className="text-white/60 text-sm">{selectedRosterAthlete.full_name}</div>
+              </div>
+              <button onClick={() => setRosterModalOpen(false)} className="text-white/60 hover:text-white">
+                ✕
+              </button>
+            </div>
+            <div className="space-y-3">
+              <input
+                type="email"
+                required
+                value={rosterEmail}
+                onChange={(e) => setRosterEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
+              />
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={rosterPassword}
+                onChange={(e) => setRosterPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
+              />
+              <button
+                onClick={handleCreateAndLink}
+                className="w-full bg-pfa-green text-black font-semibold py-2 rounded-lg"
+              >
+                Create & Link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 
@@ -944,6 +1264,8 @@ const Admin = () => {
         return renderTeams()
       case 'Athletes':
         return renderAthletes()
+      case 'Roster':
+        return renderRoster()
       case 'Settings':
         return renderSettings()
       default:

@@ -70,6 +70,34 @@ export const markCheckinReviewed = async (checkinId, reviewedBy) => {
   if (error) throw error
 }
 
+export const getRoster = async () => {
+  const { data, error } = await supabase.from('athlete_roster').select('*').order('full_name')
+  if (error) throw error
+  return data
+}
+
+export const getRosterStats = async () => {
+  const { count: total } = await supabase
+    .from('athlete_roster')
+    .select('*', { count: 'exact', head: true })
+
+  const { count: linked } = await supabase
+    .from('athlete_roster')
+    .select('*', { count: 'exact', head: true })
+    .eq('auth_linked', true)
+
+  const { count: results } = await supabase
+    .from('roster_test_results')
+    .select('*', { count: 'exact', head: true })
+
+  return {
+    total: total || 0,
+    linked: linked || 0,
+    pending: (total || 0) - (linked || 0),
+    results: results || 0,
+  }
+}
+
 export const getAllAthletes = async () => {
   const { data, error } = await supabase
     .from('profiles')

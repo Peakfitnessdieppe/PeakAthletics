@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "migrate-results": "node scripts/migrate-results.js"
+    "migrate-results": "node scripts/migrate-results.js",
+    "create-athletes": "node scripts/create-athlete-accounts.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.42.4",
