@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import useAuth from '../hooks/useAuth'
 import CardLayout from '../components/layout/CardLayout'
 import { supabase } from '../services/supabase'
@@ -22,6 +23,7 @@ const categories = [
 const cardNumber = '#001'
 
 const Card = () => {
+  const navigate = useNavigate()
   const { user, profile, signOut } = useAuth()
   const [flipped, setFlipped] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -30,6 +32,9 @@ const Card = () => {
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
+  const [checkedInToday, setCheckedInToday] = useState(false)
+
+  const todayStr = () => new Date().toISOString().split('T')[0]
 
   const fetchResults = async () => {
     if (!profile?.id) return
@@ -49,6 +54,25 @@ const Card = () => {
 
   useEffect(() => {
     fetchResults()
+  }, [profile?.id])
+
+  useEffect(() => {
+    const fetchCheckinStatus = async () => {
+      if (!profile?.id) return
+      try {
+        const { data, error } = await supabase
+          .from('athlete_checkins')
+          .select('id')
+          .eq('athlete_id', profile.id)
+          .eq('checkin_date', todayStr())
+          .maybeSingle()
+        if (error && error.code !== 'PGRST116') throw error
+        setCheckedInToday(!!data)
+      } catch (err) {
+        console.error('Check-in status error', err)
+      }
+    }
+    fetchCheckinStatus()
   }, [profile?.id])
 
   useEffect(() => {
@@ -418,6 +442,18 @@ const Card = () => {
           </div>
 
           <div className="text-white/60 text-sm">Tap to flip</div>
+          <button
+            type="button"
+            onClick={() => navigate('/checkin')}
+            disabled={checkedInToday}
+            className={`mt-2 w-full max-w-xs border rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+              checkedInToday
+                ? 'border-white/10 text-white/40 bg-white/5 cursor-not-allowed'
+                : 'border-[#3fae52] text-[#3fae52] bg-transparent hover:bg-[#3fae52]/10'
+            }`}
+          >
+            {checkedInToday ? 'Checked in today ✓' : 'Weekly Check-in'}
+          </button>
         </div>
       </div>
     </CardLayout>

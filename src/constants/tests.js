@@ -11,11 +11,12 @@ export const TEST_CATEGORIES = [
     category: 'strength',
     label: 'Strength',
     tests: [
-      { id: 'push_ups', name: 'Push Ups', unit: 'reps', higherIsBetter: true },
-      { id: 'pull_ups', name: 'Pull Ups', unit: 'reps', higherIsBetter: true },
       { id: 'squat', name: 'Squat', unit: 'kg', higherIsBetter: true },
       { id: 'trap_bar_deadlift', name: 'Trap Bar Deadlift', unit: 'kg', higherIsBetter: true },
       { id: 'bench_press', name: 'Bench Press', unit: 'kg', higherIsBetter: true },
+      { id: 'pull_ups', name: 'Pull Ups', unit: 'reps', higherIsBetter: true },
+      { id: 'push_ups', name: 'Push Ups', unit: 'reps', higherIsBetter: true },
+      { id: 'imtp', name: 'IMTP', unit: 'kg', higherIsBetter: true },
     ],
   },
   {
@@ -25,6 +26,7 @@ export const TEST_CATEGORIES = [
       { id: 'broad_jump', name: 'Broad Jump', unit: 'm', higherIsBetter: true },
       { id: 'vertical_jump', name: 'Vertical Jump', unit: 'cm', higherIsBetter: true },
       { id: 'ncmj', name: 'NCMJ', unit: 'cm', higherIsBetter: true },
+      { id: 'mb_chest_pass', name: 'MB Chest Pass', unit: 'cm', higherIsBetter: true },
     ],
   },
   {

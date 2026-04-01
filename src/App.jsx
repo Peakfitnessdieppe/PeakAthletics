@@ -6,6 +6,7 @@ import RequireAuth from './components/auth/RequireAuth'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Card from './pages/Card'
+import Checkin from './pages/Checkin'
 import Session from './pages/Session'
 import Admin from './pages/Admin'
 
@@ -36,6 +37,14 @@ const App = () => {
             element={
               <RequireAuth allowedRoles={['athlete', 'family', 'pfa_admin', 'pfa_staff']}>
                 <Card />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/checkin"
+            element={
+              <RequireAuth allowedRoles={['athlete', 'family', 'pfa_admin', 'pfa_staff']}>
+                <Checkin />
               </RequireAuth>
             }
           />
