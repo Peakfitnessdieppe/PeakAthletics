@@ -289,7 +289,14 @@ const Report = () => {
     if (!athleteId) return
     const cacheKey = `peakiq_${athleteId}`
     const cached = localStorage.getItem(cacheKey)
-    if (cached) setPeakiqText(cached)
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        setPeakiqText(parsed.insight || cached)
+      } catch {
+        setPeakiqText(cached)
+      }
+    }
   }, [athleteId])
 
   useEffect(() => {
@@ -361,7 +368,12 @@ const Report = () => {
 
   const formatInsight = (text) => {
     if (!text) return ''
-    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')
+    return text
+      .replace(/^### (.*$)/gm, '<h3 style="color:#3fae52;font-size:16px;font-weight:700;margin:16px 0 8px;text-transform:uppercase;letter-spacing:0.1em;">$1</h3>')
+      .replace(/^#### (.*$)/gm, '<h4 style="color:#3fae52;font-size:13px;font-weight:700;margin:12px 0 6px;text-transform:uppercase;letter-spacing:0.08em;">$1</h4>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong style="color:rgba(255,255,255,0.95);">$1</strong>')
+      .replace(/\n\n/g, '<br/><br/>')
+      .replace(/\n/g, '<br/>')
   }
 
   const handleGenerateInsights = async () => {
@@ -377,9 +389,14 @@ const Report = () => {
         }),
       })
       const json = await res.json()
-      const insight = json.insight || json.result || json.text || JSON.stringify(json)
-      setPeakiqText(insight)
-      localStorage.setItem(`peakiq_${athleteId}`, insight)
+      if (json.insight) {
+        setPeakiqText(json.insight)
+        localStorage.setItem(`peakiq_${athleteId}`, JSON.stringify({ insight: json.insight }))
+      } else {
+        const insight = json.result || json.text || JSON.stringify(json)
+        setPeakiqText(insight)
+        localStorage.setItem(`peakiq_${athleteId}`, insight)
+      }
     } catch (err) {
       setPeakiqText('Failed to generate insights. Please try again later.')
     }
