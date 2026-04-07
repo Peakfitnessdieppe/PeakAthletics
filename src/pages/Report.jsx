@@ -14,7 +14,7 @@ import {
   LinearScale,
 } from 'chart.js'
 import useAuth from '../hooks/useAuth'
-import { getAthleteReport, getPfaAverageScores, getTeamAverageResults, getPeerStats } from '../services/reports'
+import { getAthleteReport, getPfaAverageScores, getAgeGroupAverageResults, getPeerStats, getAthleteGameStats } from '../services/reports'
 
 Chart.register(
   RadarController,
@@ -178,7 +178,12 @@ function RadarChartCanvas({ title, athleteScores, compScores, compLabel }) {
 
   useEffect(() => {
     if (!canvasRef.current) return
-    if (chartRef.current) chartRef.current.destroy()
+    if (chartRef.current) {
+      chartRef.current.destroy()
+      chartRef.current = null
+    }
+    const hasAthleteData = athleteScores && Object.values(athleteScores).some((v) => v > 0)
+    if (!hasAthleteData) return
     chartRef.current = new Chart(canvasRef.current, {
       type: 'radar',
       data: {
@@ -207,7 +212,7 @@ function RadarChartCanvas({ title, athleteScores, compScores, compLabel }) {
       },
     })
     return () => chartRef.current?.destroy()
-  }, [athleteScores, compScores, compLabel])
+  }, [athleteScores, compScores, compLabel, title])
 
   return (
     <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px' }}>
@@ -272,8 +277,9 @@ const Report = () => {
 
   const [reportData, setReportData] = useState({ profile: null, results: [], benchmarks: [] })
   const [pfaAvg, setPfaAvg] = useState({})
-  const [teamAvg, setTeamAvg] = useState({})
+  const [ageGroupAvg, setAgeGroupAvg] = useState({})
   const [peerStats, setPeerStats] = useState([])
+  const [gameStats, setGameStats] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [peakiqText, setPeakiqText] = useState(null)
@@ -293,16 +299,18 @@ const Report = () => {
       try {
         const data = await getAthleteReport(athleteId)
         setReportData(data || { profile: null, results: [], benchmarks: [] })
-        const [pfaResults, teamResults] = await Promise.all([
-          getPfaAverageScores(data.profile?.sport, data.profile?.age_category),
-          getTeamAverageResults(data.profile?.team_id),
+        const [pfaResults, ageGroupResults] = await Promise.all([
+          getPfaAverageScores(data.profile?.sport, data.profile?.age_category, data.profile?.gender),
+          getAgeGroupAverageResults(data.profile?.sport, data.profile?.age_category, data.profile?.gender),
         ])
         if (data.profile?.sport && data.profile?.age_category && data.profile?.gender) {
           const stats = await getPeerStats(data.profile.sport, data.profile.age_category, data.profile.gender)
           setPeerStats(Array.isArray(stats) ? stats : [])
         }
+        const gs = await getAthleteGameStats(athleteId)
+        setGameStats(gs || [])
         setPfaAvg(calcGroupAverageScores(Array.isArray(pfaResults) ? pfaResults : []))
-        setTeamAvg(calcGroupAverageScores(Array.isArray(teamResults) ? teamResults : []))
+        setAgeGroupAvg(calcGroupAverageScores(Array.isArray(ageGroupResults) ? ageGroupResults : []))
       } catch (err) {
         console.error('Report load error', err)
         setError(err.message)
@@ -351,6 +359,11 @@ const Report = () => {
     return pb
   }, [reportData?.results])
 
+  const formatInsight = (text) => {
+    if (!text) return ''
+    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')
+  }
+
   const handleGenerateInsights = async () => {
     if (!athleteId) return
     setPeakiqLoading(true)
@@ -358,12 +371,15 @@ const Report = () => {
       const res = await fetch('/.netlify/functions/generate-analytics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ athleteId, audience: authProfile?.role ?? 'athlete' }),
+        body: JSON.stringify({
+          athleteId,
+          audience: profile?.role || 'athlete',
+        }),
       })
       const json = await res.json()
-      const text = json.result || json.text || JSON.stringify(json)
-      setPeakiqText(text)
-      localStorage.setItem(`peakiq_${athleteId}`, text)
+      const insight = json.insight || json.result || json.text || JSON.stringify(json)
+      setPeakiqText(insight)
+      localStorage.setItem(`peakiq_${athleteId}`, insight)
     } catch (err) {
       setPeakiqText('Failed to generate insights. Please try again later.')
     }
@@ -523,23 +539,89 @@ const Report = () => {
               gap: '16px',
             }}
           >
-            <RadarChartCanvas
-              title="Athlete vs PFA Average"
-              athleteScores={catScores}
-              compScores={pfaAvg}
-              compLabel="PFA Avg"
-            />
-            <RadarChartCanvas
-              title="Athlete vs Team Average"
-              athleteScores={catScores}
-              compScores={teamAvg}
-              compLabel="Team Avg"
-            />
-            <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '240px' }}>
-              <div style={{ color: '#3fae52', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>Athlete vs Game Stats</div>
-              <div style={{ color: 'rgba(63,174,82,0.5)', fontSize: '13px', textAlign: 'center', lineHeight: 1.6 }}>Game Statistics Not Available — Stats will appear here once recorded</div>
+            <div style={{ minHeight: '320px' }}>
+              <RadarChartCanvas
+                title="Athlete vs PFA Average"
+                athleteScores={catScores}
+                compScores={pfaAvg}
+                compLabel="PFA Avg"
+              />
+            </div>
+            <div style={{ minHeight: '320px' }}>
+              <RadarChartCanvas
+                title="Athlete vs Age Group Average"
+                athleteScores={catScores}
+                compScores={ageGroupAvg}
+                compLabel="Age Group Avg"
+              />
+            </div>
+            <div style={{ minHeight: '320px' }}>
+              {gameStats.length === 0 ? (
+                <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '320px', width: '100%' }}>
+                  <div style={{ color: '#3fae52', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>Athlete vs Game Stats</div>
+                  <div style={{ color: 'rgba(63,174,82,0.5)', fontSize: '13px', textAlign: 'center', lineHeight: 1.6 }}>Game Statistics Not Available — Stats will appear here once recorded</div>
+                </div>
+              ) : (
+                (() => {
+                  const latestStats = gameStats[0]
+                  const normalizeGameStat = (value, max) => Math.min(100, Math.max(0, (value / max) * 100))
+                  const gp = latestStats.games_played || 1
+                  const ptsPG = (latestStats.points || 0) / gp
+                  const goalsPG = (latestStats.goals || 0) / gp
+                  const assistsPG = (latestStats.assists || 0) / gp
+
+                  const gameRadarData = {
+                    speed: normalizeGameStat(ptsPG, 2.0),
+                    strength: normalizeGameStat((latestStats.pim || 0) / gp, 3.0),
+                    power: normalizeGameStat(goalsPG, 1.0),
+                    agility: normalizeGameStat(assistsPG, 1.2),
+                    endurance: normalizeGameStat(gp, 40),
+                  }
+
+                  return (
+                    <div style={{ minHeight: '320px', display: 'flex', flexDirection: 'column' }}>
+                      <RadarChartCanvas
+                        title="Dryland vs Game Performance"
+                        athleteScores={catScores}
+                        compScores={gameRadarData}
+                        compLabel="Game Stats"
+                      />
+                    </div>
+                  )
+                })()
+              )}
             </div>
           </div>
+          {gameStats.length > 0 && (
+            <div
+              style={{
+                background: 'rgba(63,174,82,0.05)',
+                border: '1px solid rgba(63,174,82,0.2)',
+                borderRadius: '12px',
+                padding: '20px',
+                marginTop: '16px',
+              }}
+            >
+              <div style={{ color: '#3fae52', fontSize: '11px', fontWeight: '700', letterSpacing: '0.15em', marginBottom: '12px' }}>
+                GAME STATS — {gameStats[0].league} · {gameStats[0].season}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '16px' }}>
+                {[
+                  { label: 'GP', value: gameStats[0].games_played },
+                  { label: 'G', value: gameStats[0].goals },
+                  { label: 'A', value: gameStats[0].assists },
+                  { label: 'PTS', value: gameStats[0].points },
+                  { label: 'PPG', value: (gameStats[0].points / gameStats[0].games_played).toFixed(2) },
+                  { label: 'PIM', value: gameStats[0].pim || 0 },
+                ].map((stat) => (
+                  <div key={stat.label} style={{ textAlign: 'center' }}>
+                    <div style={{ color: '#3fae52', fontSize: '24px', fontWeight: '700' }}>{stat.value}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '2px' }}>{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── SECTION 4: PER CATEGORY BREAKDOWN ── */}
@@ -640,9 +722,10 @@ const Report = () => {
           )}
           {peakiqText && !peakiqLoading && (
             <div>
-              <div style={{ whiteSpace: 'pre-wrap', color: 'rgba(255,255,255,0.85)', fontSize: '14px', lineHeight: 1.8, background: 'rgba(0,0,0,0.3)', borderRadius: '10px', padding: '20px', borderLeft: '3px solid #3fae52' }}>
-                {peakiqText}
-              </div>
+              <div
+                style={{ whiteSpace: 'pre-wrap', color: 'rgba(255,255,255,0.85)', fontSize: '14px', lineHeight: 1.8, background: 'rgba(0,0,0,0.3)', borderRadius: '10px', padding: '20px', borderLeft: '3px solid #3fae52' }}
+                dangerouslySetInnerHTML={{ __html: formatInsight(peakiqText) }}
+              />
               <button
                 onClick={() => { setPeakiqText(null); localStorage.removeItem(`peakiq_${athleteId}`) }}
                 style={{ marginTop: '12px', background: 'transparent', border: '1px solid rgba(63,174,82,0.3)', color: 'rgba(255,255,255,0.5)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}
