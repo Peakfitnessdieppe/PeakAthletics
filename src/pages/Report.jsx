@@ -222,7 +222,7 @@ function LineChartCanvas({ testType, history }) {
   const chartRef = useRef(null)
 
   useEffect(() => {
-    if (!canvasRef.current || !history.length) return
+    if (!canvasRef.current || history.length < 2) return
     if (chartRef.current) chartRef.current.destroy()
     chartRef.current = new Chart(canvasRef.current, {
       type: 'line',
@@ -253,6 +253,14 @@ function LineChartCanvas({ testType, history }) {
   }, [testType, history])
 
   if (!history.length) return null
+  if (history.length === 1) {
+    return (
+      <p style={{ color: 'rgba(63,174,82,0.5)', fontSize: '12px', marginTop: '8px' }}>
+        Only 1 session recorded — chart will appear after next test
+      </p>
+    )
+  }
+
   return <canvas ref={canvasRef} style={{ height: '120px', maxHeight: '120px' }} />
 }
 
@@ -393,7 +401,7 @@ const Report = () => {
   const initials = (profile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
 
   return (
-    <div style={{ background: '#0a0f0a', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif' }}>
+    <div style={{ background: '#0a0f0a', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif', overflowX: 'hidden', width: '100%' }}>
 
       {/* BACK BUTTON */}
       <div style={{ padding: '16px 24px' }}>
@@ -407,7 +415,17 @@ const Report = () => {
 
       {/* ── SECTION 1: ATHLETE HEADER ── */}
       <div style={{ background: 'linear-gradient(135deg, #0d1a0e, #1a2e1a)', borderBottom: '1px solid rgba(63,174,82,0.3)', padding: '32px 24px' }}>
-        <div style={{ maxWidth: '960px', margin: '0 auto', display: 'grid', gridTemplateColumns: '120px 1fr auto', gap: '24px', alignItems: 'center' }}>
+        <div
+          style={{
+            maxWidth: '960px',
+            margin: '0 auto',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '16px',
+            alignItems: 'center',
+            padding: '0',
+          }}
+        >
 
           {/* Photo */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
@@ -440,7 +458,7 @@ const Report = () => {
           </div>
 
           {/* Info grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px', fontSize: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px', fontSize: '12px' }}>
             {[
               { label: 'Age', value: age },
               { label: 'DOB', value: profile?.date_of_birth?.slice(0, 10) || profile?.dob?.slice(0, 10) || '—' },
@@ -456,7 +474,9 @@ const Report = () => {
         </div>
       </div>
 
-      <div style={{ maxWidth: '960px', margin: '0 auto', padding: '0 24px 64px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 16px', width: '100%' }}>
+
+        <div style={{ maxWidth: '960px', margin: '0 auto', padding: '0 8px 64px', width: '100%' }}>
 
         {/* ── SECTION 2: COMPOSITE SCORES ── */}
         <div style={{ marginTop: '32px' }}>
@@ -467,7 +487,14 @@ const Report = () => {
               <span style={{ fontSize: '28px', fontWeight: '900', color: getScoreColor(catScores.overall) }}>{catScores.overall ?? '—'}</span>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: '12px',
+              width: '100%',
+            }}
+          >
             {CATEGORIES.map((cat) => {
               const score = catScores[cat]
               const color = getScoreColor(score)
@@ -489,7 +516,13 @@ const Report = () => {
           <div style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '16px', borderBottom: '1px solid rgba(63,174,82,0.2)', paddingBottom: '8px' }}>
             Performance Comparisons
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '16px',
+            }}
+          >
             <RadarChartCanvas
               title="Athlete vs PFA Average"
               athleteScores={catScores}
@@ -527,7 +560,13 @@ const Report = () => {
                 {catTestTypes.length === 0 && (
                   <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px', padding: '16px', background: '#0d1a0e', borderRadius: '8px' }}>No results recorded yet</div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                    gap: '16px',
+                  }}
+                >
                   {catTestTypes.map((tt) => {
                     const pb = personalBests[tt]
                     const history = testHistories[tt] || []
@@ -643,6 +682,7 @@ const Report = () => {
         </footer>
       </div>
     </div>
+  </div>
   )
 }
 
