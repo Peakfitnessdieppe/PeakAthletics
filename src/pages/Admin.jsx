@@ -18,6 +18,7 @@ import {
   createAndLinkAthlete,
 } from '../services/adminUsers'
 import { SPORTS } from '../constants/sports'
+import { formatRole } from '../utils/formatRole'
 
 const sectionList = ['Dashboard', 'Users', 'Teams', 'Athletes', 'Roster', 'Settings']
 
@@ -149,7 +150,7 @@ const Admin = () => {
   const loadRecentUsers = async () => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('*, pfa_teams(name)')
       .order('created_at', { ascending: false })
       .limit(10)
     if (!error) setRecentUsers(data || [])
@@ -157,7 +158,10 @@ const Admin = () => {
 
   const loadUsers = async () => {
     setUsersLoading(true)
-    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*, pfa_teams(name)')
+      .order('created_at', { ascending: false })
     if (!error) setUsers(data || [])
     setUsersLoading(false)
   }
@@ -678,9 +682,9 @@ const Admin = () => {
               {recentUsers.map((u) => (
                 <tr key={u.id} className="hover:bg-white/5">
                   <td className="py-2">{u.full_name || u.email}</td>
-                  <td className="py-2 capitalize">{u.role}</td>
+                  <td className="py-2">{formatRole(u.role)}</td>
                   <td className="py-2">{u.sport || '-'}</td>
-                  <td className="py-2">{u.team_id || '-'}</td>
+                  <td className="py-2">{u.pfa_teams?.name || '-'}</td>
                   <td className="py-2 text-white/60">{u.created_at?.slice(0, 10) || '-'}</td>
                 </tr>
               ))}
@@ -746,9 +750,9 @@ const Admin = () => {
                 <tr key={u.id} className="hover:bg-white/5">
                   <td className="py-3 px-3">{u.full_name || '-'}</td>
                   <td className="py-3 px-3">{u.email}</td>
-                  <td className="py-3 px-3 capitalize">{u.role}</td>
+                  <td className="py-3 px-3">{formatRole(u.role)}</td>
                   <td className="py-3 px-3">{u.sport || '-'}</td>
-                  <td className="py-3 px-3">{u.team_id || '-'}</td>
+                  <td className="py-3 px-3">{u.pfa_teams?.name || '-'}</td>
                   <td className="py-3 px-3 text-white/60">{u.created_at?.slice(0, 10) || '-'}</td>
                   <td className="py-3 px-3 space-x-2">
                     <button
@@ -1138,7 +1142,7 @@ const Admin = () => {
                     <td className="py-3 px-3">{a.full_name}</td>
                     <td className="py-3 px-3">{a.sport}</td>
                     <td className="py-3 px-3">{a.position || '-'}</td>
-                    <td className="py-3 px-3">{a.team_id || '-'}</td>
+                    <td className="py-3 px-3">{a.pfa_teams?.name || '-'}</td>
                     <td className="py-3 px-3">{a.age_category || '-'}</td>
                     <td className="py-3 px-3">{a.competition_level || '-'}</td>
                     <td className="py-3 px-3">{a.date_of_birth?.slice(0, 10) || '-'}</td>
@@ -1307,7 +1311,7 @@ const Admin = () => {
         <main className="space-y-6">
           <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-4 flex items-center justify-between">
             <div className="text-lg font-semibold text-white">{activeSection}</div>
-            <div className="text-sm text-white/60">{profile?.full_name || 'Rick Leger'} — Admin</div>
+            <div className="text-sm text-white/60">{profile?.full_name || 'Rick Leger'} — {formatRole(profile?.role)}</div>
           </div>
           {renderSection()}
         </main>

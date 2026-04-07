@@ -253,7 +253,12 @@ const Dashboard = () => {
                       onClick={() => setExpandedAthleteId(expandedAthleteId === a.id ? null : a.id)}
                     >
                       <td className="py-3 px-3 flex items-center gap-2">
-                        <span className="text-white/90">{a.full_name}</span>
+                        <span
+                          className="text-white/90 hover:text-pfa-green underline-offset-2 hover:underline"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/report?athleteId=${a.id}`) }}
+                        >
+                          {a.full_name}
+                        </span>
                         {renderTrend(a.id)}
                       </td>
                       <td className="py-3 px-3">{a.sport}</td>
@@ -261,7 +266,12 @@ const Dashboard = () => {
                       <td className="py-3 px-3">{a.age_category || '-'}</td>
                       <td className="py-3 px-3">{a.competition_level || '-'}</td>
                       <td className="py-3 px-3">{getLastTested(a.id)}</td>
-                      <td className="py-3 px-3">{latestComposite?.overall_score ?? '—'}</td>
+                      <td
+                        className="py-3 px-3 text-pfa-green font-semibold cursor-pointer hover:underline"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/report?athleteId=${a.id}`) }}
+                      >
+                        {latestComposite?.overall_score ?? '—'}
+                      </td>
                     </tr>
                     {expandedAthleteId === a.id && (
                       <tr className="bg-white/5">

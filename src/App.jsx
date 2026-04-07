@@ -9,6 +9,7 @@ import Card from './pages/Card'
 import Checkin from './pages/Checkin'
 import Session from './pages/Session'
 import Admin from './pages/Admin'
+import Report from './pages/Report'
 
 const App = () => {
   return (
@@ -61,6 +62,14 @@ const App = () => {
             element={
               <RequireAuth allowedRoles={['pfa_admin']}>
                 <Admin />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/report"
+            element={
+              <RequireAuth allowedRoles={['athlete', 'family', 'pfa_admin', 'pfa_staff', 'team_coach']}>
+                <Report />
               </RequireAuth>
             }
           />
