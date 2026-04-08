@@ -10,6 +10,31 @@ export const getAthleteProfile = async (id) => {
   return data
 }
 
+export const saveBodyMeasurement = async (data) => {
+  const { error } = await supabase
+    .from('pfa_body_measurements')
+    .insert({
+      athlete_id: data.athleteId,
+      measurement_date: data.date,
+      height: data.height || null,
+      weight: data.weight || null,
+      body_fat_percentage: data.bodyFat || null,
+      muscle_mass: data.muscleMass || null,
+    })
+  if (error) throw error
+}
+
+export const getAthleteRecentMeasurements = async (athleteId) => {
+  const { data, error } = await supabase
+    .from('pfa_body_measurements')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .order('measurement_date', { ascending: false })
+    .limit(5)
+  if (error) return []
+  return data || []
+}
+
 export const getAthletesByTeamJunction = async (teamId) => {
   const { data, error } = await supabase
     .from('athlete_teams')

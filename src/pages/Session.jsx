@@ -26,6 +26,7 @@ const Session = () => {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [results, setResults] = useState([])
   const [inputValue, setInputValue] = useState('')
+  const [anthropoForm, setAnthropoForm] = useState({ weight: '', bodyFat: '', height: '' })
   const [startError, setStartError] = useState('')
   const [starting, setStarting] = useState(false)
   const inputRef = useRef(null)
@@ -36,6 +37,16 @@ const Session = () => {
     () => results.filter((r) => r.session_id === sessionId && r.test_type === selectedTestId).length,
     [results, sessionId, selectedTestId]
   )
+
+  const inputStyle = {
+    width: '100%',
+    background: '#0a0f0a',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '10px',
+    padding: '10px 12px',
+    color: '#fff',
+    fontSize: '16px',
+  }
 
   useEffect(() => {
     const loadSetup = async () => {
@@ -186,23 +197,35 @@ const Session = () => {
   }
 
   const handleSaveResult = async (flagged = false) => {
-    if (!currentAthlete || !sessionId || !selectedTestId || !currentTest) return
-    const numericValue = parseFloat(inputValue)
-    if (Number.isNaN(numericValue)) return
+    if (!currentAthlete || !sessionId || !selectedTestId) return
     try {
-      const saved = await saveTestResult({
-        athlete_id: currentAthlete.id,
-        session_id: sessionId,
-        category: selectedCategory,
-        test_type: selectedTestId,
-        value: numericValue,
-        unit: currentTest.unit,
-        higher_is_better: currentTest.higherIsBetter,
-        flagged,
-        date_tested: new Date().toISOString(),
-      })
-      setResults((prev) => [...prev, saved])
-      setInputValue('')
+      if (selectedCategory === 'anthropometrics') {
+        await supabase.from('pfa_body_measurements').insert({
+          athlete_id: currentAthlete.id,
+          measurement_date: new Date().toISOString().split('T')[0],
+          weight: parseFloat(anthropoForm.weight) || null,
+          body_fat_percentage: parseFloat(anthropoForm.bodyFat) || null,
+          height: parseFloat(anthropoForm.height) || null,
+        })
+        setAnthropoForm({ weight: '', bodyFat: '', height: '' })
+      } else {
+        if (!currentTest) return
+        const numericValue = parseFloat(inputValue)
+        if (Number.isNaN(numericValue)) return
+        const saved = await saveTestResult({
+          athlete_id: currentAthlete.id,
+          session_id: sessionId,
+          category: selectedCategory,
+          test_type: selectedTestId,
+          value: numericValue,
+          unit: currentTest.unit,
+          higher_is_better: currentTest.higherIsBetter,
+          flagged,
+          date_tested: new Date().toISOString(),
+        })
+        setResults((prev) => [...prev, saved])
+        setInputValue('')
+      }
       setCurrentIndex((idx) => Math.min(idx + 1, participants.length))
     } catch (err) {
       console.error('Save failed', err)
@@ -317,7 +340,7 @@ const Session = () => {
                     className="w-full bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
                   >
                     <option value="">Select category</option>
-                    {TEST_CATEGORIES.map((cat) => (
+                    {[...TEST_CATEGORIES, { category: 'anthropometrics', label: 'Anthropometrics', tests: [] }].map((cat) => (
                       <option key={cat.category} value={cat.category}>
                         {cat.label}
                       </option>
@@ -333,11 +356,17 @@ const Session = () => {
                     disabled={!selectedCategory}
                   >
                     <option value="">Select test</option>
-                    {TEST_CATEGORIES.find((c) => c.category === selectedCategory)?.tests.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
+                    {selectedCategory === 'anthropometrics'
+                      ? [{ id: 'inbody_scan', name: 'InBody Scan' }].map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))
+                      : TEST_CATEGORIES.find((c) => c.category === selectedCategory)?.tests.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
                   </select>
                 </div>
               </div>
@@ -430,14 +459,47 @@ const Session = () => {
                 </div>
 
                 <div>
-                  <input
-                    ref={inputRef}
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={currentTest?.unit || ''}
-                    className="w-48 text-center text-5xl bg-[#0a0f0a] border border-pfa-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pfa-green"
-                  />
+                  {selectedCategory === 'anthropometrics' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em' }}>INBODY SCAN</div>
+                      <input
+                        type="number"
+                        step="0.1"
+                        placeholder="Weight (lbs)"
+                        value={anthropoForm.weight}
+                        onChange={(e) => setAnthropoForm({ ...anthropoForm, weight: e.target.value })}
+                        style={inputStyle}
+                      />
+                      <input
+                        type="number"
+                        step="0.1"
+                        placeholder="Body Fat %"
+                        value={anthropoForm.bodyFat}
+                        onChange={(e) => setAnthropoForm({ ...anthropoForm, bodyFat: e.target.value })}
+                        style={inputStyle}
+                      />
+                      <input
+                        type="number"
+                        step="0.5"
+                        placeholder="Height (inches)"
+                        value={anthropoForm.height}
+                        onChange={(e) => setAnthropoForm({ ...anthropoForm, height: e.target.value })}
+                        style={inputStyle}
+                      />
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>
+                        {anthropoForm.height ? `${Math.floor(anthropoForm.height / 12)}'${Math.round(anthropoForm.height % 12)}"` : ''}
+                      </div>
+                    </div>
+                  ) : (
+                    <input
+                      ref={inputRef}
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={currentTest?.unit || ''}
+                      className="w-48 text-center text-5xl bg-[#0a0f0a] border border-pfa-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pfa-green"
+                    />
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-3">

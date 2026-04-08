@@ -9,6 +9,8 @@ import {
   removeAthleteFromTeam,
   getRoster,
   getRosterStats,
+  saveBodyMeasurement,
+  getAthleteRecentMeasurements,
 } from '../services/athletes'
 import { getAllTeams, createTeam, updateTeam, getTeamRoster } from '../services/teams'
 import {
@@ -63,6 +65,7 @@ const Admin = () => {
   const [teamsLoading, setTeamsLoading] = useState(false)
   const [teamModalOpen, setTeamModalOpen] = useState(false)
   const [editingTeam, setEditingTeam] = useState(null)
+  const [expandedTeamId, setExpandedTeamId] = useState(null)
   const [teamForm, setTeamForm] = useState({
     name: '',
     sport: SPORTS[0],
@@ -70,9 +73,14 @@ const Admin = () => {
     competition_level: '',
     primary_color: '#3fae52',
     secondary_color: '#ffffff',
-    season: '',
     coach_id: '',
   })
+  const [teamCoachOptions, setTeamCoachOptions] = useState([])
+  const [teamRosterMap, setTeamRosterMap] = useState({})
+  const [teamAthleteOptions, setTeamAthleteOptions] = useState([])
+  const [teamAddAthleteSelect, setTeamAddAthleteSelect] = useState('')
+  const [teamAddAthleteSearch, setTeamAddAthleteSearch] = useState('')
+  const [pendingTeamForNewAthlete, setPendingTeamForNewAthlete] = useState(null)
 
   const [athletes, setAthletes] = useState([])
   const [athletesLoading, setAthletesLoading] = useState(false)
@@ -82,6 +90,20 @@ const Admin = () => {
   const [expandedAthleteId, setExpandedAthleteId] = useState(null)
   const [athleteTeamsMap, setAthleteTeamsMap] = useState({})
   const [athleteTeamSelect, setAthleteTeamSelect] = useState({})
+  const [athleteResultsMap, setAthleteResultsMap] = useState({})
+
+  const [measurementSearch, setMeasurementSearch] = useState('')
+  const [selectedMeasurementAthlete, setSelectedMeasurementAthlete] = useState(null)
+  const [recentMeasurements, setRecentMeasurements] = useState([])
+  const todayStr = () => new Date().toISOString().slice(0, 10)
+  const [measurementForm, setMeasurementForm] = useState({
+    date: todayStr(),
+    height: '',
+    weight: '',
+    bodyFat: '',
+    muscleMass: '',
+  })
+  const [measurementMessage, setMeasurementMessage] = useState('')
 
   const [roster, setRoster] = useState([])
   const [rosterLoading, setRosterLoading] = useState(false)
@@ -105,10 +127,206 @@ const Admin = () => {
       .filter((u) =>
         roleFilter === 'All' ? true : u.role === roleFilter
       )
-      .filter((u) =>
-        u.full_name?.toLowerCase().includes(term) || u.email?.toLowerCase().includes(term)
-      )
+      .filter((u) => u.full_name?.toLowerCase().includes(term) || u.email?.toLowerCase().includes(term))
   }, [users, userSearch, roleFilter])
+
+  const inchesToFtIn = (inches) => {
+    if (!inches) return '—'
+    const ft = Math.floor(inches / 12)
+    const ins = Math.round(inches % 12)
+    return `${ft}'${ins}`
+  }
+
+  const SPORT_OPTIONS = useMemo(() => {
+    const list = [...SPORTS]
+    if (!list.includes('Ringette')) list.push('Ringette')
+    return list.sort((a, b) => a.localeCompare(b))
+  }, [])
+
+  const AGE_CATEGORIES_BY_SPORT = {
+    Hockey: ['U11', 'U13', 'U14', 'U15', 'U16', 'U18', 'U19', 'Junior', 'Senior'],
+    Soccer: ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'University', 'Senior'],
+    Volleyball: ['U14', 'U16', 'U18', 'University', 'Senior'],
+  }
+
+  const DEFAULT_AGE_CATEGORIES = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'University', 'Senior']
+
+  const getAgeCategories = (sport) => AGE_CATEGORIES_BY_SPORT[sport] || DEFAULT_AGE_CATEGORIES
+
+  const availableTeamAthletes = useMemo(() => {
+    if (!editingTeam) return []
+    const current = (teamRosterMap[editingTeam.id] || []).map((r) => r.athlete_id)
+    return teamAthleteOptions.filter((a) => !current.includes(a.id)).filter((a) =>
+      a.full_name.toLowerCase().includes(teamAddAthleteSearch.toLowerCase())
+    )
+  }, [editingTeam, teamRosterMap, teamAthleteOptions, teamAddAthleteSearch])
+
+  const loadRecentBodyMeasurements = async (athleteId) => {
+    if (!athleteId) return
+    const data = await getAthleteRecentMeasurements(athleteId)
+    setRecentMeasurements(data.slice(0, 3))
+  }
+
+  const handleSaveMeasurement = async (e) => {
+    e.preventDefault()
+    if (!selectedMeasurementAthlete) return
+    try {
+      await saveBodyMeasurement({
+        athleteId: selectedMeasurementAthlete.id,
+        date: measurementForm.date || todayStr(),
+        height: measurementForm.height || null,
+        weight: measurementForm.weight || null,
+        bodyFat: measurementForm.bodyFat || null,
+        muscleMass: measurementForm.muscleMass || null,
+      })
+      setMeasurementMessage('Measurement saved')
+      setMeasurementForm({ ...measurementForm, date: todayStr() })
+      loadRecentBodyMeasurements(selectedMeasurementAthlete.id)
+    } catch (err) {
+      setMeasurementMessage(err.message || 'Failed to save measurement')
+    }
+  }
+
+  const renderMeasurements = () => (
+    <div className="space-y-4">
+      <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <div className="text-lg font-semibold text-white">Body Measurements</div>
+            <div className="text-white/60 text-sm">Enter height, weight, and composition per season.</div>
+          </div>
+          {measurementMessage && <div className="text-pfa-green text-sm">{measurementMessage}</div>}
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-3 md:items-center">
+          <input
+            value={measurementSearch}
+            onChange={(e) => setMeasurementSearch(e.target.value)}
+            placeholder="Search athlete"
+            className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white w-full md:w-72"
+          />
+          <select
+            value={selectedMeasurementAthlete?.id || ''}
+            onChange={(e) => {
+              const athlete = athletes.find((a) => a.id === e.target.value)
+              setSelectedMeasurementAthlete(athlete || null)
+              setMeasurementMessage('')
+              if (athlete) loadRecentBodyMeasurements(athlete.id)
+            }}
+            className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white w-full md:w-72"
+          >
+            <option value="">Select athlete</option>
+            {filteredMeasurementAthletes.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedMeasurementAthlete && (
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4">
+            <div className="bg-[#0a0f0a] border border-pfa-border rounded-lg p-4 space-y-3">
+              <div className="text-white font-semibold mb-2">New Measurement</div>
+              <form className="space-y-3" onSubmit={handleSaveMeasurement}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs text-white/60">Date</label>
+                    <input
+                      type="date"
+                      value={measurementForm.date}
+                      onChange={(e) => setMeasurementForm({ ...measurementForm, date: e.target.value })}
+                      className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-white/60">Height (inches)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      placeholder="e.g. 71 for 5'11 inches"
+                      value={measurementForm.height}
+                      onChange={(e) => setMeasurementForm({ ...measurementForm, height: e.target.value })}
+                      className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                    />
+                    <div className="text-xs text-white/50">{measurementForm.height ? inchesToFtIn(parseFloat(measurementForm.height)) : '—'}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-white/60">Weight (lbs)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={measurementForm.weight}
+                      onChange={(e) => setMeasurementForm({ ...measurementForm, weight: e.target.value })}
+                      className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-white/60">Body Fat %</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={measurementForm.bodyFat}
+                      onChange={(e) => setMeasurementForm({ ...measurementForm, bodyFat: e.target.value })}
+                      className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-white/60">Muscle Mass (lbs)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={measurementForm.muscleMass}
+                      onChange={(e) => setMeasurementForm({ ...measurementForm, muscleMass: e.target.value })}
+                      className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                    />
+                    <div className="text-xs text-white/50">Optional</div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button type="submit" className="bg-pfa-green text-black font-semibold px-4 py-2 rounded-lg hover:brightness-110">
+                    Save Measurement
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="bg-[#0a0f0a] border border-pfa-border rounded-lg p-4">
+              <div className="text-white font-semibold mb-2">Recent Measurements (last 3)</div>
+              {recentMeasurements.length === 0 ? (
+                <div className="text-white/60 text-sm">No measurements yet.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
+                    <thead className="text-white/60">
+                      <tr className="border-b border-pfa-border">
+                        <th className="py-2 text-left">Date</th>
+                        <th className="py-2 text-left">Height</th>
+                        <th className="py-2 text-left">Weight</th>
+                        <th className="py-2 text-left">Body Fat</th>
+                        <th className="py-2 text-left">Muscle</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-pfa-border">
+                      {recentMeasurements.map((m) => (
+                        <tr key={m.id}>
+                          <td className="py-2">{m.measurement_date?.slice(0, 10) || '-'}</td>
+                          <td className="py-2">{m.height ? inchesToFtIn(m.height) : '—'}</td>
+                          <td className="py-2">{m.weight ? `${m.weight} lbs` : '—'}</td>
+                          <td className="py-2">{m.body_fat_percentage != null ? `${m.body_fat_percentage}%` : '—'}</td>
+                          <td className="py-2">{m.muscle_mass != null ? `${m.muscle_mass} lbs` : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 
   const filteredAthletes = useMemo(() => {
     const term = athleteSearch.toLowerCase()
@@ -126,6 +344,11 @@ const Admin = () => {
       .filter((r) => (rosterSportFilter === 'All' ? true : r.sport === rosterSportFilter))
       .filter((r) => r.full_name?.toLowerCase().includes(term))
   }, [roster, rosterSearch, rosterSportFilter])
+
+  const filteredMeasurementAthletes = useMemo(() => {
+    const term = measurementSearch.toLowerCase()
+    return athletes.filter((a) => a.full_name?.toLowerCase().includes(term))
+  }, [athletes, measurementSearch])
 
   const loadMetrics = async () => {
     const [{ count: athletesCount }, { count: coachCount }, { count: staffCount }, { count: teamCount }] =
@@ -195,6 +418,32 @@ const Admin = () => {
     } catch (err) {
       console.error('Athlete teams load error', err)
     }
+  }
+
+  const loadAthleteResults = async (athleteId) => {
+    try {
+      const { data, error } = await supabase
+        .from('pfa_test_results')
+        .select('id, test_type, value, unit, category, date_tested, test_sessions(test_category)')
+        .eq('athlete_id', athleteId)
+        .order('date_tested', { ascending: false })
+        .limit(100)
+      if (!error) {
+        setAthleteResultsMap((prev) => ({ ...prev, [athleteId]: data || [] }))
+      }
+    } catch (err) {
+      console.error('Athlete results load error', err)
+    }
+  }
+
+  const groupResultsByCategory = (rows = []) => {
+    if (!rows || !Array.isArray(rows)) return {}
+    return rows.reduce((acc, r) => {
+      const cat = (r.category || r.test_sessions?.test_category || 'Other').toUpperCase()
+      if (!acc[cat]) acc[cat] = []
+      acc[cat].push(r)
+      return acc
+    }, {})
   }
 
   useEffect(() => {
@@ -312,6 +561,7 @@ const Admin = () => {
     e.preventDefault()
     setUserActionMessage('')
     try {
+      let createdUserId = null
       const sanitizedUser = {
         ...userForm,
         team_id: userForm.team_id || null,
@@ -322,12 +572,20 @@ const Admin = () => {
         await updateAdminUser(editingUser.id, sanitizedUser)
         setUserActionMessage('User updated')
       } else {
-        await createAdminUser(sanitizedUser)
+        const newUser = await createAdminUser(sanitizedUser)
+        createdUserId = newUser?.id
         setUserActionMessage('User created')
       }
       setUserModalOpen(false)
       loadUsers()
       loadMetrics()
+
+      if (createdUserId && pendingTeamForNewAthlete?.id && sanitizedUser.role === 'athlete') {
+        await supabase.from('athlete_teams').insert({ team_id: pendingTeamForNewAthlete.id, athlete_id: createdUserId })
+        await loadTeamRoster(pendingTeamForNewAthlete.id)
+        openEditTeam(pendingTeamForNewAthlete)
+      }
+      setPendingTeamForNewAthlete(null)
     } catch (err) {
       setUserActionMessage(err.message)
     }
@@ -352,9 +610,10 @@ const Admin = () => {
       competition_level: '',
       primary_color: '#3fae52',
       secondary_color: '#ffffff',
-      season: '',
       coach_id: '',
     })
+    loadTeamCoaches()
+    loadAllAthletesForTeams()
     setTeamModalOpen(true)
   }
 
@@ -367,9 +626,11 @@ const Admin = () => {
       competition_level: teamRow.competition_level || '',
       primary_color: teamRow.primary_color || '#3fae52',
       secondary_color: teamRow.secondary_color || '#ffffff',
-      season: teamRow.season || '',
       coach_id: teamRow.coach_id || '',
     })
+    loadTeamCoaches()
+    loadAllAthletesForTeams()
+    if (teamRow?.id) loadTeamRoster(teamRow.id)
     setTeamModalOpen(true)
   }
 
@@ -391,6 +652,68 @@ const Admin = () => {
       loadMetrics()
     } catch (err) {
       console.error('Team save failed', err)
+    }
+  }
+
+  const loadTeamCoaches = async () => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'team_coach')
+        .order('full_name')
+      setTeamCoachOptions(data || [])
+    } catch (err) {
+      console.error('Load team coaches failed', err)
+    }
+  }
+
+  const loadAllAthletesForTeams = async () => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, sport, position, age_category')
+        .eq('role', 'athlete')
+        .order('full_name')
+      setTeamAthleteOptions(data || [])
+    } catch (err) {
+      console.error('Load athletes for team modal failed', err)
+    }
+  }
+
+  const loadTeamRoster = async (teamId) => {
+    if (!teamId) return
+    try {
+      const { data, error } = await supabase
+        .from('athlete_teams')
+        .select('athlete_id, profiles(full_name, sport, position, age_category)')
+        .eq('team_id', teamId)
+        .order('profiles(full_name)')
+      if (!error) {
+        setTeamRosterMap((prev) => ({ ...prev, [teamId]: data || [] }))
+      }
+    } catch (err) {
+      console.error('Load team roster failed', err)
+    }
+  }
+
+  const removeAthleteFromTeam = async (teamId, athleteId) => {
+    try {
+      await supabase.from('athlete_teams').delete().eq('team_id', teamId).eq('athlete_id', athleteId)
+      loadTeamRoster(teamId)
+    } catch (err) {
+      console.error('Remove athlete from team failed', err)
+    }
+  }
+
+  const addExistingAthleteToTeam = async (teamId, athleteId) => {
+    if (!teamId || !athleteId) return
+    try {
+      await supabase.from('athlete_teams').insert({ team_id: teamId, athlete_id: athleteId })
+      setTeamAddAthleteSelect('')
+      loadTeamRoster(teamId)
+    } catch (err) {
+      console.error('Add athlete to team failed', err)
     }
   }
 
@@ -582,7 +905,7 @@ const Admin = () => {
             className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
           >
             <option value="All">All Sports</option>
-            {SPORTS.map((s) => (
+            {SPORT_OPTIONS.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
@@ -776,8 +1099,11 @@ const Admin = () => {
       </div>
 
       {userModalOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 overflow-x-hidden">
+          <div
+            className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-6 w-full max-h-[90vh] overflow-y-auto overflow-x-hidden"
+            style={{ maxWidth: '672px', boxSizing: 'border-box' }}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">{editingUser ? 'Edit User' : 'Create User'}</h3>
               <button onClick={() => setUserModalOpen(false)} className="text-white/60 hover:text-white">
@@ -825,12 +1151,24 @@ const Admin = () => {
               </select>
               <select
                 value={userForm.sport}
-                onChange={(e) => setUserForm({ ...userForm, sport: e.target.value })}
+                onChange={(e) => setUserForm({ ...userForm, sport: e.target.value, age_category: '' })}
                 className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
               >
-                {SPORTS.map((s) => (
+                {SPORT_OPTIONS.map((s) => (
                   <option key={s} value={s}>
                     {s}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={userForm.age_category}
+                onChange={(e) => setUserForm({ ...userForm, age_category: e.target.value })}
+                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
+              >
+                <option value="">Age Category</option>
+                {getAgeCategories(userForm.sport).map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
                   </option>
                 ))}
               </select>
@@ -931,7 +1269,6 @@ const Admin = () => {
               <th className="py-3 px-3 text-left">Age Category</th>
               <th className="py-3 px-3 text-left">Competition</th>
               <th className="py-3 px-3 text-left">Primary</th>
-              <th className="py-3 px-3 text-left">Season</th>
               <th className="py-3 px-3 text-left">Coach</th>
               <th className="py-3 px-3 text-left">Actions</th>
             </tr>
@@ -939,40 +1276,96 @@ const Admin = () => {
           <tbody className="divide-y divide-pfa-border">
             {teamsLoading ? (
               <tr>
-                <td className="py-3 px-3 text-white/60" colSpan={8}>
+                <td className="py-3 px-3 text-white/60" colSpan={7}>
                   Loading...
                 </td>
               </tr>
             ) : (
               teams.map((t) => (
-                <tr key={t.id} className="hover:bg-white/5">
-                  <td className="py-3 px-3">{t.name}</td>
-                  <td className="py-3 px-3">{t.sport}</td>
-                  <td className="py-3 px-3">{t.age_category || '-'}</td>
-                  <td className="py-3 px-3">{t.competition_level || '-'}</td>
-                  <td className="py-3 px-3">
-                    <span
-                      className="inline-block w-6 h-6 rounded-full border border-pfa-border"
-                      style={{ backgroundColor: t.primary_color || '#3fae52' }}
-                    />
-                  </td>
-                  <td className="py-3 px-3">{t.season || '-'}</td>
-                  <td className="py-3 px-3">{t.coach_id || '-'}</td>
-                  <td className="py-3 px-3 space-x-2">
-                    <button
-                      onClick={() => openEditTeam(t)}
-                      className="text-pfa-green hover:underline"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTeam(t.id)}
-                      className="text-red-400 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
+                <React.Fragment key={t.id}>
+                  <tr
+                    className="hover:bg-white/5 cursor-pointer"
+                    onClick={() => {
+                      const next = expandedTeamId === t.id ? null : t.id
+                      setExpandedTeamId(next)
+                      if (next) loadTeamRoster(t.id)
+                    }}
+                  >
+                    <td className="py-3 px-3 flex items-center gap-2">
+                      {t.name}
+                      {expandedTeamId === t.id ? <span className="text-pfa-green">▲</span> : <span className="text-white/40">▼</span>}
+                    </td>
+                    <td className="py-3 px-3">{t.sport}</td>
+                    <td className="py-3 px-3">{t.age_category || '-'}</td>
+                    <td className="py-3 px-3">{t.competition_level || '-'}</td>
+                    <td className="py-3 px-3">
+                      <span
+                        className="inline-block w-6 h-6 rounded-full border border-pfa-border"
+                        style={{ backgroundColor: t.primary_color || '#3fae52' }}
+                      />
+                    </td>
+                    <td className="py-3 px-3">{t.coach_id || '-'}</td>
+                    <td className="py-3 px-3 space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openEditTeam(t)
+                        }}
+                        className="text-pfa-green hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteTeam(t.id)
+                        }}
+                        className="text-red-400 hover:underline"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedTeamId === t.id && (
+                    <tr className="bg-white/5">
+                      <td colSpan={7} className="py-3 px-3">
+                        <div className="space-y-2">
+                          <div className="text-white font-semibold">Roster</div>
+                          <div className="overflow-x-auto bg-[#0a0f0a] border border-pfa-border rounded-lg">
+                            <table className="min-w-full text-sm">
+                              <thead className="text-white/60">
+                                <tr className="border-b border-pfa-border">
+                                  <th className="py-2 px-3 text-left">Name</th>
+                                  <th className="py-2 px-3 text-left">Sport</th>
+                                  <th className="py-2 px-3 text-left">Position</th>
+                                  <th className="py-2 px-3 text-left">Age Category</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-pfa-border">
+                                {(teamRosterMap[t.id] || []).length === 0 ? (
+                                  <tr>
+                                    <td className="py-2 px-3 text-white/60" colSpan={4}>
+                                      No athletes assigned.
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  (teamRosterMap[t.id] || []).map((r) => (
+                                    <tr key={`${t.id}-${r.athlete_id}`}>
+                                      <td className="py-2 px-3">{r.profiles?.full_name || '-'}</td>
+                                      <td className="py-2 px-3">{r.profiles?.sport || '-'}</td>
+                                      <td className="py-2 px-3">{r.profiles?.position || '-'}</td>
+                                      <td className="py-2 px-3">{r.profiles?.age_category || '-'}</td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))
             )}
           </tbody>
@@ -980,8 +1373,11 @@ const Admin = () => {
       </div>
 
       {teamModalOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 overflow-x-hidden">
+          <div
+            className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-6 w-full max-h-[90vh] overflow-y-auto overflow-x-hidden"
+            style={{ maxWidth: '672px', boxSizing: 'border-box' }}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">{editingTeam ? 'Edit Team' : 'Create Team'}</h3>
               <button onClick={() => setTeamModalOpen(false)} className="text-white/60 hover:text-white">
@@ -994,31 +1390,42 @@ const Admin = () => {
                 value={teamForm.name}
                 onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })}
                 placeholder="Team Name"
-                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white w-full"
               />
               <select
                 value={teamForm.sport}
-                onChange={(e) => setTeamForm({ ...teamForm, sport: e.target.value })}
-                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                onChange={(e) => setTeamForm({ ...teamForm, sport: e.target.value, age_category: '' })}
+                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white w-full"
               >
-                {SPORTS.map((s) => (
+                {SPORT_OPTIONS.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
                 ))}
               </select>
-              <input
+              <select
                 value={teamForm.age_category}
                 onChange={(e) => setTeamForm({ ...teamForm, age_category: e.target.value })}
-                placeholder="Age Category"
-                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-              />
-              <input
+                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white w-full"
+              >
+                <option value="">Age Category</option>
+                {getAgeCategories(teamForm.sport).map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              <select
                 value={teamForm.competition_level}
                 onChange={(e) => setTeamForm({ ...teamForm, competition_level: e.target.value })}
-                placeholder="Competition Level"
-                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-              />
+                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white w-full"
+              >
+                {['Pro', 'Semi-Pro', 'University', 'Junior', 'AAA', 'AA', 'A', 'Recreational'].map((lvl) => (
+                  <option key={lvl} value={lvl}>
+                    {lvl}
+                  </option>
+                ))}
+              </select>
               <div className="flex items-center gap-2">
                 <span className="text-white/70 text-sm">Primary</span>
                 <input
@@ -1037,18 +1444,123 @@ const Admin = () => {
                   className="bg-[#0a0f0a] border border-pfa-border rounded-lg w-full h-10"
                 />
               </div>
-              <input
-                value={teamForm.season}
-                onChange={(e) => setTeamForm({ ...teamForm, season: e.target.value })}
-                placeholder="Season (e.g. 2024-2025)"
-                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-              />
-              <input
-                value={teamForm.coach_id}
-                onChange={(e) => setTeamForm({ ...teamForm, coach_id: e.target.value })}
-                placeholder="Coach ID"
-                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-              />
+              <div className="md:col-span-2">
+                <label className="text-white/70 text-sm block mb-1">Team Coach</label>
+                <select
+                  value={teamForm.coach_id}
+                  onChange={(e) => setTeamForm({ ...teamForm, coach_id: e.target.value })}
+                  className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white w-full"
+                >
+                  <option value="">Select coach</option>
+                  {teamCoachOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-2 border-t border-pfa-border pt-4 mt-2 space-y-3">
+                <div className="text-white font-semibold">Roster</div>
+                <div className="bg-[#0a0f0a] border border-pfa-border rounded-lg overflow-hidden" style={{ overflowX: 'hidden' }}>
+                  <table className="min-w-full text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
+                    <thead className="text-white/60">
+                      <tr className="border-b border-pfa-border">
+                        <th className="py-2 px-3 text-left">Name</th>
+                        <th className="py-2 px-3 text-left">Sport</th>
+                        <th className="py-2 px-3 text-left">Position</th>
+                        <th className="py-2 px-3 text-left">Age Category</th>
+                        <th className="py-2 px-3 text-left">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-pfa-border">
+                      {(teamRosterMap[editingTeam?.id] || []).length === 0 ? (
+                        <tr>
+                          <td className="py-2 px-3 text-white/60" colSpan={5}>
+                            No athletes on this team yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        (teamRosterMap[editingTeam?.id] || []).map((r) => (
+                          <tr key={r.athlete_id}>
+                            <td className="py-2 px-3">{r.profiles?.full_name || '-'}</td>
+                            <td className="py-2 px-3">{r.profiles?.sport || '-'}</td>
+                            <td className="py-2 px-3">{r.profiles?.position || '-'}</td>
+                            <td className="py-2 px-3">{r.profiles?.age_category || '-'}</td>
+                            <td className="py-2 px-3">
+                              <button
+                                type="button"
+                                className="text-red-400 hover:underline"
+                                onClick={async () => {
+                                  await removeAthleteFromTeam(editingTeam?.id, r.athlete_id)
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_auto] gap-2 items-center">
+                  <input
+                    value={teamAddAthleteSearch}
+                    onChange={(e) => setTeamAddAthleteSearch(e.target.value)}
+                    placeholder="Search athlete"
+                    className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                  />
+                  <select
+                    value={teamAddAthleteSelect}
+                    onChange={(e) => setTeamAddAthleteSelect(e.target.value)}
+                    className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                  >
+                    <option value="">Add Existing Athlete</option>
+                    {availableTeamAthletes.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.full_name} {a.sport ? `• ${a.sport}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="bg-pfa-green text-black font-semibold px-3 py-2 rounded-lg"
+                    onClick={() => addExistingAthleteToTeam(editingTeam?.id, teamAddAthleteSelect)}
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className={`w-full border border-pfa-border text-white rounded-lg px-4 py-2 hover:border-pfa-green ${
+                    editingTeam?.id ? '' : 'opacity-50 cursor-not-allowed'
+                  }`}
+                  onClick={() => {
+                    if (!editingTeam?.id) return
+                    setTeamModalOpen(false)
+                    setPendingTeamForNewAthlete(editingTeam)
+                    openCreateUser()
+                    setUserForm((prev) => ({
+                      ...prev,
+                      role: 'athlete',
+                      sport: SPORTS[0],
+                      full_name: '',
+                      email: '',
+                      password: '',
+                      position: '',
+                      age_category: '',
+                      competition_level: '',
+                      team_id: '',
+                    }))
+                  }}
+                >
+                  Create & Add New Athlete
+                </button>
+              </div>
+
               <div className="md:col-span-2 flex justify-end gap-3 mt-2">
                 <button
                   type="button"
@@ -1087,7 +1599,7 @@ const Admin = () => {
             className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
           >
             <option value="All">All Sports</option>
-            {SPORTS.map((s) => (
+            {SPORT_OPTIONS.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
@@ -1136,7 +1648,10 @@ const Admin = () => {
                     onClick={() => {
                       const nextId = expandedAthleteId === a.id ? null : a.id
                       setExpandedAthleteId(nextId)
-                      if (nextId) loadAthleteTeams(a.id)
+                      if (nextId) {
+                        loadAthleteTeams(a.id)
+                        loadAthleteResults(a.id)
+                      }
                     }}
                   >
                     <td className="py-3 px-3">{a.full_name}</td>
@@ -1216,6 +1731,35 @@ const Admin = () => {
                             >
                               Add to Team/Group
                             </button>
+                          </div>
+                          <div className="mt-6 space-y-2">
+                            <div className="text-white font-semibold">Test Results</div>
+                            {(() => {
+                              const results = athleteResultsMap[a.id]
+                              const grouped = Array.isArray(results) ? groupResultsByCategory(results) : {}
+                              return Object.keys(grouped).length === 0 ? (
+                                <div className="text-white/60 text-sm">No test results yet.</div>
+                              ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {Object.entries(grouped)
+                                    .sort(([aCat], [bCat]) => aCat.localeCompare(bCat))
+                                    .map(([cat, rows]) => (
+                                      <div key={cat} className="bg-[#0a0f0a] border border-pfa-border rounded-lg p-3 space-y-2">
+                                        <div className="text-xs text-pfa-green font-semibold tracking-[0.1em]">{cat}</div>
+                                        {rows.slice(0, 6).map((r) => (
+                                          <div key={r.id} className="flex items-center justify-between text-sm text-white/80">
+                                            <span className="capitalize">{r.test_type.replaceAll('_', ' ')}</span>
+                                            <span className="font-semibold text-white">{`${r.value}${r.unit || ''}`}</span>
+                                          </div>
+                                        ))}
+                                        {rows.length > 6 && (
+                                          <div className="text-xs text-white/50">+{rows.length - 6} more</div>
+                                        )}
+                                      </div>
+                                    ))}
+                                </div>
+                              )
+                            })()}
                           </div>
                         </div>
                       </td>
@@ -1305,6 +1849,24 @@ const Admin = () => {
                 </button>
               )
             })}
+            <a
+              href="/session"
+              className={`${navItemBase} block border border-transparent text-white/60 hover:text-pfa-green hover:border-pfa-green`}
+            >
+              Sessions
+            </a>
+            <a
+              href="/report"
+              className={`${navItemBase} block border border-transparent text-white/60 hover:text-pfa-green hover:border-pfa-green`}
+            >
+              Progress Reports
+            </a>
+            <a
+              href="/checkin"
+              className={`${navItemBase} block border border-transparent text-white/60 hover:text-pfa-green hover:border-pfa-green`}
+            >
+              Check-in
+            </a>
           </div>
         </aside>
 

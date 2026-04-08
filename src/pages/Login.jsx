@@ -13,12 +13,12 @@ const Login = () => {
   if (!loading && user && profile) {
     const routes = {
       pfa_admin: '/admin',
-      pfa_staff: '/dashboard',
+      pfa_staff: '/admin',
       team_coach: '/dashboard',
       athlete: '/card',
       family: '/card',
     }
-    return <Navigate to={routes[profile.role] || '/admin'} replace />
+    return <Navigate to={routes[profile.role] || '/dashboard'} replace />
   }
 
   const handleSubmit = async (e) => {

@@ -1,24 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import useAuth from '../hooks/useAuth'
 import { supabase } from '../services/supabase'
-import { getAllAthletes, getAthletesByTeamJunction, getCheckins, markCheckinReviewed } from '../services/athletes'
+import { getCheckins, markCheckinReviewed } from '../services/athletes'
 
-const tabList = ['Roster', 'Sessions', 'Progress Reports', 'Check-ins']
+const tabList = ['Roster', 'Sessions', 'Check-ins']
 
 const Dashboard = () => {
   const navigate = useNavigate()
-  const { user, profile, signOut } = useAuth()
+  const { user, profile, loading } = useAuth()
   const isCoach = profile?.role === 'team_coach'
-  const isStaff = profile?.role === 'pfa_staff' || profile?.role === 'pfa_admin'
 
   const [activeTab, setActiveTab] = useState('Roster')
   const [athletes, setAthletes] = useState([])
   const [athletesLoading, setAthletesLoading] = useState(false)
   const [search, setSearch] = useState('')
-  const [sportFilter, setSportFilter] = useState('All')
-  const [teamFilter, setTeamFilter] = useState('All')
   const [teams, setTeams] = useState([])
   const [sessions, setSessions] = useState([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
@@ -34,13 +31,22 @@ const Dashboard = () => {
   }, [])
 
   useEffect(() => {
+    if (!profile?.role) return
     loadAthletesAndData()
     loadSessions()
     loadCheckins()
   }, [profile?.role])
 
+  useEffect(() => {
+    if (teams.length === 0) return
+    loadAthletesAndData()
+    loadSessions()
+    loadCheckins()
+  }, [teams])
+
   const loadTeams = async () => {
-    const { data } = await supabase.from('pfa_teams').select('*').order('name')
+    if (!user?.id) return
+    const { data } = await supabase.from('pfa_teams').select('*').eq('coach_id', user.id).order('name')
     setTeams(data || [])
   }
 
@@ -48,10 +54,15 @@ const Dashboard = () => {
     setAthletesLoading(true)
     try {
       let roster = []
-      if (isCoach && profile?.team_id) {
-        roster = await getAthletesByTeamJunction(profile.team_id)
-      } else {
-        roster = await getAllAthletes()
+      const teamIds = teams.map((t) => t.id)
+      if (teamIds.length) {
+        const { data: rosterData } = await supabase
+          .from('profiles')
+          .select('*, pfa_teams(name, sport)')
+          .eq('role', 'athlete')
+          .in('team_id', teamIds)
+          .order('full_name')
+        roster = rosterData || []
       }
       setAthletes(roster || [])
       const athleteIds = (roster || []).map((a) => a.id)
@@ -110,11 +121,8 @@ const Dashboard = () => {
 
   const filteredAthletes = useMemo(() => {
     const term = search.toLowerCase()
-    return athletes
-      .filter((a) => (sportFilter === 'All' ? true : a.sport === sportFilter))
-      .filter((a) => (teamFilter === 'All' ? true : a.team_id === teamFilter))
-      .filter((a) => a.full_name?.toLowerCase().includes(term))
-  }, [athletes, search, sportFilter, teamFilter])
+    return athletes.filter((a) => a.full_name?.toLowerCase().includes(term))
+  }, [athletes, search])
 
   const getLatestComposite = (athleteId) => {
     const list = compositeScores.filter((c) => c.athlete_id === athleteId)
@@ -180,11 +188,10 @@ const Dashboard = () => {
 
   const renderRoster = () => (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <MetricCard label="Total Athletes" value={metrics.total} />
         <MetricCard label="Tested This Month" value={metrics.testedThisMonth} />
         <MetricCard label="Avg Overall Score" value={metrics.avgOverall} />
-        <MetricCard label="Need Attention" value={metrics.needAttention} />
       </div>
 
       <div className="flex flex-col md:flex-row gap-3 items-start">
@@ -194,32 +201,6 @@ const Dashboard = () => {
           placeholder="Search athlete"
           className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-pfa-green"
         />
-        <select
-          value={sportFilter}
-          onChange={(e) => setSportFilter(e.target.value)}
-          className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
-        >
-          <option value="All">All Sports</option>
-          {[...new Set(athletes.map((a) => a.sport).filter(Boolean))].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        {isStaff && (
-          <select
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-            className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
-          >
-            <option value="All">All Teams/Groups</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        )}
       </div>
 
       <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
@@ -230,7 +211,6 @@ const Dashboard = () => {
               <th className="py-3 px-3 text-left">Sport</th>
               <th className="py-3 px-3 text-left">Position</th>
               <th className="py-3 px-3 text-left">Age</th>
-              <th className="py-3 px-3 text-left">Competition</th>
               <th className="py-3 px-3 text-left">Last Tested</th>
               <th className="py-3 px-3 text-left">Overall</th>
             </tr>
@@ -238,61 +218,34 @@ const Dashboard = () => {
           <tbody className="divide-y divide-pfa-border">
             {athletesLoading ? (
               <tr>
-                <td className="py-3 px-3 text-white/60" colSpan={7}>
+                <td className="py-3 px-3 text-white/60" colSpan={6}>
                   Loading...
                 </td>
               </tr>
             ) : (
               filteredAthletes.map((a) => {
                 const latestComposite = getLatestComposite(a.id)
-                const recent = getRecentByCategory(a.id)
                 return (
-                  <React.Fragment key={a.id}>
-                    <tr
-                      className="hover:bg-white/5 cursor-pointer"
-                      onClick={() => setExpandedAthleteId(expandedAthleteId === a.id ? null : a.id)}
-                    >
-                      <td className="py-3 px-3 flex items-center gap-2">
-                        <span
-                          className="text-white/90 hover:text-pfa-green underline-offset-2 hover:underline"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/report?athleteId=${a.id}`) }}
-                        >
-                          {a.full_name}
-                        </span>
-                        {renderTrend(a.id)}
-                      </td>
-                      <td className="py-3 px-3">{a.sport}</td>
-                      <td className="py-3 px-3">{a.position || '-'}</td>
-                      <td className="py-3 px-3">{a.age_category || '-'}</td>
-                      <td className="py-3 px-3">{a.competition_level || '-'}</td>
-                      <td className="py-3 px-3">{getLastTested(a.id)}</td>
-                      <td
-                        className="py-3 px-3 text-pfa-green font-semibold cursor-pointer hover:underline"
-                        onClick={(e) => { e.stopPropagation(); navigate(`/report?athleteId=${a.id}`) }}
+                  <tr key={a.id} className="hover:bg-white/5">
+                    <td className="py-3 px-3 flex items-center gap-2">
+                      <span
+                        className="text-white/90 hover:text-pfa-green underline-offset-2 hover:underline"
+                        onClick={() => navigate(`/report?athleteId=${a.id}`)}
                       >
-                        {latestComposite?.overall_score ?? '—'}
-                      </td>
-                    </tr>
-                    {expandedAthleteId === a.id && (
-                      <tr className="bg-white/5">
-                        <td colSpan={7} className="py-3 px-3 text-sm text-white/80">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            {Object.entries(recent).map(([cat, list]) => (
-                              <div key={cat} className="bg-[#0a0f0a] border border-pfa-border rounded-lg p-3">
-                                <div className="text-white font-semibold mb-2 uppercase text-xs">{cat}</div>
-                                {list.slice(0, 3).map((r) => (
-                                  <div key={r.id} className="flex items-center justify-between text-white/80 text-xs">
-                                    <span>{r.test_type}</span>
-                                    <span>{r.value}{r.unit || ''}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                        {a.full_name}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">{a.sport || '—'}</td>
+                    <td className="py-3 px-3">{a.position || '-'}</td>
+                    <td className="py-3 px-3">{a.age_category || '-'}</td>
+                    <td className="py-3 px-3">{getLastTested(a.id)}</td>
+                    <td
+                      className="py-3 px-3 text-pfa-green font-semibold cursor-pointer hover:underline"
+                      onClick={() => navigate(`/report?athleteId=${a.id}`)}
+                    >
+                      {latestComposite?.overall_score ?? '—'}
+                    </td>
+                  </tr>
                 )
               })
             )}
@@ -302,106 +255,100 @@ const Dashboard = () => {
     </div>
   )
 
-  const renderSessions = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-white">Sessions</h3>
-        <button
-          onClick={() => navigate('/session')}
-          className="bg-pfa-green text-black font-semibold px-4 py-2 rounded-lg hover:brightness-110"
-        >
-          New Session
-        </button>
-      </div>
-      <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
-        <table className="min-w-full text-sm">
-          <thead className="text-white/60">
-            <tr className="border-b border-pfa-border">
-              <th className="py-3 px-3 text-left">Date</th>
-              <th className="py-3 px-3 text-left">Team/Group</th>
-              <th className="py-3 px-3 text-left">Test</th>
-              <th className="py-3 px-3 text-left">Status</th>
-              <th className="py-3 px-3 text-left">Conducted By</th>
+const renderSessions = () => (
+  <div className="space-y-4">
+    <div className="flex items-center justify-between">
+      <h3 className="text-lg font-semibold text-white">Sessions</h3>
+      <button
+        onClick={() => navigate('/session')}
+        className="bg-pfa-green text-black font-semibold px-4 py-2 rounded-lg hover:brightness-110"
+      >
+        New Session
+      </button>
+    </div>
+    <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
+      <table className="min-w-full text-sm">
+        <thead className="text-white/60">
+          <tr className="border-b border-pfa-border">
+            <th className="py-3 px-3 text-left">Date</th>
+            <th className="py-3 px-3 text-left">Team/Group</th>
+            <th className="py-3 px-3 text-left">Test</th>
+            <th className="py-3 px-3 text-left">Status</th>
+            <th className="py-3 px-3 text-left">Conducted By</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-pfa-border">
+          {sessionsLoading ? (
+            <tr>
+              <td className="py-3 px-3 text-white/60" colSpan={5}>
+                Loading...
+              </td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-pfa-border">
-            {sessionsLoading ? (
-              <tr>
-                <td className="py-3 px-3 text-white/60" colSpan={5}>
-                  Loading...
-                </td>
+          ) : (
+            sessions.map((s) => (
+              <tr key={s.id} className="hover:bg-white/5">
+                <td className="py-3 px-3">{s.session_date}</td>
+                <td className="py-3 px-3">{s.pfa_teams?.name || 'No Team'}</td>
+                <td className="py-3 px-3">{s.test_type}</td>
+                <td className="py-3 px-3 capitalize">{s.status}</td>
+                <td className="py-3 px-3">{s.conducted_by || '—'}</td>
               </tr>
-            ) : (
-              sessions.map((s) => (
-                <tr key={s.id} className="hover:bg-white/5">
-                  <td className="py-3 px-3">{s.session_date}</td>
-                  <td className="py-3 px-3">{s.pfa_teams?.name || 'No Team'}</td>
-                  <td className="py-3 px-3">{s.test_type}</td>
-                  <td className="py-3 px-3 capitalize">{s.status}</td>
-                  <td className="py-3 px-3">{s.conducted_by || '—'}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
-  )
+  </div>
+)
 
-  const renderProgress = () => (
-    <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-6 text-center text-white/60">
-      Progress reports coming soon
-    </div>
-  )
-
-  const renderCheckins = () => (
-    <div className="space-y-4">
-      <div className="text-lg font-semibold text-white">Recent Check-ins</div>
-      <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
-        <table className="min-w-full text-sm">
-          <thead className="text-white/60">
-            <tr className="border-b border-pfa-border">
-              <th className="py-3 px-3 text-left">Athlete</th>
-              <th className="py-3 px-3 text-left">Date</th>
-              <th className="py-3 px-3 text-left">Sleep</th>
-              <th className="py-3 px-3 text-left">Energy</th>
-              <th className="py-3 px-3 text-left">Stress</th>
-              <th className="py-3 px-3 text-left">Nutrition</th>
-              <th className="py-3 px-3 text-left">Soreness</th>
-              <th className="py-3 px-3 text-left">Notes</th>
-              <th className="py-3 px-3 text-left">Flagged</th>
+const renderCheckins = () => (
+  <div className="space-y-4">
+    <div className="text-lg font-semibold text-white">Recent Check-ins</div>
+    <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
+      <table className="min-w-full text-sm">
+        <thead className="text-white/60">
+          <tr className="border-b border-pfa-border">
+            <th className="py-3 px-3 text-left">Athlete</th>
+            <th className="py-3 px-3 text-left">Date</th>
+            <th className="py-3 px-3 text-left">Sleep</th>
+            <th className="py-3 px-3 text-left">Energy</th>
+            <th className="py-3 px-3 text-left">Stress</th>
+            <th className="py-3 px-3 text-left">Nutrition</th>
+            <th className="py-3 px-3 text-left">Soreness</th>
+            <th className="py-3 px-3 text-left">Notes</th>
+            <th className="py-3 px-3 text-left">Flagged</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-pfa-border">
+          {checkinsLoading ? (
+            <tr>
+              <td className="py-3 px-3 text-white/60" colSpan={9}>
+                Loading...
+              </td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-pfa-border">
-            {checkinsLoading ? (
-              <tr>
-                <td className="py-3 px-3 text-white/60" colSpan={9}>
-                  Loading...
-                </td>
+          ) : (
+            checkins.map((c) => (
+              <tr key={c.id} className="hover:bg-white/5 cursor-pointer" onClick={async () => {
+                await markCheckinReviewed(c.id, user?.id)
+                loadCheckins()
+              }}>
+                <td className="py-3 px-3">{c.profiles?.full_name}</td>
+                <td className="py-3 px-3">{c.checkin_date?.slice(0, 10)}</td>
+                <td className="py-3 px-3">{c.sleep}</td>
+                <td className="py-3 px-3">{c.energy}</td>
+                <td className="py-3 px-3">{c.stress}</td>
+                <td className="py-3 px-3">{c.nutrition}</td>
+                <td className="py-3 px-3">{c.soreness}</td>
+                <td className="py-3 px-3 truncate max-w-xs">{c.notes || '—'}</td>
+                <td className="py-3 px-3">{c.flagged ? <span className="text-red-400">Flagged</span> : '—'}</td>
               </tr>
-            ) : (
-              checkins.map((c) => (
-                <tr key={c.id} className="hover:bg-white/5 cursor-pointer" onClick={async () => {
-                  await markCheckinReviewed(c.id, user?.id)
-                  loadCheckins()
-                }}>
-                  <td className="py-3 px-3">{c.profiles?.full_name}</td>
-                  <td className="py-3 px-3">{c.checkin_date?.slice(0, 10)}</td>
-                  <td className="py-3 px-3">{c.sleep}</td>
-                  <td className="py-3 px-3">{c.energy}</td>
-                  <td className="py-3 px-3">{c.stress}</td>
-                  <td className="py-3 px-3">{c.nutrition}</td>
-                  <td className="py-3 px-3">{c.soreness}</td>
-                  <td className="py-3 px-3 truncate max-w-xs">{c.notes || '—'}</td>
-                  <td className="py-3 px-3">{c.flagged ? <span className="text-red-400">Flagged</span> : '—'}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
-  )
+  </div>
+)
 
   const renderTab = () => {
     switch (activeTab) {
@@ -409,8 +356,6 @@ const Dashboard = () => {
         return renderRoster()
       case 'Sessions':
         return renderSessions()
-      case 'Progress Reports':
-        return renderProgress()
       case 'Check-ins':
         return renderCheckins()
       default:
@@ -418,11 +363,28 @@ const Dashboard = () => {
     }
   }
 
+  if (loading)
+    return (
+      <div
+        style={{ background: '#0a0f0a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <div style={{ color: '#3fae52', fontSize: '14px' }}>Loading...</div>
+      </div>
+    )
+
+  if (profile?.role === 'pfa_admin' || profile?.role === 'pfa_staff') {
+    return <Navigate to="/admin" replace />
+  }
+
+  if (profile?.role === 'athlete' || profile?.role === 'family') {
+    return <Navigate to="/card" replace />
+  }
+
   return (
     <DashboardLayout>
       <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
         <aside className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-4 h-max">
-          <div className="text-sm font-semibold tracking-wide text-pfa-green mb-6">PEAK FITNESS ATHLETICS</div>
+          <div className="text-sm font-semibold tracking-wide text-pfa-green mb-6">TEAM COACH DASHBOARD</div>
           <div className="space-y-1">
             {tabList.map((item) => (
               <button
@@ -435,6 +397,12 @@ const Dashboard = () => {
                 {item}
               </button>
             ))}
+            <a href="/session" className="block mt-2 text-sm text-pfa-green underline">
+              Go to Sessions
+            </a>
+            <a href="/checkin" className="block text-sm text-pfa-green underline">
+              Go to Check-ins
+            </a>
           </div>
         </aside>
 
@@ -442,12 +410,11 @@ const Dashboard = () => {
           <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-4 flex items-center justify-between">
             <div>
               <div className="text-lg font-semibold text-white">{activeTab}</div>
-              <div className="text-white/60 text-sm">PEAK FITNESS ATHLETICS</div>
+              <div className="text-white/60 text-sm">{teams.map((t) => t.name).join(', ') || 'No team assigned'}</div>
             </div>
             <div className="flex items-center gap-3 text-sm text-white/70">
               <div>{profile?.full_name || user?.email}</div>
               <div className="capitalize">{profile?.role}</div>
-              {isCoach && <div className="text-pfa-green">Team: {profile?.team_id || '-'}</div>}
               <button onClick={signOut} className="text-white/60 hover:text-white">
                 Sign Out
               </button>

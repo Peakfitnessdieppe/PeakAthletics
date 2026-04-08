@@ -4,14 +4,7 @@ import useAuth from '../hooks/useAuth'
 import CardLayout from '../components/layout/CardLayout'
 import { supabase } from '../services/supabase'
 import { getLatestResults, getBaselineResults } from '../services/testResults'
-
-const categories = [
-  { key: 'speed', label: 'Speed' },
-  { key: 'strength', label: 'Strength' },
-  { key: 'power', label: 'Power' },
-  { key: 'agility', label: 'Agility' },
-  { key: 'endurance', label: 'Endurance' },
-]
+import { getAthleteTestRankings, getAthleteBodyMeasurements } from '../services/reports'
 
 const cardNumber = '#001'
 
@@ -22,6 +15,8 @@ const Card = () => {
   const [loading, setLoading] = useState(true)
   const [latestResults, setLatestResults] = useState([])
   const [baselineResults, setBaselineResults] = useState([])
+  const [testRankings, setTestRankings] = useState([])
+  const [measurements, setMeasurements] = useState([])
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
@@ -33,12 +28,14 @@ const Card = () => {
     if (!profile?.id) return
     setLoading(true)
     try {
-      const [latest, baseline] = await Promise.all([
+      const [latest, baseline, bodyMeasurements] = await Promise.all([
         getLatestResults(profile.id),
         getBaselineResults(profile.id),
+        getAthleteBodyMeasurements(profile.id),
       ])
       setLatestResults(latest || [])
       setBaselineResults(baseline || [])
+      setMeasurements(bodyMeasurements || [])
       console.log('[Card] profile:', profile)
       console.log('[Card] latest results:', latest)
     } catch (err) {
@@ -47,83 +44,211 @@ const Card = () => {
     setLoading(false)
   }
 
-  const convertForBar = (testType, value) => {
-    if (value === null || value === undefined) return null
-    const kgTests = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
-    if (kgTests.includes(testType)) return value * 2.205
-    const cmToM = ['broad_jump']
-    if (cmToM.includes(testType)) return value
-    return value
+  const getBadge = (ranking) => {
+    if (ranking.isAllTimeRecord) return { label: 'ALL-TIME RECORD', color: '#FFD700' }
+    if (ranking.isAgeGroupRecord) return { label: `${ranking.ageCategory} RECORD`, color: '#FFD700' }
+    if (!ranking.rank || ranking.cohortSize < 5) return null
+    if (ranking.rank === 1) return { label: 'RANKED #1', color: '#FFD700' }
+    if (ranking.rank <= 3) return { label: 'TOP 3', color: '#C0C0C0' }
+    if (ranking.rank <= 10) return { label: 'TOP 10', color: '#CD7F32' }
+    return null
   }
 
-  const formatValue = (testType, value) => {
-    if (value === null || value === undefined) return '—'
-
-    const kgTests = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
-    if (kgTests.includes(testType)) {
-      return parseFloat(value).toFixed(1)
+  const formatCardValue = (testType, value) => {
+    const ROUND_TO_INT = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
+    const units = {
+      '10m_sprint': 's',
+      '30m_sprint': 's',
+      'pro_agility_shuttle': 's',
+      vertical_jump: 'cm',
+      broad_jump: 'm',
+      ncmj: 'cm',
+      mb_chest_pass: 'm',
+      beep_test: 'lvl',
+      squat: 'lbs',
+      trap_bar_deadlift: 'lbs',
+      bench_press: 'lbs',
+      pull_ups: 'reps',
+      push_ups: 'reps',
+      imtp: 'lbs',
     }
-
-    const cmToM = ['broad_jump']
-    if (cmToM.includes(testType)) {
-      return (value / 100).toFixed(2)
+    const labels = {
+      '10m_sprint': '10M SPRINT',
+      '30m_sprint': '30M SPRINT',
+      pro_agility_shuttle: 'PRO AGILITY',
+      vertical_jump: 'VERTICAL',
+      broad_jump: 'BROAD JUMP',
+      ncmj: 'NCMJ',
+      mb_chest_pass: 'MB PASS',
+      beep_test: 'BEEP TEST',
+      squat: 'SQUAT',
+      trap_bar_deadlift: 'TRAP BAR',
+      bench_press: 'BENCH',
+      pull_ups: 'PULL-UPS',
+      push_ups: 'PUSH-UPS',
+      imtp: 'IMTP',
     }
-
-    const twoDecimal = ['10m_sprint', '30m_sprint', 'pro_agility_shuttle']
-    if (twoDecimal.includes(testType)) {
-      return Number(value).toFixed(2)
+    const displayValue = ROUND_TO_INT.includes(testType) ? Math.round(value) : value
+    return {
+      label: labels[testType] || testType.toUpperCase().replace(/_/g, ' '),
+      value: displayValue,
+      unit: units[testType] || '',
     }
-
-    const wholeNumber = ['vertical_jump', 'ncmj']
-    if (wholeNumber.includes(testType)) {
-      return Math.round(value)
-    }
-
-    if (testType === 'beep_test') {
-      return Number(value).toFixed(1)
-    }
-
-    return parseFloat(Number(value).toFixed(1))
   }
 
-  const TEST_MAX = {
-    '10m_sprint': 3.5,
-    '30m_sprint': 6.0,
-    squat: 400,
-    trap_bar_deadlift: 500,
-    bench_press: 350,
-    pull_ups: 30,
-    push_ups: 60,
-    imtp: 400,
-    broad_jump: 350,
-    vertical_jump: 100,
-    ncmj: 80,
-    mb_chest_pass: 8,
-    pro_agility_shuttle: 6.0,
-    beep_test: 15,
+  const getSeasonYear = (dateStr) => {
+    const d = new Date(dateStr)
+    return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear()
   }
 
-  const getBarWidth = (testType, value, higherIsBetter = true) => {
-    if (value === null || value === undefined) return 0
-    const max = TEST_MAX[testType] || 100
-    if (!higherIsBetter) {
-      return Math.min(100, Math.max(0, ((max - value) / max) * 100))
+  const buildSeasonStats = (results) => {
+    const LOWER_IS_BETTER = ['10m_sprint', '30m_sprint', 'pro_agility_shuttle']
+    const ALL_TESTS = [
+      '10m_sprint',
+      '30m_sprint',
+      'vertical_jump',
+      'broad_jump',
+      'ncmj',
+      'mb_chest_pass',
+      'pro_agility_shuttle',
+      'beep_test',
+      'squat',
+      'trap_bar_deadlift',
+      'bench_press',
+      'pull_ups',
+      'push_ups',
+      'imtp',
+    ]
+    const TEST_LABELS = {
+      '10m_sprint': '10m Sprint',
+      '30m_sprint': '30m Sprint',
+      vertical_jump: 'Vertical Jump',
+      broad_jump: 'Broad Jump',
+      ncmj: 'NCMJ',
+      mb_chest_pass: 'MB Chest Pass',
+      pro_agility_shuttle: 'Pro Agility',
+      beep_test: 'Beep Test',
+      squat: 'Squat',
+      trap_bar_deadlift: 'Trap Bar Deadlift',
+      bench_press: 'Bench Press',
+      pull_ups: 'Pull-Ups',
+      push_ups: 'Push-Ups',
+      imtp: 'IMTP',
     }
-    return Math.min(100, Math.max(0, (value / max) * 100))
+    const TEST_UNITS = {
+      '10m_sprint': 's',
+      '30m_sprint': 's',
+      pro_agility_shuttle: 's',
+      vertical_jump: 'cm',
+      broad_jump: 'm',
+      ncmj: 'cm',
+      mb_chest_pass: 'm',
+      beep_test: 'lvl',
+      squat: 'lbs',
+      trap_bar_deadlift: 'lbs',
+      bench_press: 'lbs',
+      pull_ups: 'reps',
+      push_ups: 'reps',
+      imtp: 'lbs',
+    }
+    const ROUND_TO_INT = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
+
+    const byTestBySeason = {}
+    for (const r of results || []) {
+      const season = getSeasonYear(r.date_tested)
+      if (!byTestBySeason[r.test_type]) byTestBySeason[r.test_type] = {}
+      const current = byTestBySeason[r.test_type][season]
+      if (!current) {
+        byTestBySeason[r.test_type][season] = r.value
+      } else {
+        const isBetter = LOWER_IS_BETTER.includes(r.test_type)
+          ? r.value < current
+          : r.value > current
+        if (isBetter) byTestBySeason[r.test_type][season] = r.value
+      }
+    }
+
+    const formatVal = (testType, val) => {
+      if (val === undefined || val === null) return '—'
+      const v = ROUND_TO_INT.includes(testType) ? Math.round(val) : val
+      return `${v} ${TEST_UNITS[testType] || ''}`.trim()
+    }
+
+    return ALL_TESTS.map((testType) => ({
+      testType,
+      label: TEST_LABELS[testType],
+      unit: TEST_UNITS[testType],
+      season2025: formatVal(testType, byTestBySeason[testType]?.[2025]),
+      season2026: formatVal(testType, byTestBySeason[testType]?.[2026]),
+      hasAnyData: !!(byTestBySeason[testType]?.[2025] || byTestBySeason[testType]?.[2026]),
+    }))
   }
 
-  const findResult = (ids) => latestResults.find((r) => ids.includes(r.test_type))
+  const inchesToFtIn = (inches) => {
+    if (!inches) return '—'
+    const ft = Math.floor(inches / 12)
+    const ins = Math.round(inches % 12)
+    return `${ft}'${ins}"`
+  }
 
-  const quickStats = [
-    { id: 'speed', label: '10m Sprint', result: findResult(['10m_sprint']) || findResult(['30m_sprint']) },
-    { id: 'vert', label: 'Vertical Jump', result: findResult(['vertical_jump']) },
-    { id: 'broad', label: 'Broad Jump', result: findResult(['broad_jump']) },
-    { id: 'agility', label: 'Pro Agility', result: findResult(['pro_agility_shuttle']) },
-  ]
+  const buildMeasurementSeasons = (measurements) => {
+    const getSeasonYear = (dateStr) => {
+      const d = new Date(dateStr)
+      return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear()
+    }
+
+    const bySeason = {}
+    for (const m of measurements) {
+      const season = getSeasonYear(m.measurement_date)
+      if (!bySeason[season]) bySeason[season] = m
+    }
+
+    const fmt = (val, suffix) => (val != null ? `${val}${suffix}` : '—')
+
+    return [
+      {
+        label: 'Height',
+        season2025: bySeason[2025] ? inchesToFtIn(bySeason[2025].height) : '—',
+        season2026: bySeason[2026] ? inchesToFtIn(bySeason[2026].height) : '—',
+      },
+      {
+        label: 'Weight',
+        season2025: bySeason[2025] ? fmt(bySeason[2025].weight, ' lbs') : '—',
+        season2026: bySeason[2026] ? fmt(bySeason[2026].weight, ' lbs') : '—',
+      },
+      {
+        label: 'Body Fat',
+        season2025: bySeason[2025] ? fmt(bySeason[2025].body_fat_percentage, '%') : '—',
+        season2026: bySeason[2026] ? fmt(bySeason[2026].body_fat_percentage, '%') : '—',
+      },
+    ]
+  }
 
   useEffect(() => {
     fetchResults()
   }, [profile?.id])
+
+  useEffect(() => {
+    const loadRankings = async () => {
+      if (!profile?.id || !profile?.age_category || !profile?.gender) return
+      const rankings = await getAthleteTestRankings(profile.id, profile.age_category, profile.gender)
+      console.log(
+        'Test rankings loaded:',
+        JSON.stringify(
+          rankings.map((r) => ({
+            test: r.testType,
+            rank: r.rank,
+            cohortSize: r.cohortSize,
+            isAllTimeRecord: r.isAllTimeRecord,
+          })),
+          null,
+          2
+        )
+      )
+      setTestRankings(rankings)
+    }
+    loadRankings()
+  }, [profile?.id, profile?.age_category, profile?.gender])
 
   useEffect(() => {
     const fetchCheckinStatus = async () => {
@@ -157,20 +282,6 @@ const Card = () => {
       .slice(0, 2)
       .toUpperCase()
   }, [profile?.full_name])
-
-  const groupedResults = useMemo(() => {
-    const map = {
-      speed: [],
-      strength: [],
-      power: [],
-      agility: [],
-      endurance: [],
-    }
-    latestResults.forEach((r) => {
-      if (map[r.category]) map[r.category].push(r)
-    })
-    return map
-  }, [latestResults])
 
   const mostRecentDate = latestResults?.[0]?.date_tested || baselineResults?.[0]?.date_tested || null
 
@@ -278,14 +389,59 @@ const Card = () => {
                 <div className="absolute top-3 right-3 text-[10px] text-white/30 font-semibold">{cardNumber}</div>
                 <div className="absolute" style={{ bottom: '120px', left: '-10%', width: '120%', height: '160px', background: 'rgba(63,174,82,0.08)', transform: 'rotate(-8deg)', pointerEvents: 'none', zIndex: 1 }} />
                 <div className="absolute left-0 right-0" style={{ bottom: '140px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-                  <div className="grid grid-cols-4 text-center">
-                    {quickStats.map((qs, idx) => (
-                      <div key={qs.id} className="py-3" style={idx < quickStats.length - 1 ? { borderRight: '1px solid rgba(63,174,82,0.3)' } : {}}>
-                        <div className="text-lg font-semibold">{qs.result ? formatValue(qs.result.test_type, qs.result.value) : '—'}</div>
-                        <div className="text-[10px] uppercase tracking-wide text-white/60">{qs.label}</div>
-                      </div>
-                    ))}
-                  </div>
+                  {testRankings.slice(0, 4).length === 0 ? (
+                    <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', textAlign: 'center', padding: '16px' }}>
+                      Complete your first test to unlock your stats.
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${testRankings.slice(0, 4).length}, 1fr)`,
+                        gap: '0',
+                        padding: '8px 12px',
+                        width: '100%',
+                        overflow: 'hidden',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      {testRankings.slice(0, 4).map((ranking, idx, arr) => {
+                        const badge = getBadge(ranking)
+                        const formatted = formatCardValue(ranking.testType, ranking.value)
+                        return (
+                          <div
+                            key={ranking.testType}
+                            className="py-2"
+                            style={idx < arr.length - 1 ? { borderRight: '1px solid rgba(63,174,82,0.3)' } : { textAlign: 'center' }}
+                          >
+                            <div className="text-[8px] uppercase tracking-wide text-white/60 font-bold" style={{ marginBottom: '2px', textAlign: 'center' }}>
+                              {formatted.label}
+                            </div>
+                            <div className="text-[15px] font-semibold" style={{ textAlign: 'center', color: '#fff' }}>
+                              {formatted.value}
+                              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginLeft: '2px' }}>{formatted.unit}</span>
+                            </div>
+                            {badge && (
+                              <div
+                                style={{
+                                  marginTop: '3px',
+                                  fontSize: '8px',
+                                  fontWeight: '800',
+                                  letterSpacing: '0.1em',
+                                  textTransform: 'uppercase',
+                                  color: badge.color,
+                                  lineHeight: 1,
+                                  textAlign: 'center',
+                                }}
+                              >
+                                {badge.label}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
                 {!avatarUrl && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ paddingBottom: '140px' }}>
@@ -326,6 +482,7 @@ const Card = () => {
 
             {/* BACK */}
             <div
+              className="card-back-scroll"
               style={{
                 position: 'absolute',
                 inset: 0,
@@ -335,8 +492,10 @@ const Card = () => {
                 pointerEvents: flipped ? 'auto' : 'none',
                 transition: 'opacity 0.3s ease',
                 zIndex: flipped ? 1 : 0,
-                overflowY: 'scroll',
+                overflowY: 'auto',
                 overflowX: 'hidden',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
                 background: 'linear-gradient(160deg, #0d1a0e 0%, #0a0f0a 60%, #0d1008 100%)',
                 padding: '16px',
                 boxSizing: 'border-box',
@@ -375,44 +534,96 @@ const Card = () => {
                   </span>
                 </div>
 
-                {categories.map((cat) => {
-                  const list = groupedResults[cat.key] || []
+                {(() => {
+                  const seasonStats = buildSeasonStats(latestResults)
+                  const measurementRows = buildMeasurementSeasons(measurements)
                   return (
-                    <div key={cat.key} className="space-y-2">
-                      <div
-                        className="text-white font-bold uppercase tracking-widest text-[10px]"
-                        style={{ color: '#3fae52', borderBottom: '1px solid rgba(63,174,82,0.2)', paddingBottom: '4px', marginBottom: '6px' }}
-                      >
-                        {cat.label}
-                      </div>
-                      {list.length === 0 ? (
-                        <div className="text-white/60 text-xs">No data yet</div>
-                      ) : (
-                        list.map((r) => (
+                    <>
+                      <div style={{ padding: '12px 16px 0' }}>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 80px 80px',
+                            padding: '6px 0',
+                            borderBottom: '1px solid rgba(63,174,82,0.3)',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>MEASUREMENTS</div>
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
+                          <div style={{ color: '#3fae52', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
+                        </div>
+                        {measurementRows.map((row, i) => (
                           <div
-                            key={r.id}
+                            key={row.label}
                             style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              background: 'rgba(63,174,82,0.05)',
-                              border: '1px solid rgba(63,174,82,0.1)',
-                              borderRadius: '8px',
-                              padding: '8px 10px',
-                              marginBottom: '4px',
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 80px 80px',
+                              padding: '5px 0',
+                              borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                             }}
                           >
-                            <span className="flex-1 text-white/80 capitalize">{r.test_type.replaceAll('_', ' ')}</span>
-                            <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                              <div className="h-full" style={{ width: `${getBarWidth(r.test_type, convertForBar(r.test_type, r.value), r.higher_is_better !== false)}%`, background: 'linear-gradient(90deg, #3fae52, #9be58c)' }} />
+                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: '600' }}>{row.label}</div>
+                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>{row.season2025}</div>
+                            <div
+                              style={{
+                                color: row.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                                fontSize: '10px',
+                                fontWeight: row.season2026 !== '—' ? '700' : '400',
+                                textAlign: 'center',
+                              }}
+                            >
+                              {row.season2026}
                             </div>
-                            <span className="text-white font-semibold text-sm">{formatValue(r.test_type, r.value)}</span>
                           </div>
-                        ))
-                      )}
-                    </div>
+                        ))}
+                        <div style={{ borderBottom: '1px solid rgba(63,174,82,0.2)', margin: '8px 0' }} />
+                      </div>
+
+                      <div style={{ padding: '0 16px 16px' }}>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 80px 80px',
+                            padding: '6px 0',
+                            borderBottom: '1px solid rgba(63,174,82,0.3)',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>TEST</div>
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
+                          <div style={{ color: '#3fae52', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
+                        </div>
+
+                        {seasonStats.map((stat, i) => (
+                          <div
+                            key={stat.testType}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 80px 80px',
+                              padding: '5px 0',
+                              borderBottom: i < seasonStats.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                              opacity: stat.hasAnyData ? 1 : 0.35,
+                            }}
+                          >
+                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: '600' }}>{stat.label}</div>
+                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>{stat.season2025}</div>
+                            <div
+                              style={{
+                                color: stat.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                                fontSize: '10px',
+                                fontWeight: stat.season2026 !== '—' ? '700' : '400',
+                                textAlign: 'center',
+                              }}
+                            >
+                              {stat.season2026}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   )
-                })}
+                })()}
 
                 <div className="mt-auto text-xs flex items center justify-between text-white/60">
                   <span>{mostRecentDate ? `Last tested: ${mostRecentDate?.slice(0, 10)}` : 'No sessions yet'}</span>
