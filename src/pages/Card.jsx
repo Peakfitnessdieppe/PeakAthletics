@@ -19,6 +19,7 @@ const Card = () => {
   const [measurements, setMeasurements] = useState([])
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null)
   const [uploading, setUploading] = useState(false)
+  const [photoMessage, setPhotoMessage] = useState('')
   const fileInputRef = useRef(null)
   const [checkedInToday, setCheckedInToday] = useState(false)
 
@@ -311,6 +312,46 @@ const Card = () => {
     setUploading(false)
   }
 
+  const getAvatarPath = () => {
+    if (!avatarUrl || !profile?.id) return null
+    try {
+      const url = new URL(avatarUrl)
+      const segments = url.pathname.split('/')
+      const bucketIndex = segments.findIndex((p) => decodeURIComponent(p) === 'Athlete Photos' || decodeURIComponent(p) === 'athlete-photos')
+      if (bucketIndex >= 0) {
+        return decodeURIComponent(segments.slice(bucketIndex + 1).join('/'))
+      }
+    } catch (err) {
+      console.error('Failed to parse avatar URL', err)
+    }
+    const ext = avatarUrl.split('.').pop()
+    return `${profile.id}/avatar.${ext}`
+  }
+
+  const removePhoto = async (e) => {
+    if (e) e.stopPropagation()
+    if (!avatarUrl || !profile?.id) return
+    setUploading(true)
+    try {
+      const path = getAvatarPath()
+      if (path) {
+        const { error: removeError } = await supabase.storage.from('athlete-photos').remove([path])
+        if (removeError) throw removeError
+      }
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null, updated_at: new Date().toISOString() })
+        .eq('id', profile.id)
+      if (profileError) throw profileError
+      setAvatarUrl(null)
+      setPhotoMessage('Photo removed')
+      setTimeout(() => setPhotoMessage(''), 2000)
+    } catch (err) {
+      console.error('Remove photo failed', err)
+    }
+    setUploading(false)
+  }
+
   const onFileChange = (e) => {
     const file = e.target.files?.[0]
     if (file) uploadPhoto(file)
@@ -463,6 +504,33 @@ const Card = () => {
                     <div className="mt-2 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
                       Tap camera to add your photo
                     </div>
+                  </div>
+                )}
+                {avatarUrl && (
+                  <div
+                    className="absolute flex items-center gap-2"
+                    style={{ bottom: '108px', left: '12px', zIndex: 12 }}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        fileInputRef.current?.click()
+                      }}
+                      style={{ fontSize: '10px', padding: '4px 10px', background: 'rgba(63,174,82,0.85)', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      Change Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      style={{ fontSize: '10px', padding: '4px 10px', background: 'rgba(255,64,64,0.85)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      Remove Photo
+                    </button>
+                    {photoMessage && (
+                      <span style={{ fontSize: '10px', color: '#3fae52' }}>{photoMessage}</span>
+                    )}
                   </div>
                 )}
                 <input

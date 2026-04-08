@@ -81,6 +81,8 @@ const Admin = () => {
   const [teamAddAthleteSelect, setTeamAddAthleteSelect] = useState('')
   const [teamAddAthleteSearch, setTeamAddAthleteSearch] = useState('')
   const [pendingTeamForNewAthlete, setPendingTeamForNewAthlete] = useState(null)
+  const [forceAthleteRole, setForceAthleteRole] = useState(false)
+  const [selectedTeamAthletes, setSelectedTeamAthletes] = useState([])
 
   const [athletes, setAthletes] = useState([])
   const [athletesLoading, setAthletesLoading] = useState(false)
@@ -152,6 +154,18 @@ const Admin = () => {
   const DEFAULT_AGE_CATEGORIES = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'University', 'Senior']
 
   const getAgeCategories = (sport) => AGE_CATEGORIES_BY_SPORT[sport] || DEFAULT_AGE_CATEGORIES
+
+  const POSITIONS_BY_SPORT = {
+    Hockey: ['Center', 'Left Wing', 'Right Wing', 'Defense', 'Goalie'],
+    Soccer: ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'],
+    Basketball: ['Point Guard', 'Shooting Guard', 'Small Forward', 'Power Forward', 'Center'],
+    Volleyball: ['Setter', 'Outside Hitter', 'Middle Blocker', 'Libero', 'Opposite Hitter'],
+    Ringette: ['Center', 'Wing', 'Defense', 'Goalie'],
+  }
+
+  const DEFAULT_POSITIONS = ['Forward', 'Defense', 'Midfielder', 'Goalie', 'Other']
+
+  const getPositions = (sport) => POSITIONS_BY_SPORT[sport] || DEFAULT_POSITIONS
 
   const availableTeamAthletes = useMemo(() => {
     if (!editingTeam) return []
@@ -520,6 +534,7 @@ const Admin = () => {
   }
 
   const openCreateUser = () => {
+    setForceAthleteRole(false)
     setEditingUser(null)
     setUserForm({
       full_name: '',
@@ -586,6 +601,7 @@ const Admin = () => {
         openEditTeam(pendingTeamForNewAthlete)
       }
       setPendingTeamForNewAthlete(null)
+      setForceAthleteRole(false)
     } catch (err) {
       setUserActionMessage(err.message)
     }
@@ -715,6 +731,29 @@ const Admin = () => {
     } catch (err) {
       console.error('Add athlete to team failed', err)
     }
+  }
+
+  // Previous button behavior closed the team modal and set flags but sometimes skipped opening the create user modal:
+  // onClick={() => { if (!editingTeam?.id) return; setTeamModalOpen(false); setPendingTeamForNewAthlete(editingTeam); setForceAthleteRole(true); setUserForm(...); setUserModalOpen(true) }}
+  const handleCreateAndAddAthlete = (team) => {
+    setPendingTeamForNewAthlete(team)
+    setForceAthleteRole(true)
+    setUserForm({
+      full_name: '',
+      email: '',
+      password: '',
+      role: 'athlete',
+      sport: '',
+      age_category: '',
+      position: '',
+      gender: 'male',
+      date_of_birth: '',
+      competition_level: '',
+      team_id: '',
+    })
+    setEditingTeam(null)
+    setTeamModalOpen(false)
+    setUserModalOpen(true)
   }
 
   const handleDeleteTeam = async (id) => {
@@ -1142,6 +1181,7 @@ const Admin = () => {
                 value={userForm.role}
                 onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
                 className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
+                disabled={forceAthleteRole}
               >
                 {['pfa_staff', 'team_coach', 'athlete', 'family'].map((r) => (
                   <option key={r} value={r}>
@@ -1151,7 +1191,7 @@ const Admin = () => {
               </select>
               <select
                 value={userForm.sport}
-                onChange={(e) => setUserForm({ ...userForm, sport: e.target.value, age_category: '' })}
+                onChange={(e) => setUserForm({ ...userForm, sport: e.target.value, age_category: '', position: '' })}
                 className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
               >
                 {SPORT_OPTIONS.map((s) => (
@@ -1172,12 +1212,18 @@ const Admin = () => {
                   </option>
                 ))}
               </select>
-              <input
+              <select
                 value={userForm.position}
                 onChange={(e) => setUserForm({ ...userForm, position: e.target.value })}
-                placeholder="Position"
                 className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-              />
+              >
+                <option value="">Position</option>
+                {getPositions(userForm.sport).map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
               <input
                 type="date"
                 value={userForm.date_of_birth}
@@ -1195,18 +1241,18 @@ const Admin = () => {
                   </option>
                 ))}
               </select>
-              <input
-                value={userForm.age_category}
-                onChange={(e) => setUserForm({ ...userForm, age_category: e.target.value })}
-                placeholder="Age Category"
-                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-              />
-              <input
+              <select
                 value={userForm.competition_level}
                 onChange={(e) => setUserForm({ ...userForm, competition_level: e.target.value })}
-                placeholder="Competition Level"
                 className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-              />
+              >
+                <option value="">Competition Level</option>
+                {['Pro', 'Semi-Pro', 'University', 'Junior', 'AAA', 'AA', 'A', 'Recreational'].map((lvl) => (
+                  <option key={lvl} value={lvl}>
+                    {lvl}
+                  </option>
+                ))}
+              </select>
               <select
                 value={userForm.team_id}
                 onChange={(e) => setUserForm({ ...userForm, team_id: e.target.value })}
@@ -1505,31 +1551,58 @@ const Admin = () => {
                   </table>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_auto] gap-2 items-center">
+                <div className="grid grid-cols-1 gap-2">
                   <input
                     value={teamAddAthleteSearch}
                     onChange={(e) => setTeamAddAthleteSearch(e.target.value)}
                     placeholder="Search athlete"
                     className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
                   />
-                  <select
-                    value={teamAddAthleteSelect}
-                    onChange={(e) => setTeamAddAthleteSelect(e.target.value)}
-                    className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-                  >
-                    <option value="">Add Existing Athlete</option>
-                    {availableTeamAthletes.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.full_name} {a.sport ? `• ${a.sport}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="bg-[#0a0f0a] border border-pfa-border rounded-lg p-2 max-h-[200px] overflow-y-auto">
+                    {availableTeamAthletes.length === 0 ? (
+                      <div className="text-white/60 text-sm">No available athletes.</div>
+                    ) : (
+                      availableTeamAthletes.map((a) => {
+                        const checked = selectedTeamAthletes.includes(a.id)
+                        return (
+                          <label key={a.id} className="flex items-center gap-2 py-1 text-sm text-white/80">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedTeamAthletes((prev) => [...prev, a.id])
+                                } else {
+                                  setSelectedTeamAthletes((prev) => prev.filter((id) => id !== a.id))
+                                }
+                              }}
+                            />
+                            <span>
+                              {a.full_name}
+                              {a.sport ? ` • ${a.sport}` : ''}
+                            </span>
+                          </label>
+                        )
+                      })
+                    )}
+                  </div>
                   <button
                     type="button"
-                    className="bg-pfa-green text-black font-semibold px-3 py-2 rounded-lg"
-                    onClick={() => addExistingAthleteToTeam(editingTeam?.id, teamAddAthleteSelect)}
+                    className={`bg-pfa-green text-black font-semibold px-3 py-2 rounded-lg ${selectedTeamAthletes.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={selectedTeamAthletes.length === 0}
+                    onClick={async () => {
+                      if (!editingTeam?.id || selectedTeamAthletes.length === 0) return
+                      try {
+                        const inserts = selectedTeamAthletes.map((athlete_id) => ({ team_id: editingTeam.id, athlete_id }))
+                        await supabase.from('athlete_teams').insert(inserts)
+                        setSelectedTeamAthletes([])
+                        await loadTeamRoster(editingTeam.id)
+                      } catch (err) {
+                        console.error('Batch add athletes failed', err)
+                      }
+                    }}
                   >
-                    Add
+                    Add Selected ({selectedTeamAthletes.length})
                   </button>
                 </div>
 
@@ -1539,22 +1612,24 @@ const Admin = () => {
                     editingTeam?.id ? '' : 'opacity-50 cursor-not-allowed'
                   }`}
                   onClick={() => {
-                    if (!editingTeam?.id) return
-                    setTeamModalOpen(false)
                     setPendingTeamForNewAthlete(editingTeam)
-                    openCreateUser()
-                    setUserForm((prev) => ({
-                      ...prev,
-                      role: 'athlete',
-                      sport: SPORTS[0],
+                    setForceAthleteRole(true)
+                    setUserForm({
                       full_name: '',
                       email: '',
                       password: '',
-                      position: '',
+                      role: 'athlete',
+                      sport: '',
                       age_category: '',
+                      position: '',
+                      gender: 'male',
+                      date_of_birth: '',
                       competition_level: '',
                       team_id: '',
-                    }))
+                      linked_athlete_id: '',
+                    })
+                    setTeamModalOpen(false)
+                    setUserModalOpen(true)
                   }}
                 >
                   Create & Add New Athlete
