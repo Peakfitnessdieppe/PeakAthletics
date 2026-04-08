@@ -92,6 +92,32 @@ const scrapeThunderbirds = async (source) => {
   return players
 }
 
+const scrapeNHL = async (source) => {
+  const url = `https://api-web.nhle.com/v1/player/${source.nhlPlayerId}/landing`
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+  const data = await res.json()
+
+  const currentSeason = data.seasonTotals?.find(
+    (s) => s.season === 20252026 && s.gameTypeId === 2 && s.leagueAbbrev === 'NHL'
+  )
+  if (!currentSeason) return []
+
+  return [
+    {
+      full_name: source.full_name,
+      team_name: data.currentTeamAbbrev || 'TOR',
+      gp: currentSeason.gamesPlayed || 0,
+      goals: currentSeason.goals || 0,
+      assists: currentSeason.assists || 0,
+      points: currentSeason.points || 0,
+      ppg: currentSeason.powerPlayGoals || 0,
+      shg: currentSeason.shorthandedGoals || 0,
+      pim: currentSeason.pim || 0,
+      position: data.position || 'D',
+    },
+  ]
+}
+
 const SOURCES = [
   {
     name: 'NB U15 AAA',
@@ -124,6 +150,15 @@ const SOURCES = [
     age_category: 'U16',
     sport: 'Hockey',
     scraper: scrapeThunderbirds,
+  },
+  {
+    name: 'NHL - Philippe Myers',
+    nhlPlayerId: '8479026',
+    full_name: 'Philippe Myers',
+    league: 'NHL',
+    age_category: 'Senior',
+    sport: 'Hockey',
+    scraper: scrapeNHL,
   },
 ]
 
