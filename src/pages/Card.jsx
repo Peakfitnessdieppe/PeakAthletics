@@ -290,21 +290,48 @@ const Card = () => {
     if (!file || !profile?.id) return
     setUploading(true)
     try {
+      // Remove previous photo if present
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', profile.id)
+        .single()
+      if (fetchError && fetchError.code !== 'PGRST116') throw fetchError
+      const currentUrl = existingProfile?.avatar_url
+      if (currentUrl) {
+        const oldPath = (() => {
+          try {
+            const url = new URL(currentUrl)
+            const segments = url.pathname.split('/')
+            const bucketIndex = segments.findIndex((p) => decodeURIComponent(p) === 'Athlete Photos' || decodeURIComponent(p) === 'athlete-photos')
+            if (bucketIndex >= 0) return decodeURIComponent(segments.slice(bucketIndex + 1).join('/'))
+          } catch (err) {
+            console.error('Parse old avatar URL failed', err)
+          }
+          const extGuess = currentUrl.split('.').pop()
+          return `${profile.id}/avatar.${extGuess}`
+        })()
+        if (oldPath) {
+          const { error: removeError } = await supabase.storage.from('athlete-photos').remove([oldPath])
+          if (removeError) console.error('Remove old photo failed', removeError)
+        }
+      }
+
+      // Upload new with unique path
       const ext = file.name.split('.').pop()
-      const path = `${profile.id}/avatar.${ext}`
+      const path = `${profile.id}_${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage
-        .from('Athlete Photos')
+        .from('athlete-photos')
         .upload(path, file, { upsert: true })
       if (uploadError) throw uploadError
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('Athlete Photos').getPublicUrl(path)
+      const { data: urlData } = supabase.storage.from('athlete-photos').getPublicUrl(path)
+      const bustUrl = `${urlData.publicUrl}?t=${Date.now()}`
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+        .update({ avatar_url: urlData.publicUrl, updated_at: new Date().toISOString() })
         .eq('id', profile.id)
       if (profileError) throw profileError
-      setAvatarUrl(publicUrl)
+      setAvatarUrl(bustUrl)
       await fetchResults()
     } catch (err) {
       console.error('Upload failed', err)
@@ -506,33 +533,6 @@ const Card = () => {
                     </div>
                   </div>
                 )}
-                {avatarUrl && (
-                  <div
-                    className="absolute flex items-center gap-2"
-                    style={{ bottom: '108px', left: '12px', zIndex: 12 }}
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        fileInputRef.current?.click()
-                      }}
-                      style={{ fontSize: '10px', padding: '4px 10px', background: 'rgba(63,174,82,0.85)', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
-                    >
-                      Change Photo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={removePhoto}
-                      style={{ fontSize: '10px', padding: '4px 10px', background: 'rgba(255,64,64,0.85)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
-                    >
-                      Remove Photo
-                    </button>
-                    {photoMessage && (
-                      <span style={{ fontSize: '10px', color: '#3fae52' }}>{photoMessage}</span>
-                    )}
-                  </div>
-                )}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -700,7 +700,34 @@ const Card = () => {
               </div>
             </div>
           </div>
-          <div className="text-white/60 text-sm">Tap to flip</div>
+          {avatarUrl ? (
+            <div
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginTop: '12px' }}
+              className="text-white/60 text-sm"
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  fileInputRef.current?.click()
+                }}
+                style={{ fontSize: '10px', padding: '4px 10px', background: 'rgba(63,174,82,0.85)', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                Change Photo
+              </button>
+              <span>Tap to flip</span>
+              <button
+                type="button"
+                onClick={removePhoto}
+                style={{ fontSize: '10px', padding: '4px 10px', background: 'rgba(255,64,64,0.85)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                Remove Photo
+              </button>
+              {photoMessage && <span style={{ fontSize: '10px', color: '#3fae52' }}>{photoMessage}</span>}
+            </div>
+          ) : (
+            <div className="text-white/60 text-sm">Tap to flip</div>
+          )}
           <button
             type="button"
             onClick={() => navigate('/checkin')}

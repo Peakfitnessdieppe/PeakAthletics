@@ -7,6 +7,49 @@ import { getActiveSessionsToday, createSession, endSession, getAllTeams } from '
 import { getResultsForSession, saveTestResult, getResultsForAthlete, getBaselineResults } from '../services/testResults'
 import { supabase } from '../services/supabase'
 
+const TEST_UNITS = {
+  '10m_sprint': 's',
+  '30m_sprint': 's',
+  'pro_agility_shuttle': 's',
+  vertical_jump: 'cm',
+  broad_jump: 'm',
+  ncmj: 'cm',
+  mb_chest_pass: 'm',
+  beep_test: 'lvl',
+  squat: 'lbs',
+  trap_bar_deadlift: 'lbs',
+  bench_press: 'lbs',
+  pull_ups: 'reps',
+  push_ups: 'reps',
+  imtp: 'lbs',
+}
+
+const TEST_LABELS = {
+  '10m_sprint': '10m Sprint',
+  '30m_sprint': '30m Sprint',
+  vertical_jump: 'Vertical Jump',
+  broad_jump: 'Broad Jump',
+  ncmj: 'NCMJ',
+  mb_chest_pass: 'MB Chest Pass',
+  pro_agility_shuttle: 'Pro Agility',
+  beep_test: 'Beep Test',
+  squat: 'Squat',
+  trap_bar_deadlift: 'Trap Bar Deadlift',
+  bench_press: 'Bench Press',
+  pull_ups: 'Pull-Ups',
+  push_ups: 'Push-Ups',
+  imtp: 'IMTP',
+}
+
+const CATEGORY_COLORS = {
+  SPEED: '#3fae52',
+  POWER: '#f59e0b',
+  STRENGTH: '#ef4444',
+  AGILITY: '#8b5cf6',
+  ENDURANCE: '#06b6d4',
+  ANTHROPOMETRICS: '#ec4899',
+}
+
 const Session = () => {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -29,6 +72,11 @@ const Session = () => {
   const [anthropoForm, setAnthropoForm] = useState({ weight: '', bodyFat: '', height: '' })
   const [startError, setStartError] = useState('')
   const [starting, setStarting] = useState(false)
+  const [sessionHistory, setSessionHistory] = useState([])
+  const [expandedDates, setExpandedDates] = useState({})
+  const [historySearch, setHistorySearch] = useState('')
+  const [historyCategory, setHistoryCategory] = useState('All')
+  const [checkedInToday, setCheckedInToday] = useState(false)
   const inputRef = useRef(null)
 
   const currentAthlete = participants[currentIndex] || null
@@ -68,6 +116,10 @@ const Session = () => {
   }, [])
 
   useEffect(() => {
+    loadHistory()
+  }, [])
+
+  useEffect(() => {
     if (!sessionId) return
     const channel = supabase
       .channel(`session-${sessionId}`)
@@ -102,6 +154,19 @@ const Session = () => {
       setActiveSessions(sessionsData || [])
     } catch (err) {
       console.error('Failed to refresh sessions', err)
+    }
+  }
+
+  const loadHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pfa_test_results')
+        .select('id, test_type, value, date_tested, category, athlete_id, profiles(full_name, sport, position)')
+        .order('date_tested', { ascending: false })
+      if (error) throw error
+      setSessionHistory(data || [])
+    } catch (err) {
+      console.error('Failed to load test history', err)
     }
   }
 
@@ -225,6 +290,7 @@ const Session = () => {
         })
         setResults((prev) => [...prev, saved])
         setInputValue('')
+        loadHistory()
       }
       setCurrentIndex((idx) => Math.min(idx + 1, participants.length))
     } catch (err) {
@@ -487,7 +553,7 @@ const Session = () => {
                         style={inputStyle}
                       />
                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>
-                        {anthropoForm.height ? `${Math.floor(anthropoForm.height / 12)}'${Math.round(anthropoForm.height % 12)}"` : ''}
+                        {anthropoForm.height ? `${Math.floor(anthropoForm.height / 12)}'${Math.round(anthropoForm.height % 12)}` : ''}
                       </div>
                     </div>
                   ) : (
@@ -567,7 +633,210 @@ const Session = () => {
             </div>
           </div>
         </div>
+
       </div>
+    </div>
+  )
+
+  const renderHistory = () => (
+    <div className="max-w-6xl mx-auto" style={{ borderTop: '1px solid rgba(63,174,82,0.2)', marginTop: '40px', paddingTop: '32px' }}>
+      <div className="text-2xl font-bold text-white mb-4">Test History</div>
+
+      <div className="flex flex-col md:flex-row gap-3 mb-4">
+        <input
+          value={historySearch}
+          onChange={(e) => setHistorySearch(e.target.value)}
+          placeholder="Search athlete..."
+          className="w-full md:w-64 bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
+        />
+        <select
+          value={historyCategory}
+          onChange={(e) => setHistoryCategory(e.target.value)}
+          className="w-full md:w-48 bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
+        >
+          {['All', 'Speed', 'Power', 'Strength', 'Agility', 'Endurance', 'Anthropometrics'].map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {sessionHistory.length === 0 ? (
+        <div className="text-white/60">No sessions recorded yet.</div>
+      ) : (
+        <div className="space-y-2">
+          {(() => {
+            const grouped = {}
+            sessionHistory.forEach((item) => {
+              const dateOnly = new Date(item.date_tested).toISOString().split('T')[0]
+              if (!grouped[dateOnly]) grouped[dateOnly] = []
+              grouped[dateOnly].push(item)
+            })
+            const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a))
+
+            return sortedDates.map((date) => {
+              const items = grouped[date]
+              const uniqueAthletes = new Set(items.map((i) => i.athlete_id)).size
+              const uniqueCategories = Array.from(new Set(items.map((i) => (i.category || '').toUpperCase()))).filter(Boolean)
+              const totalResults = items.length
+              const resultsByCategory = {}
+              items.forEach((i) => {
+                const cat = (i.category || 'Unknown').toUpperCase()
+                if (!resultsByCategory[cat]) resultsByCategory[cat] = {}
+                if (!resultsByCategory[cat][i.test_type]) resultsByCategory[cat][i.test_type] = []
+                resultsByCategory[cat][i.test_type].push({
+                  full_name: i.profiles?.full_name,
+                  sport: i.profiles?.sport,
+                  position: i.profiles?.position,
+                  value: i.value,
+                })
+              })
+
+              const expanded = !!expandedDates[date]
+              const formattedDate = new Date(date).toLocaleDateString(undefined, {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })
+
+              return (
+                <div key={date} className={`bg-[#0d1a0e] border-b border-[rgba(63,174,82,0.2)] ${expanded ? 'border-l-4 border-l-pfa-green' : ''}`}>
+                  <div
+                    className="flex items-center justify-between gap-3 cursor-pointer hover:brightness-110"
+                    style={{ padding: '14px 16px' }}
+                    onClick={() => setExpandedDates((prev) => ({ ...prev, [date]: !prev[date] }))}
+                  >
+                    <div className="text-white font-semibold">{formattedDate}</div>
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
+                      {uniqueCategories.map((cat) => (
+                        <span
+                          key={cat}
+                          style={{
+                            background: `${(CATEGORY_COLORS[cat] || '#3fae52')}20`,
+                            color: CATEGORY_COLORS[cat] || '#3fae52',
+                            border: `1px solid ${(CATEGORY_COLORS[cat] || '#3fae52')}40`,
+                            padding: '4px 8px',
+                            borderRadius: '9999px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            letterSpacing: '0.05em',
+                          }}
+                        >
+                          {cat}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="text-white/70 text-sm flex items-center gap-2">
+                      <span>
+                        {uniqueAthletes} athletes · {totalResults} results
+                      </span>
+                      <span className="text-pfa-green">{expanded ? '▲' : '▼'}</span>
+                    </div>
+                  </div>
+
+                  {expanded && (
+                    <div style={{ padding: '0 16px 16px' }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                          gap: '12px',
+                          paddingTop: '12px',
+                        }}
+                      >
+                        {Object.entries(resultsByCategory)
+                          .filter(([cat]) => historyCategory === 'All' || cat === historyCategory.toUpperCase())
+                          .map(([cat, tests]) => {
+                            const testEntries = Object.entries(tests)
+                            const totalTests = testEntries.length
+                            const athleteIds = new Set()
+                            testEntries.forEach(([, list]) => list.forEach((ath) => athleteIds.add(ath.full_name)))
+                            const matchSearch = (name) => {
+                              if (!historySearch) return true
+                              return name?.toLowerCase().includes(historySearch.toLowerCase())
+                            }
+
+                            return (
+                              <div
+                                key={cat}
+                                style={{
+                                  background: '#0a0f0a',
+                                  border: '1px solid rgba(63,174,82,0.15)',
+                                  borderRadius: '10px',
+                                  padding: '12px',
+                                }}
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div
+                                    style={{
+                                      color: CATEGORY_COLORS[cat] || '#3fae52',
+                                      fontWeight: 800,
+                                      letterSpacing: '0.08em',
+                                    }}
+                                  >
+                                    {cat}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: '11px',
+                                      color: 'rgba(255,255,255,0.6)',
+                                      background: 'rgba(255,255,255,0.05)',
+                                      padding: '4px 8px',
+                                      borderRadius: '9999px',
+                                    }}
+                                  >
+                                    {totalTests} tests · {athleteIds.size} athletes
+                                  </div>
+                                </div>
+                                <div className="space-y-3">
+                                  {testEntries.map(([testType, athleteList]) => {
+                                    const label = TEST_LABELS[testType] || testType
+                                    const unit = TEST_UNITS[testType] || ''
+                                    return (
+                                      <div key={testType}>
+                                        <div className="text-white/80 text-sm font-semibold mb-1">{label}</div>
+                                        <div className="space-y-1">
+                                          {athleteList.map((ath, idx) => {
+                                            const matches = matchSearch(ath.full_name)
+                                            const shouldDim = historySearch && !matches
+                                            return (
+                                              <div
+                                                key={`${testType}-${idx}-${ath.full_name}`}
+                                                style={{
+                                                  background: matches ? 'rgba(63,174,82,0.1)' : 'transparent',
+                                                  opacity: shouldDim ? 0.3 : 1,
+                                                  padding: '6px 8px',
+                                                  borderRadius: '8px',
+                                                  border: '1px solid rgba(255,255,255,0.04)',
+                                                }}
+                                              >
+                                                <div className="text-sm font-semibold text-white">{ath.full_name || 'Unknown'}</div>
+                                                <div className="text-xs text-white/60">
+                                                  {ath.sport || 'Sport'} {ath.position ? `· ${ath.position}` : ''}
+                                                </div>
+                                                <div className="text-xs text-pfa-green font-semibold">{ath.value}{unit}</div>
+                                              </div>
+                                            )
+                                          })}
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          })()}
+        </div>
+      )}
     </div>
   )
 
@@ -579,7 +848,14 @@ const Session = () => {
     )
   }
 
-  return <DashboardLayout>{sessionId ? renderLive() : renderSetup()}</DashboardLayout>
+  return (
+    <DashboardLayout>
+      <>
+        {sessionId ? renderLive() : renderSetup()}
+        {renderHistory()}
+      </>
+    </DashboardLayout>
+  )
 }
 
 export default Session
