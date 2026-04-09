@@ -1,7 +1,11 @@
 import { supabase } from './supabase'
 
 export const createUser = async (userData) => {
-  const response = await fetch('/.netlify/functions/create-user', {
+  const functionUrl = window.location.hostname === 'localhost'
+    ? 'http://localhost:8888/.netlify/functions/create-user'
+    : '/.netlify/functions/create-user'
+
+  const response = await fetch(functionUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
