@@ -13,7 +13,6 @@ export const createUser = async (userData) => {
       age_category: userData.age_category,
       position: userData.position,
       gender: userData.gender,
-      dob: userData.date_of_birth,
       competition_level: userData.competition_level,
       team_id: userData.team_id || null,
     }),

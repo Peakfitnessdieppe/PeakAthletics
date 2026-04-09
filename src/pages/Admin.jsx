@@ -52,7 +52,6 @@ const Admin = () => {
     role: 'pfa_staff',
     sport: SPORTS[0],
     position: '',
-    date_of_birth: '',
     gender: 'male',
     age_category: '',
     competition_level: '',
@@ -543,7 +542,6 @@ const Admin = () => {
       role: 'pfa_staff',
       sport: SPORTS[0],
       position: '',
-      date_of_birth: '',
       gender: 'male',
       age_category: '',
       competition_level: '',
@@ -562,7 +560,6 @@ const Admin = () => {
       role: userRow.role || 'pfa_staff',
       sport: userRow.sport || SPORTS[0],
       position: userRow.position || '',
-      date_of_birth: userRow.date_of_birth ? userRow.date_of_birth.slice(0, 10) : '',
       gender: userRow.gender || 'male',
       age_category: userRow.age_category || '',
       competition_level: userRow.competition_level || '',
@@ -747,7 +744,6 @@ const Admin = () => {
       age_category: '',
       position: '',
       gender: 'male',
-      date_of_birth: '',
       competition_level: '',
       team_id: '',
     })
@@ -1224,12 +1220,6 @@ const Admin = () => {
                   </option>
                 ))}
               </select>
-              <input
-                type="date"
-                value={userForm.date_of_birth}
-                onChange={(e) => setUserForm({ ...userForm, date_of_birth: e.target.value })}
-                className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-              />
               <select
                 value={userForm.gender}
                 onChange={(e) => setUserForm({ ...userForm, gender: e.target.value })}
@@ -1623,7 +1613,6 @@ const Admin = () => {
                       age_category: '',
                       position: '',
                       gender: 'male',
-                      date_of_birth: '',
                       competition_level: '',
                       team_id: '',
                       linked_athlete_id: '',

@@ -10,7 +10,7 @@ exports.handler = async (event) => {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
-  const { email, password, full_name, role, sport, age_category, position, gender, dob, competition_level, team_id } = JSON.parse(event.body)
+  const { email, password, full_name, role, sport, age_category, position, gender, competition_level, team_id } = JSON.parse(event.body)
 
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
@@ -38,7 +38,6 @@ exports.handler = async (event) => {
         age_category: age_category || null,
         position: position || null,
         gender: gender || 'male',
-        dob: dob || null,
         competition_level: competition_level || null,
         email: email,
       },
