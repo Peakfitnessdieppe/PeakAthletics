@@ -30,40 +30,44 @@ const Dashboard = () => {
 
   const loadData = async () => {
     try {
+      // Step 1: get team ids for this coach
       const { data: teamData, error: teamError } = await supabase
         .from('pfa_teams')
         .select('id, name, sport, age_category, competition_level, primary_color')
         .eq('coach_id', profile.id)
-      if (teamError) throw teamError
+
+      console.log('[Dashboard] teamData:', teamData, teamError)
       setTeams(teamData || [])
-      if (!teamData || !teamData.length) {
-        setRoster([])
-        setScores({})
-        setLastTested({})
-        return
-      }
+
+      if (!teamData || teamData.length === 0) return
 
       const teamIds = teamData.map((t) => t.id)
-      const { data: rosterData, error: rosterError } = await supabase
-        .from('athlete_teams')
-        .select('athlete_id, team_id, profiles(id, full_name, sport, position, age_category, gender, avatar_url)')
-        .in('team_id', teamIds)
-      if (rosterError) throw rosterError
-      const rosterList = (rosterData || [])
-        .map((r) => ({
-          athlete_id: r.athlete_id,
-          team_id: r.team_id,
-          ...r.profiles,
-        }))
-        .filter((r) => r.role === 'athlete')
-      setRoster(rosterList)
 
-      const athleteIds = rosterList.map((r) => r.id)
-      if (!athleteIds.length) {
-        setScores({})
-        setLastTested({})
+      // Step 2: get athlete_ids from athlete_teams
+      const { data: athleteTeamLinks, error: linkError } = await supabase
+        .from('athlete_teams')
+        .select('athlete_id, team_id')
+        .in('team_id', teamIds)
+
+      console.log('[Dashboard] athleteTeamLinks:', athleteTeamLinks, linkError)
+
+      const athleteIds = [...new Set((athleteTeamLinks || []).map((r) => r.athlete_id))]
+      console.log('[Dashboard] athleteIds:', athleteIds)
+
+      if (athleteIds.length === 0) {
+        setRoster([])
         return
       }
+
+      // Step 3: get athlete profiles separately
+      const { data: athleteProfiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, sport, position, age_category, gender, avatar_url, role')
+        .in('id', athleteIds)
+        .eq('role', 'athlete')
+
+      console.log('[Dashboard] athleteProfiles:', athleteProfiles, profileError)
+      setRoster(athleteProfiles || [])
 
       const [
         { data: scoreData, error: scoreError },

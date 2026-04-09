@@ -22,7 +22,7 @@ import {
 import { SPORTS } from '../constants/sports'
 import { formatRole } from '../utils/formatRole'
 
-const sectionList = ['Dashboard', 'Users', 'Teams', 'Athletes', 'Roster', 'Settings']
+const sectionList = ['Dashboard', 'Users', 'Teams', 'Coaches', 'Athletes', 'Roster', 'Settings']
 
 const navItemBase =
   'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium cursor-pointer transition-colors'
@@ -83,6 +83,12 @@ const Admin = () => {
   const [forceAthleteRole, setForceAthleteRole] = useState(false)
   const [selectedTeamAthletes, setSelectedTeamAthletes] = useState([])
 
+  const [coaches, setCoaches] = useState([])
+  const [coachesLoading, setCoachesLoading] = useState(false)
+  const [expandedCoaches, setExpandedCoaches] = useState({})
+  const [coachAddSelected, setCoachAddSelected] = useState([])
+  const [coachAddSearch, setCoachAddSearch] = useState('')
+
   const [athletes, setAthletes] = useState([])
   const [athletesLoading, setAthletesLoading] = useState(false)
   const [athleteSearch, setAthleteSearch] = useState('')
@@ -136,6 +142,33 @@ const Admin = () => {
     const ft = Math.floor(inches / 12)
     const ins = Math.round(inches % 12)
     return `${ft}'${ins}`
+  }
+
+  const loadCoaches = async () => {
+    setCoachesLoading(true)
+    try {
+      const { data: coachProfiles, error: coachError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('role', 'team_coach')
+        .order('full_name')
+      if (coachError) throw coachError
+
+      const { data: allTeams, error: teamsError } = await supabase
+        .from('pfa_teams')
+        .select('id, name, sport, coach_id')
+      if (teamsError) throw teamsError
+      setTeams(allTeams || [])
+
+      const coachesWithTeams = (coachProfiles || []).map((c) => ({
+        ...c,
+        team: (allTeams || []).find((t) => t.coach_id === c.id) || null,
+      }))
+      setCoaches(coachesWithTeams)
+    } catch (err) {
+      console.error('Load coaches failed', err)
+    }
+    setCoachesLoading(false)
   }
 
   const SPORT_OPTIONS = useMemo(() => {
@@ -341,6 +374,202 @@ const Admin = () => {
     </div>
   )
 
+  const renderCoaches = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-white">Coaches</h3>
+          <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/70">{coaches.length}</span>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
+        <table className="min-w-full text-sm">
+          <thead className="text-white/60">
+            <tr className="border-b border-pfa-border">
+              <th className="py-3 px-3 text-left">Name</th>
+              <th className="py-3 px-3 text-left">Email</th>
+              <th className="py-3 px-3 text-left">Assigned Team</th>
+              <th className="py-3 px-3 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-pfa-border">
+            {coachesLoading ? (
+              <tr>
+                <td className="py-3 px-3 text-white/60" colSpan={4}>
+                  Loading coaches...
+                </td>
+              </tr>
+            ) : coaches.length === 0 ? (
+              <tr>
+                <td className="py-3 px-3 text-white/60" colSpan={4}>
+                  No coaches found.
+                </td>
+              </tr>
+            ) : (
+              coaches.map((coach) => {
+                const expanded = !!expandedCoaches[coach.id]
+                return (
+                  <React.Fragment key={coach.id}>
+                    <tr
+                      className="hover:bg-white/5 cursor-pointer"
+                      onClick={() => {
+                        setExpandedCoaches((prev) => ({ ...prev, [coach.id]: !expanded }))
+                        if (!expanded && coach.team?.id) {
+                          loadTeamRoster(coach.team.id)
+                          setCoachAddSelected([])
+                          setCoachAddSearch('')
+                        }
+                      }}
+                    >
+                      <td className="py-3 px-3 text-white">{coach.full_name}</td>
+                      <td className="py-3 px-3">{coach.email}</td>
+                      <td className="py-3 px-3">{coach.team?.name || '—'}</td>
+                      <td className="py-3 px-3 space-y-2">
+                        <select
+                          value={coach.team?.id || ''}
+                          onChange={(e) => handleReassignCoach(coach, e.target.value)}
+                          className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white w-full"
+                        >
+                          <option value="">Select team</option>
+                          {teams.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
+                        </select>
+                        {coach.team?.id && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleRemoveCoachTeam(coach)
+                            }}
+                            className="text-xs px-3 py-2 rounded-md bg-white/10 text-white/80 hover:bg-white/20"
+                          >
+                            Remove from Team
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr className="bg-[#0a0f0a]">
+                        <td colSpan={4} className="py-3 px-3">
+                          {coach.team?.id ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="text-white/80 text-sm">Roster — {coach.team.name}</div>
+                                <div className="text-white/60 text-xs">
+                                  {teamRosterMap[coach.team.id]?.length || 0} athletes
+                                </div>
+                              </div>
+
+                              <div className="bg-[#0d1a0e] border border-pfa-border rounded-lg overflow-hidden">
+                                <table className="min-w-full text-xs">
+                                  <thead className="text-white/60">
+                                    <tr className="border-b border-pfa-border">
+                                      <th className="py-2 px-3 text-left">Name</th>
+                                      <th className="py-2 px-3 text-left">Sport</th>
+                                      <th className="py-2 px-3 text-left">Position</th>
+                                      <th className="py-2 px-3 text-left">Age Category</th>
+                                      <th className="py-2 px-3 text-left">Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-pfa-border">
+                                    {(teamRosterMap[coach.team.id] || []).map((ath) => (
+                                      <tr key={ath.athlete_id}>
+                                        <td className="py-2 px-3 text-white">{ath.profiles?.full_name}</td>
+                                        <td className="py-2 px-3">{ath.profiles?.sport || '—'}</td>
+                                        <td className="py-2 px-3">{ath.profiles?.position || '—'}</td>
+                                        <td className="py-2 px-3">{ath.profiles?.age_category || '—'}</td>
+                                        <td className="py-2 px-3">
+                                          <button
+                                            className="text-xs px-3 py-1 rounded-md bg-red-500/20 text-red-300 hover:bg-red-500/30"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              removeAthleteFromTeam(coach.team.id, ath.athlete_id)
+                                            }}
+                                          >
+                                            Remove
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                    {(teamRosterMap[coach.team.id] || []).length === 0 && (
+                                      <tr>
+                                        <td className="py-2 px-3 text-white/60" colSpan={5}>
+                                          No athletes assigned yet.
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    value={coachAddSearch}
+                                    onChange={(e) => setCoachAddSearch(e.target.value)}
+                                    placeholder="Search athletes"
+                                    className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
+                                  />
+                                  <button
+                                    className="px-3 py-2 rounded-md bg-pfa-green text-black text-sm font-semibold"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      addAthletesToCoachTeam(coach.team.id)
+                                    }}
+                                    disabled={coachAddSelected.length === 0}
+                                  >
+                                    Add Selected ({coachAddSelected.length})
+                                  </button>
+                                </div>
+                                <div className="max-h-48 overflow-y-auto space-y-1 border border-pfa-border rounded-lg p-2 bg-[#0d1a0e]">
+                                  {teamAthleteOptions
+                                    .filter((a) => !teamRosterMap[coach.team.id]?.some((ra) => ra.athlete_id === a.id))
+                                    .filter((a) => a.full_name.toLowerCase().includes(coachAddSearch.toLowerCase()))
+                                    .map((a) => {
+                                      const checked = coachAddSelected.includes(a.id)
+                                      return (
+                                        <label key={a.id} className="flex items-center gap-2 text-white/80 text-sm">
+                                          <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={(e) => {
+                                              if (e.target.checked) {
+                                                setCoachAddSelected((prev) => [...prev, a.id])
+                                              } else {
+                                                setCoachAddSelected((prev) => prev.filter((id) => id !== a.id))
+                                              }
+                                            }}
+                                          />
+                                          <span>{a.full_name} — {a.sport} {a.position ? `· ${a.position}` : ''}</span>
+                                        </label>
+                                      )
+                                    })}
+                                  {teamAthleteOptions.filter((a) => !teamRosterMap[coach.team.id]?.some((ra) => ra.athlete_id === a.id)).length === 0 && (
+                                    <div className="text-white/50 text-sm">No available athletes.</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-white/60 text-sm">No team assigned — reassign a team first.</div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+
   const filteredAthletes = useMemo(() => {
     const term = athleteSearch.toLowerCase()
     return athletes
@@ -468,6 +697,13 @@ const Admin = () => {
     loadRoster()
     loadRosterStats()
   }, [])
+
+  useEffect(() => {
+    if (activeSection === 'Coaches') {
+      loadCoaches()
+      loadAllAthletesForTeams()
+    }
+  }, [activeSection])
 
   const loadRoster = async () => {
     setRosterLoading(true)
@@ -727,6 +963,42 @@ const Admin = () => {
       loadTeamRoster(teamId)
     } catch (err) {
       console.error('Add athlete to team failed', err)
+    }
+  }
+
+  const addAthletesToCoachTeam = async (teamId) => {
+    if (!teamId || coachAddSelected.length === 0) return
+    try {
+      const inserts = coachAddSelected.map((athlete_id) => ({ team_id: teamId, athlete_id }))
+      console.log('[Coaches] Inserting athletes:', coachAddSelected, 'to team:', teamId)
+      const { data, error } = await supabase.from('athlete_teams').insert(inserts)
+      console.log('[Coaches] Insert result:', data, error)
+      setCoachAddSelected([])
+      await loadTeamRoster(teamId)
+    } catch (err) {
+      console.error('Add athletes to coach team failed', err)
+    }
+  }
+
+  const handleReassignCoach = async (coach, teamId) => {
+    try {
+      await supabase.from('pfa_teams').update({ coach_id: null }).eq('coach_id', coach.id)
+      if (teamId) {
+        await supabase.from('pfa_teams').update({ coach_id: coach.id }).eq('id', teamId)
+      }
+      await loadCoaches()
+    } catch (err) {
+      console.error('Reassign coach failed', err)
+    }
+  }
+
+  const handleRemoveCoachTeam = async (coach) => {
+    if (!coach?.team?.id) return
+    try {
+      await supabase.from('pfa_teams').update({ coach_id: null }).eq('id', coach.team.id)
+      await loadCoaches()
+    } catch (err) {
+      console.error('Remove coach from team failed', err)
     }
   }
 
@@ -1923,6 +2195,8 @@ const Admin = () => {
         return renderUsers()
       case 'Teams':
         return renderTeams()
+      case 'Coaches':
+        return renderCoaches()
       case 'Athletes':
         return renderAthletes()
       case 'Roster':
