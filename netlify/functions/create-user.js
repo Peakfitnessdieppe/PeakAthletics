@@ -29,22 +29,26 @@ exports.handler = async (event) => {
 
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
-    .update({
-      full_name,
-      role,
-      sport,
-      age_category,
-      position,
-      gender,
-      dob: dob || null,
-      competition_level,
-    })
-    .eq('id', userId)
+    .upsert(
+      {
+        id: userId,
+        full_name,
+        role,
+        sport: sport || null,
+        age_category: age_category || null,
+        position: position || null,
+        gender: gender || 'male',
+        dob: dob || null,
+        competition_level: competition_level || null,
+        email: email,
+      },
+      { onConflict: 'id' }
+    )
 
   if (profileError) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: profileError.message }),
+      body: JSON.stringify({ error: 'Auth user created but profile failed: ' + profileError.message }),
     }
   }
 
