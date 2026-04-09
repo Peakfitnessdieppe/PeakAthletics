@@ -111,7 +111,7 @@ const Admin = () => {
   const [rosterStats, setRosterStats] = useState({ total: 0, linked: 0, pending: 0, results: 0 })
   const [rosterSearch, setRosterSearch] = useState('')
   const [rosterSportFilter, setRosterSportFilter] = useState('All')
-  const [rosterTab, setRosterTab] = useState('Pending')
+  const [rosterTab, setRosterTab] = useState('All')
   const [rosterModalOpen, setRosterModalOpen] = useState(false)
   const [selectedRosterAthlete, setSelectedRosterAthlete] = useState(null)
   const [rosterEmail, setRosterEmail] = useState('')
@@ -809,6 +809,7 @@ const Admin = () => {
               <th className="py-3 px-3 text-left">Email</th>
               <th className="py-3 px-3 text-left">Sport</th>
               <th className="py-3 px-3 text-left">Results Migrated</th>
+              <th className="py-3 px-3 text-left">Status</th>
             </tr>
           ) : (
             <tr className="border-b border-pfa-border">
@@ -819,6 +820,7 @@ const Admin = () => {
               <th className="py-3 px-3 text-left">Team</th>
               <th className="py-3 px-3 text-left">Age Category</th>
               <th className="py-3 px-3 text-left">Competition Level</th>
+              <th className="py-3 px-3 text-left">Status</th>
               <th className="py-3 px-3 text-left">Action</th>
             </tr>
           )}
@@ -826,26 +828,55 @@ const Admin = () => {
         <tbody className="divide-y divide-pfa-border">
           {rosterLoading ? (
             <tr>
-              <td className="py-3 px-3 text-white/60" colSpan={8}>
+              <td className="py-3 px-3 text-white/60" colSpan={linkedView ? 5 : 9}>
                 Loading...
               </td>
             </tr>
           ) : rows.length === 0 ? (
             <tr>
-              <td className="py-3 px-3 text-white/60" colSpan={8}>
+              <td className="py-3 px-3 text-white/60" colSpan={linkedView ? 5 : 9}>
                 No athletes found.
               </td>
             </tr>
           ) : (
             rows.map((r) => (
-              <tr key={r.id} className="hover:bg-white/5">
-                <td className="py-3 px-3 text-white">{r.full_name}</td>
+              (() => {
+                const status = (r.status || (r.auth_linked ? 'linked' : 'pending')).toLowerCase()
+                const isPending = status === 'pending'
+                const statusStyles = isPending
+                  ? { background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }
+                  : { background: 'rgba(63,174,82,0.1)', color: '#3fae52' }
+                return (
+                  <tr
+                    key={r.id}
+                    className="hover:bg-white/5"
+                    style={
+                      isPending
+                        ? { background: 'rgba(245,158,11,0.05)', borderLeft: '3px solid #f59e0b' }
+                        : undefined
+                    }
+                  >
+                    <td className="py-3 px-3 text-white">{r.full_name}</td>
                 {linkedView ? (
                   <>
                     <td className="py-3 px-3">{r.linked_email || r.email || '-'}</td>
                     <td className="py-3 px-3">{r.sport || '-'}</td>
                     <td className="py-3 px-3 text-pfa-green font-semibold">
                       {rosterResultCounts[r.id] ?? 0}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          padding: '4px 10px',
+                          borderRadius: '999px',
+                          fontWeight: 700,
+                          background: statusStyles.background,
+                          color: statusStyles.color,
+                        }}
+                      >
+                        {isPending ? 'Pending' : 'Linked'}
+                      </span>
                     </td>
                   </>
                 ) : (
@@ -856,6 +887,20 @@ const Admin = () => {
                     <td className="py-3 px-3">{r.team || '-'}</td>
                     <td className="py-3 px-3">{r.age_category || '-'}</td>
                     <td className="py-3 px-3">{r.competition_level || '-'}</td>
+                    <td className="py-3 px-3">
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          padding: '4px 10px',
+                          borderRadius: '999px',
+                          fontWeight: 700,
+                          background: statusStyles.background,
+                          color: statusStyles.color,
+                        }}
+                      >
+                        {isPending ? 'Pending' : 'Linked'}
+                      </span>
+                    </td>
                     <td className="py-3 px-3">
                       {r.auth_linked ? (
                         <div className="flex items-center gap-2 text-pfa-green">✓ Linked</div>
@@ -875,7 +920,9 @@ const Admin = () => {
                     </td>
                   </>
                 )}
-              </tr>
+                  </tr>
+                )
+              })()
             ))
           )}
         </tbody>
@@ -949,7 +996,7 @@ const Admin = () => {
         </div>
 
         <div className="flex gap-2 bg-[#0d1a0e] border border-pfa-border rounded-lg p-1 w-full md:w-auto">
-          {['Pending', 'Linked Athletes'].map((tab) => {
+          {['All', 'Pending', 'Linked Athletes'].map((tab) => {
             const active = rosterTab === tab
             return (
               <button
@@ -966,7 +1013,9 @@ const Admin = () => {
 
       {rosterTab === 'Pending'
         ? renderRosterTable(pendingRosterRows, false)
-        : renderRosterTable(linkedRosterRows, true)}
+        : rosterTab === 'Linked Athletes'
+        ? renderRosterTable(linkedRosterRows, true)
+        : renderRosterTable(filteredRoster, false)}
 
       {rosterModalOpen && selectedRosterAthlete && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">

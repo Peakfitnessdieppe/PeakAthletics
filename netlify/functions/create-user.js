@@ -51,6 +51,19 @@ exports.handler = async (event) => {
     }
   }
 
+  // If role is team_coach and team_id provided, assign as coach of that team
+  if (role === 'team_coach' && team_id) {
+    const { error: teamError } = await supabaseAdmin
+      .from('pfa_teams')
+      .update({ coach_id: userId })
+      .eq('id', team_id)
+
+    if (teamError) {
+      console.error('Team coach assignment failed:', teamError.message)
+      // Don't fail the whole request — user was created successfully
+    }
+  }
+
   if (team_id) {
     await supabaseAdmin.from('athlete_teams').insert({ team_id, athlete_id: userId })
   }
