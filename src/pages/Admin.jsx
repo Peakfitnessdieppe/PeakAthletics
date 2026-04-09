@@ -27,6 +27,18 @@ const sectionList = ['Dashboard', 'Users', 'Teams', 'Coaches', 'Athletes', 'Rost
 const navItemBase =
   'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium cursor-pointer transition-colors'
 
+const SECTION_LABELS = {
+  users: 'Users',
+  teams: 'Teams',
+  coaches: 'Coaches',
+  athletes: 'Athletes',
+  roster: 'Roster',
+  settings: 'Settings',
+  scoreWeights: 'Score Weights',
+  measurements: 'Measurements',
+  dashboard: 'Dashboard',
+}
+
 const Admin = () => {
   const { user, profile, signOut } = useAuth()
   const [activeSection, setActiveSection] = useState('Dashboard')
@@ -127,6 +139,20 @@ const Admin = () => {
 
   const [passwordChange, setPasswordChange] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
+
+  const [weightOverrides, setWeightOverrides] = useState([])
+  const [weightForm, setWeightForm] = useState({
+    sport: '',
+    age_category: '',
+    speed_weight: 25,
+    power_weight: 25,
+    strength_weight: 25,
+    agility_weight: 15,
+    endurance_weight: 10,
+  })
+  const [weightFormError, setWeightFormError] = useState('')
+  const [weightFormSuccess, setWeightFormSuccess] = useState('')
+  const [recalcStatus, setRecalcStatus] = useState('')
 
   const filteredUsers = useMemo(() => {
     const term = userSearch.toLowerCase()
@@ -702,6 +728,16 @@ const Admin = () => {
     if (activeSection === 'Coaches') {
       loadCoaches()
       loadAllAthletesForTeams()
+    }
+  }, [activeSection])
+
+  useEffect(() => {
+    if (activeSection === 'scoreWeights') {
+      supabase
+        .from('pfa_score_weights')
+        .select('*')
+        .order('sport', { ascending: true })
+        .then(({ data }) => setWeightOverrides(data || []))
     }
   }, [activeSection])
 
@@ -2159,6 +2195,280 @@ const Admin = () => {
     </div>
   )
 
+  const renderScoreWeights = () => {
+    const totalWeight =
+      weightForm.speed_weight +
+      weightForm.power_weight +
+      weightForm.strength_weight +
+      weightForm.agility_weight +
+      weightForm.endurance_weight
+
+    const handleSaveOverride = async () => {
+      if (totalWeight !== 100 || !weightForm.sport || !weightForm.age_category) return
+      setWeightFormError('')
+      setWeightFormSuccess('')
+      const { error } = await supabase
+        .from('pfa_score_weights')
+        .upsert(
+          {
+            sport: weightForm.sport,
+            age_category: weightForm.age_category,
+            speed_weight: weightForm.speed_weight / 100,
+            power_weight: weightForm.power_weight / 100,
+            strength_weight: weightForm.strength_weight / 100,
+            agility_weight: weightForm.agility_weight / 100,
+            endurance_weight: weightForm.endurance_weight / 100,
+            created_by: profile.id,
+          },
+          { onConflict: 'sport,age_category' }
+        )
+      if (error) {
+        setWeightFormError(error.message)
+        return
+      }
+      setWeightFormSuccess('Override saved!')
+      const { data } = await supabase.from('pfa_score_weights').select('*').order('sport')
+      setWeightOverrides(data || [])
+
+      setRecalcStatus('Recalculating scores...')
+      const { data: affected } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('sport', weightForm.sport)
+        .eq('age_category', weightForm.age_category)
+        .eq('role', 'athlete')
+      const athleteIds = (affected || []).map((a) => a.id)
+      if (athleteIds.length > 0) {
+        const fnUrl = window.location.hostname === 'localhost'
+          ? 'http://localhost:8888/.netlify/functions/calculate-scores'
+          : '/.netlify/functions/calculate-scores'
+        const res = await fetch(fnUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ athleteIds }),
+        })
+        const result = await res.json()
+        setRecalcStatus(
+          result.success
+            ? `✓ Recalculated scores for ${result.processed} athletes`
+            : `Error: ${result.error}`
+        )
+      } else {
+        setRecalcStatus('No athletes found for this sport/age combination')
+      }
+    }
+
+    const handleDeleteOverride = async (id) => {
+      await supabase.from('pfa_score_weights').delete().eq('id', id)
+      const { data } = await supabase.from('pfa_score_weights').select('*').order('sport')
+      setWeightOverrides(data || [])
+      setRecalcStatus('Override deleted. Athletes will now use default weights.')
+    }
+
+    const handleRecalcAll = async () => {
+      setRecalcStatus('Recalculating all scores...')
+      const fnUrl = window.location.hostname === 'localhost'
+        ? 'http://localhost:8888/.netlify/functions/calculate-scores'
+        : '/.netlify/functions/calculate-scores'
+      const res = await fetch(fnUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const result = await res.json()
+      setRecalcStatus(
+        result.success
+          ? `✓ Recalculated scores for ${result.processed} athletes`
+          : `Error: ${result.error}`
+      )
+    }
+
+    const defaultWeights = [
+      { label: 'Speed', value: 25 },
+      { label: 'Power', value: 25 },
+      { label: 'Strength', value: 25 },
+      { label: 'Agility', value: 15 },
+      { label: 'Endurance', value: 10 },
+    ]
+    const sliderFields = [
+      { label: 'Speed', key: 'speed_weight' },
+      { label: 'Power', key: 'power_weight' },
+      { label: 'Strength', key: 'strength_weight' },
+      { label: 'Agility', key: 'agility_weight' },
+      { label: 'Endurance', key: 'endurance_weight' },
+    ]
+
+    return (
+      <div style={{ padding: '32px' }}>
+        <div style={{ color: 'white', fontSize: '20px', fontWeight: '700', marginBottom: '24px' }}>
+          Score Weight System
+        </div>
+
+        {/* Default Weights Card */}
+        <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
+          <div style={{ color: 'white', fontWeight: '600', marginBottom: '4px' }}>Default Weights (All Sports / All Ages)</div>
+          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', marginBottom: '16px' }}>Applied to all athletes unless a custom override exists</div>
+          {defaultWeights.map((w) => (
+            <div key={w.label} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', width: '80px' }}>{w.label}</div>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.06)', borderRadius: '4px', height: '8px' }}>
+                <div style={{ width: `${w.value}%`, background: '#3fae52', height: '8px', borderRadius: '4px' }} />
+              </div>
+              <div style={{ color: '#3fae52', fontSize: '12px', fontWeight: '700', width: '40px', textAlign: 'right' }}>{w.value}%</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Custom Override Form */}
+        <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
+          <div style={{ color: 'white', fontWeight: '600', marginBottom: '16px' }}>Add Custom Weight Override</div>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+            <select
+              value={weightForm.sport}
+              onChange={(e) => setWeightForm({ ...weightForm, sport: e.target.value, age_category: '' })}
+              style={{ flex: 1, background: '#0a0f0a', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '8px', color: 'white', padding: '8px 12px' }}
+            >
+              <option value="">Select sport</option>
+              {(typeof SPORT_OPTIONS !== 'undefined' ? SPORT_OPTIONS : ['Hockey', 'Soccer', 'Basketball', 'Volleyball', 'Ringette', 'Track & Field']).map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            <select
+              value={weightForm.age_category}
+              onChange={(e) => setWeightForm({ ...weightForm, age_category: e.target.value })}
+              style={{ flex: 1, background: '#0a0f0a', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '8px', color: 'white', padding: '8px 12px' }}
+            >
+              <option value="">Select age category</option>
+              {(typeof getAgeCategories === 'function' ? getAgeCategories(weightForm.sport) : ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'University', 'Senior']).map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
+          {sliderFields.map((f) => (
+            <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', width: '80px' }}>{f.label}</div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={weightForm[f.key]}
+                onChange={(e) => setWeightForm({ ...weightForm, [f.key]: parseInt(e.target.value) })}
+                style={{ flex: 1, accentColor: '#3fae52' }}
+              />
+              <div style={{ color: '#3fae52', fontSize: '13px', fontWeight: '700', width: '40px', textAlign: 'right' }}>
+                {weightForm[f.key]}%
+              </div>
+            </div>
+          ))}
+          <div style={{ color: totalWeight === 100 ? '#3fae52' : '#ef4444', fontSize: '13px', marginBottom: '12px' }}>
+            Total: {totalWeight}% {totalWeight === 100 ? '✓' : '— must equal 100%'}
+          </div>
+          {weightFormError && <div style={{ color: '#ef4444', fontSize: '12px', marginBottom: '8px' }}>{weightFormError}</div>}
+          {weightFormSuccess && <div style={{ color: '#3fae52', fontSize: '12px', marginBottom: '8px' }}>{weightFormSuccess}</div>}
+          <button
+            onClick={handleSaveOverride}
+            disabled={totalWeight !== 100 || !weightForm.sport || !weightForm.age_category}
+            style={{
+              background:
+                totalWeight === 100 && weightForm.sport && weightForm.age_category
+                  ? '#3fae52'
+                  : 'rgba(63,174,82,0.2)',
+              color:
+                totalWeight === 100 && weightForm.sport && weightForm.age_category
+                  ? 'black'
+                  : 'rgba(255,255,255,0.3)',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontWeight: '700',
+              cursor: totalWeight === 100 ? 'pointer' : 'not-allowed',
+            }}
+          >
+            Save Override
+          </button>
+        </div>
+
+        {/* Active Overrides */}
+        <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '20px' }}>
+          <div style={{ color: 'white', fontWeight: '600', marginBottom: '16px' }}>Active Overrides</div>
+          {weightOverrides.length === 0 ? (
+            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px', marginBottom: '16px' }}>
+              No custom overrides yet — all athletes use default weights
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
+              <thead>
+                <tr style={{ color: 'rgba(63,174,82,0.6)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  <th style={{ padding: '8px', textAlign: 'left' }}>Sport</th>
+                  <th style={{ padding: '8px', textAlign: 'left' }}>Age</th>
+                  <th style={{ padding: '8px', textAlign: 'center' }}>Speed</th>
+                  <th style={{ padding: '8px', textAlign: 'center' }}>Power</th>
+                  <th style={{ padding: '8px', textAlign: 'center' }}>Strength</th>
+                  <th style={{ padding: '8px', textAlign: 'center' }}>Agility</th>
+                  <th style={{ padding: '8px', textAlign: 'center' }}>Endurance</th>
+                  <th style={{ padding: '8px', textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weightOverrides.map((o) => (
+                  <tr key={o.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <td style={{ padding: '10px 8px', color: 'white', fontSize: '13px' }}>{o.sport}</td>
+                    <td style={{ padding: '10px 8px', color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>{o.age_category}</td>
+                    <td style={{ padding: '10px 8px', color: '#3fae52', fontSize: '13px', textAlign: 'center' }}>{Math.round(o.speed_weight * 100)}%</td>
+                    <td style={{ padding: '10px 8px', color: '#3fae52', fontSize: '13px', textAlign: 'center' }}>{Math.round(o.power_weight * 100)}%</td>
+                    <td style={{ padding: '10px 8px', color: '#3fae52', fontSize: '13px', textAlign: 'center' }}>{Math.round(o.strength_weight * 100)}%</td>
+                    <td style={{ padding: '10px 8px', color: '#3fae52', fontSize: '13px', textAlign: 'center' }}>{Math.round(o.agility_weight * 100)}%</td>
+                    <td style={{ padding: '10px 8px', color: '#3fae52', fontSize: '13px', textAlign: 'center' }}>{Math.round(o.endurance_weight * 100)}%</td>
+                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                      <button
+                        onClick={() => handleDeleteOverride(o.id)}
+                        style={{
+                          background: 'rgba(239,68,68,0.1)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(239,68,68,0.3)',
+                          borderRadius: '6px',
+                          padding: '4px 10px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {recalcStatus && (
+            <div style={{ color: recalcStatus.startsWith('✓') ? '#3fae52' : '#f59e0b', fontSize: '13px', marginBottom: '12px' }}>
+              {recalcStatus}
+            </div>
+          )}
+          <button
+            onClick={handleRecalcAll}
+            style={{
+              background: 'rgba(63,174,82,0.1)',
+              border: '1px solid rgba(63,174,82,0.3)',
+              color: '#3fae52',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '600',
+            }}
+          >
+            Recalculate All Scores
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const renderSettings = () => (
     <SectionContainer>
       <div className="flex items-center justify-between mb-4">
@@ -2236,6 +2546,19 @@ const Admin = () => {
                 </button>
               )
             })}
+            <div
+              onClick={() => setActiveSection('scoreWeights')}
+              style={{
+                padding: '12px 20px',
+                cursor: 'pointer',
+                color: activeSection === 'scoreWeights' ? '#3fae52' : 'rgba(255,255,255,0.7)',
+                borderLeft: activeSection === 'scoreWeights' ? '3px solid #3fae52' : '3px solid transparent',
+                background: activeSection === 'scoreWeights' ? 'rgba(63,174,82,0.08)' : 'transparent',
+                fontSize: '14px',
+              }}
+            >
+              Score Weights
+            </div>
             <a
               href="/session"
               className={`${navItemBase} block border border-transparent text-white/60 hover:text-pfa-green hover:border-pfa-green`}
@@ -2259,10 +2582,11 @@ const Admin = () => {
 
         <main className="space-y-6">
           <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-4 flex items-center justify-between">
-            <div className="text-lg font-semibold text-white">{activeSection}</div>
+            <div className="text-lg font-semibold text-white">{SECTION_LABELS[activeSection] || activeSection}</div>
             <div className="text-sm text-white/60">{profile?.full_name || 'Rick Leger'} — {formatRole(profile?.role)}</div>
           </div>
           {renderSection()}
+          {activeSection === 'scoreWeights' && renderScoreWeights()}
         </main>
       </div>
     </DashboardLayout>
