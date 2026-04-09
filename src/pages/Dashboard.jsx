@@ -1,373 +1,111 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import DashboardLayout from '../components/layout/DashboardLayout'
 import useAuth from '../hooks/useAuth'
 import { supabase } from '../services/supabase'
-import { getCheckins, markCheckinReviewed } from '../services/athletes'
-
-const tabList = ['Roster', 'Sessions', 'Check-ins']
 
 const Dashboard = () => {
   const navigate = useNavigate()
-  const { user, profile, loading } = useAuth()
-  const isCoach = profile?.role === 'team_coach'
+  const { user, profile, loading, signOut } = useAuth()
 
-  const [activeTab, setActiveTab] = useState('Roster')
-  const [athletes, setAthletes] = useState([])
-  const [athletesLoading, setAthletesLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [teams, setTeams] = useState([])
-  const [sessions, setSessions] = useState([])
-  const [sessionsLoading, setSessionsLoading] = useState(false)
-  const [checkins, setCheckins] = useState([])
-  const [checkinsLoading, setCheckinsLoading] = useState(false)
-  const [expandedAthleteId, setExpandedAthleteId] = useState(null)
-
-  const [recentResults, setRecentResults] = useState([])
-  const [compositeScores, setCompositeScores] = useState([])
+  const [roster, setRoster] = useState([])
+  const [scores, setScores] = useState({})
+  const [lastTested, setLastTested] = useState({})
+  const [activeTab, setActiveTab] = useState('roster')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
-    loadTeams()
-  }, [])
+    if (!profile?.id) return
+    loadData()
+  }, [profile?.id])
 
-  useEffect(() => {
-    if (!profile?.role) return
-    loadAthletesAndData()
-    loadSessions()
-    loadCheckins()
-  }, [profile?.role])
-
-  useEffect(() => {
-    if (teams.length === 0) return
-    loadAthletesAndData()
-    loadSessions()
-    loadCheckins()
-  }, [teams])
-
-  const loadTeams = async () => {
-    if (!user?.id) return
-    const { data } = await supabase.from('pfa_teams').select('*').eq('coach_id', user.id).order('name')
-    setTeams(data || [])
-  }
-
-  const loadAthletesAndData = async () => {
-    setAthletesLoading(true)
+  const loadData = async () => {
     try {
-      let roster = []
-      const teamIds = teams.map((t) => t.id)
-      if (teamIds.length) {
-        const { data: rosterData } = await supabase
-          .from('profiles')
-          .select('*, pfa_teams(name, sport)')
-          .eq('role', 'athlete')
-          .in('team_id', teamIds)
-          .order('full_name')
-        roster = rosterData || []
+      const { data: teamData, error: teamError } = await supabase
+        .from('pfa_teams')
+        .select('id, name, sport, age_category, competition_level, primary_color')
+        .eq('coach_id', profile.id)
+      if (teamError) throw teamError
+      setTeams(teamData || [])
+      if (!teamData || !teamData.length) {
+        setRoster([])
+        setScores({})
+        setLastTested({})
+        return
       }
-      setAthletes(roster || [])
-      const athleteIds = (roster || []).map((a) => a.id)
-      if (athleteIds.length) {
-        const [{ data: resultsData }, { data: compositeData }] = await Promise.all([
-          supabase
-            .from('pfa_test_results')
-            .select('*')
-            .in('athlete_id', athleteIds)
-            .order('date_tested', { ascending: false })
-            .limit(300),
-          supabase
-            .from('pfa_composite_scores')
-            .select('*')
-            .in('athlete_id', athleteIds)
-            .order('scored_at', { ascending: false })
-            .limit(200),
-        ])
-        setRecentResults(resultsData || [])
-        setCompositeScores(compositeData || [])
-      } else {
-        setRecentResults([])
-        setCompositeScores([])
+
+      const teamIds = teamData.map((t) => t.id)
+      const { data: rosterData, error: rosterError } = await supabase
+        .from('athlete_teams')
+        .select('athlete_id, team_id, profiles(id, full_name, sport, position, age_category, gender, avatar_url)')
+        .in('team_id', teamIds)
+      if (rosterError) throw rosterError
+      const rosterList = (rosterData || []).map((r) => ({
+        athlete_id: r.athlete_id,
+        team_id: r.team_id,
+        ...r.profiles,
+      }))
+      setRoster(rosterList)
+
+      const athleteIds = rosterList.map((r) => r.id)
+      if (!athleteIds.length) {
+        setScores({})
+        setLastTested({})
+        return
       }
-    } catch (err) {
-      console.error('Roster load error', err)
-    }
-    setAthletesLoading(false)
-  }
 
-  const loadSessions = async () => {
-    setSessionsLoading(true)
-    try {
-      let query = supabase.from('test_sessions').select('*, pfa_teams(name)').order('session_date', { ascending: false })
-      if (isCoach && profile?.team_id) {
-        query = query.eq('team_id', profile.team_id)
-      }
-      const { data } = await query
-      setSessions(data || [])
-    } catch (err) {
-      console.error('Sessions load error', err)
-    }
-    setSessionsLoading(false)
-  }
+      const [{ data: scoreData, error: scoreError }, { data: lastData, error: lastError }] = await Promise.all([
+        supabase
+          .from('pfa_composite_scores')
+          .select('athlete_id, overall_score, calculated_at')
+          .in('athlete_id', athleteIds)
+          .order('calculated_at', { ascending: false }),
+        supabase
+          .from('pfa_test_results')
+          .select('athlete_id, date_tested')
+          .in('athlete_id', athleteIds)
+          .order('date_tested', { ascending: false }),
+      ])
+      if (scoreError) throw scoreError
+      if (lastError) throw lastError
 
-  const loadCheckins = async () => {
-    setCheckinsLoading(true)
-    try {
-      const data = await getCheckins(isCoach ? profile?.team_id : null)
-      setCheckins(data || [])
-    } catch (err) {
-      console.error('Checkins load error', err)
-    }
-    setCheckinsLoading(false)
-  }
-
-  const filteredAthletes = useMemo(() => {
-    const term = search.toLowerCase()
-    return athletes.filter((a) => a.full_name?.toLowerCase().includes(term))
-  }, [athletes, search])
-
-  const getLatestComposite = (athleteId) => {
-    const list = compositeScores.filter((c) => c.athlete_id === athleteId)
-    if (!list.length) return null
-    return list.sort((a, b) => new Date(b.scored_at) - new Date(a.scored_at))[0]
-  }
-
-  const getTrend = (athleteId) => {
-    const list = compositeScores.filter((c) => c.athlete_id === athleteId).sort((a, b) => new Date(a.scored_at) - new Date(b.scored_at))
-    if (list.length < 2) return 'flat'
-    const first = list[0]?.overall_score
-    const last = list[list.length - 1]?.overall_score
-    if (last > first) return 'up'
-    if (last < first) return 'down'
-    return 'flat'
-  }
-
-  const getLastTested = (athleteId) => {
-    const res = recentResults.find((r) => r.athlete_id === athleteId)
-    return res?.date_tested?.slice(0, 10) || '—'
-  }
-
-  const getRecentByCategory = (athleteId) => {
-    const grouped = {}
-    recentResults
-      .filter((r) => r.athlete_id === athleteId)
-      .forEach((r) => {
-        if (!grouped[r.category]) grouped[r.category] = []
-        if (grouped[r.category].length < 3) grouped[r.category].push(r)
+      const latestScores = {}
+      ;(scoreData || []).forEach((s) => {
+        if (!latestScores[s.athlete_id]) latestScores[s.athlete_id] = s
       })
-    return grouped
-  }
+      const latestTested = {}
+      ;(lastData || []).forEach((l) => {
+        if (!latestTested[l.athlete_id]) latestTested[l.athlete_id] = l.date_tested
+      })
 
-  const metrics = useMemo(() => {
-    const total = filteredAthletes.length
-    const athleteIds = filteredAthletes.map((a) => a.id)
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    const testedThisMonth = recentResults.filter(
-      (r) => athleteIds.includes(r.athlete_id) && new Date(r.date_tested) >= startOfMonth
-    ).length
-    const avgScoreList = athleteIds
-      .map((id) => getLatestComposite(id)?.overall_score)
-      .filter((v) => typeof v === 'number')
-    const avgOverall = avgScoreList.length
-      ? (avgScoreList.reduce((a, b) => a + b, 0) / avgScoreList.length).toFixed(2)
-      : '—'
-    const needAttention = athleteIds.filter((id) => {
-      const res = recentResults.find((r) => r.athlete_id === id)
-      if (!res) return true
-      const days = (Date.now() - new Date(res.date_tested).getTime()) / (1000 * 60 * 60 * 24)
-      return days > 45
-    }).length
-    return { total, testedThisMonth, avgOverall, needAttention }
-  }, [filteredAthletes, recentResults, getLatestComposite])
-
-  const renderTrend = (athleteId) => {
-    const trend = getTrend(athleteId)
-    if (trend === 'up') return <span className="text-pfa-green">▲</span>
-    if (trend === 'down') return <span className="text-red-400">▼</span>
-    return <span className="text-white/50">—</span>
-  }
-
-  const renderRoster = () => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <MetricCard label="Total Athletes" value={metrics.total} />
-        <MetricCard label="Tested This Month" value={metrics.testedThisMonth} />
-        <MetricCard label="Avg Overall Score" value={metrics.avgOverall} />
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-3 items-start">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search athlete"
-          className="bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-pfa-green"
-        />
-      </div>
-
-      <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
-        <table className="min-w-full text-sm">
-          <thead className="text-white/60">
-            <tr className="border-b border-pfa-border">
-              <th className="py-3 px-3 text-left">Name</th>
-              <th className="py-3 px-3 text-left">Sport</th>
-              <th className="py-3 px-3 text-left">Position</th>
-              <th className="py-3 px-3 text-left">Age</th>
-              <th className="py-3 px-3 text-left">Last Tested</th>
-              <th className="py-3 px-3 text-left">Overall</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-pfa-border">
-            {athletesLoading ? (
-              <tr>
-                <td className="py-3 px-3 text-white/60" colSpan={6}>
-                  Loading...
-                </td>
-              </tr>
-            ) : (
-              filteredAthletes.map((a) => {
-                const latestComposite = getLatestComposite(a.id)
-                return (
-                  <tr key={a.id} className="hover:bg-white/5">
-                    <td className="py-3 px-3 flex items-center gap-2">
-                      <span
-                        className="text-white/90 hover:text-pfa-green underline-offset-2 hover:underline"
-                        onClick={() => navigate(`/report?athleteId=${a.id}`)}
-                      >
-                        {a.full_name}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">{a.sport || '—'}</td>
-                    <td className="py-3 px-3">{a.position || '-'}</td>
-                    <td className="py-3 px-3">{a.age_category || '-'}</td>
-                    <td className="py-3 px-3">{getLastTested(a.id)}</td>
-                    <td
-                      className="py-3 px-3 text-pfa-green font-semibold cursor-pointer hover:underline"
-                      onClick={() => navigate(`/report?athleteId=${a.id}`)}
-                    >
-                      {latestComposite?.overall_score ?? '—'}
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-
-const renderSessions = () => (
-  <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <h3 className="text-lg font-semibold text-white">Sessions</h3>
-      <button
-        onClick={() => navigate('/session')}
-        className="bg-pfa-green text-black font-semibold px-4 py-2 rounded-lg hover:brightness-110"
-      >
-        New Session
-      </button>
-    </div>
-    <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
-      <table className="min-w-full text-sm">
-        <thead className="text-white/60">
-          <tr className="border-b border-pfa-border">
-            <th className="py-3 px-3 text-left">Date</th>
-            <th className="py-3 px-3 text-left">Team/Group</th>
-            <th className="py-3 px-3 text-left">Test</th>
-            <th className="py-3 px-3 text-left">Status</th>
-            <th className="py-3 px-3 text-left">Conducted By</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-pfa-border">
-          {sessionsLoading ? (
-            <tr>
-              <td className="py-3 px-3 text-white/60" colSpan={5}>
-                Loading...
-              </td>
-            </tr>
-          ) : (
-            sessions.map((s) => (
-              <tr key={s.id} className="hover:bg-white/5">
-                <td className="py-3 px-3">{s.session_date}</td>
-                <td className="py-3 px-3">{s.pfa_teams?.name || 'No Team'}</td>
-                <td className="py-3 px-3">{s.test_type}</td>
-                <td className="py-3 px-3 capitalize">{s.status}</td>
-                <td className="py-3 px-3">{s.conducted_by || '—'}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)
-
-const renderCheckins = () => (
-  <div className="space-y-4">
-    <div className="text-lg font-semibold text-white">Recent Check-ins</div>
-    <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
-      <table className="min-w-full text-sm">
-        <thead className="text-white/60">
-          <tr className="border-b border-pfa-border">
-            <th className="py-3 px-3 text-left">Athlete</th>
-            <th className="py-3 px-3 text-left">Date</th>
-            <th className="py-3 px-3 text-left">Sleep</th>
-            <th className="py-3 px-3 text-left">Energy</th>
-            <th className="py-3 px-3 text-left">Stress</th>
-            <th className="py-3 px-3 text-left">Nutrition</th>
-            <th className="py-3 px-3 text-left">Soreness</th>
-            <th className="py-3 px-3 text-left">Notes</th>
-            <th className="py-3 px-3 text-left">Flagged</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-pfa-border">
-          {checkinsLoading ? (
-            <tr>
-              <td className="py-3 px-3 text-white/60" colSpan={9}>
-                Loading...
-              </td>
-            </tr>
-          ) : (
-            checkins.map((c) => (
-              <tr key={c.id} className="hover:bg-white/5 cursor-pointer" onClick={async () => {
-                await markCheckinReviewed(c.id, user?.id)
-                loadCheckins()
-              }}>
-                <td className="py-3 px-3">{c.profiles?.full_name}</td>
-                <td className="py-3 px-3">{c.checkin_date?.slice(0, 10)}</td>
-                <td className="py-3 px-3">{c.sleep}</td>
-                <td className="py-3 px-3">{c.energy}</td>
-                <td className="py-3 px-3">{c.stress}</td>
-                <td className="py-3 px-3">{c.nutrition}</td>
-                <td className="py-3 px-3">{c.soreness}</td>
-                <td className="py-3 px-3 truncate max-w-xs">{c.notes || '—'}</td>
-                <td className="py-3 px-3">{c.flagged ? <span className="text-red-400">Flagged</span> : '—'}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)
-
-  const renderTab = () => {
-    switch (activeTab) {
-      case 'Roster':
-        return renderRoster()
-      case 'Sessions':
-        return renderSessions()
-      case 'Check-ins':
-        return renderCheckins()
-      default:
-        return null
+      setScores(latestScores)
+      setLastTested(latestTested)
+    } catch (err) {
+      console.error('Dashboard load error', err)
     }
+  }
+
+  const filteredRoster = useMemo(() => {
+    const term = search.toLowerCase()
+    return roster.filter((r) => r.full_name?.toLowerCase().includes(term))
+  }, [roster, search])
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'Never'
+    const d = new Date(dateStr)
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const scorePill = (score) => {
+    if (typeof score !== 'number') return { bg: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', text: '—' }
+    if (score >= 70) return { bg: 'rgba(63,174,82,0.2)', color: '#3fae52', text: score }
+    if (score >= 50) return { bg: 'rgba(245,158,11,0.2)', color: '#f59e0b', text: score }
+    return { bg: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', text: score }
   }
 
   if (loading)
     return (
-      <div
-        style={{ background: '#0a0f0a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
+      <div style={{ background: '#0a0f0a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: '#3fae52', fontSize: '14px' }}>Loading...</div>
       </div>
     )
@@ -380,59 +118,170 @@ const renderCheckins = () => (
     return <Navigate to="/card" replace />
   }
 
+  const navItems = [
+    { key: 'roster', label: 'Roster', onClick: () => setActiveTab('roster') },
+    { key: 'sessions', label: 'Sessions', onClick: () => navigate('/session') },
+    { key: 'checkins', label: 'Check-ins', onClick: () => navigate('/checkin') },
+  ]
+
   return (
-    <DashboardLayout>
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
-        <aside className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-4 h-max">
-          <div className="text-sm font-semibold tracking-wide text-pfa-green mb-6">TEAM COACH DASHBOARD</div>
-          <div className="space-y-1">
-            {tabList.map((item) => (
-              <button
-                key={item}
-                onClick={() => setActiveTab(item)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
-                  activeTab === item ? 'bg-white/10 text-pfa-green border border-pfa-border' : 'text-white/60'
-                }`}
+    <div style={{ background: '#0a0f0a', minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column' }}>
+      <header
+        style={{
+          background: '#0d1a0e',
+          borderBottom: '1px solid rgba(63,174,82,0.2)',
+          padding: '16px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+        }}
+      >
+        <div style={{ color: '#3fae52', fontWeight: 800, letterSpacing: '0.12em' }}>PEAK FITNESS ATHLETICS</div>
+        <div style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>
+          {(profile?.full_name || user?.email || 'Coach') + ' — ' + (teams.map((t) => t.name).join(', ') || 'No Team')}
+        </div>
+        <button
+          onClick={signOut}
+          style={{
+            background: 'transparent',
+            color: 'rgba(255,255,255,0.8)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            padding: '8px 14px',
+            borderRadius: '10px',
+            cursor: 'pointer',
+          }}
+        >
+          Sign Out
+        </button>
+      </header>
+
+      <div style={{ display: 'flex', flex: 1 }}>
+        <aside
+          style={{
+            width: '220px',
+            background: '#0d1a0e',
+            borderRight: '1px solid rgba(63,174,82,0.15)',
+            paddingTop: '12px',
+          }}
+        >
+          {navItems.map((item) => {
+            const active = activeTab === item.key
+            return (
+              <div
+                key={item.key}
+                onClick={item.onClick}
+                style={{
+                  padding: '12px 20px',
+                  color: active ? '#3fae52' : 'rgba(255,255,255,0.7)',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  borderLeft: active ? '3px solid #3fae52' : '3px solid transparent',
+                  background: active ? 'rgba(63,174,82,0.08)' : 'transparent',
+                }}
               >
-                {item}
-              </button>
-            ))}
-            <a href="/session" className="block mt-2 text-sm text-pfa-green underline">
-              Go to Sessions
-            </a>
-            <a href="/checkin" className="block text-sm text-pfa-green underline">
-              Go to Check-ins
-            </a>
-          </div>
+                {item.label}
+              </div>
+            )
+          })}
         </aside>
 
-        <main className="space-y-6">
-          <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-4 flex items-center justify-between">
+        <main style={{ flex: 1, padding: '32px', minHeight: 'calc(100vh - 80px)' }}>
+          {activeTab === 'roster' && (
             <div>
-              <div className="text-lg font-semibold text-white">{activeTab}</div>
-              <div className="text-white/60 text-sm">{teams.map((t) => t.name).join(', ') || 'No team assigned'}</div>
-            </div>
-            <div className="flex items-center gap-3 text-sm text-white/70">
-              <div>{profile?.full_name || user?.email}</div>
-              <div className="capitalize">{profile?.role}</div>
-              <button onClick={signOut} className="text-white/60 hover:text-white">
-                Sign Out
-              </button>
-            </div>
-          </div>
+              <div style={{ color: '#fff', fontSize: '20px', fontWeight: 700, marginBottom: '16px' }}>Roster</div>
+              <div style={{ marginBottom: '16px' }}>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search athlete..."
+                  style={{
+                    width: '100%',
+                    maxWidth: '360px',
+                    background: '#0d1a0e',
+                    border: '1px solid rgba(63,174,82,0.2)',
+                    borderRadius: '10px',
+                    padding: '10px 12px',
+                    color: '#fff',
+                  }}
+                />
+              </div>
 
-          {renderTab()}
+              {!teams.length ? (
+                <div style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: '24px 0' }}>
+                  No team assigned. Contact admin.
+                </div>
+              ) : !roster.length ? (
+                <div style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: '24px 0' }}>
+                  No athletes on your roster yet.
+                </div>
+              ) : (
+                <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
+                      padding: '12px 16px',
+                      borderBottom: '1px solid rgba(63,174,82,0.2)',
+                      color: 'rgba(63,174,82,0.6)',
+                      fontSize: '11px',
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    <div>Name</div>
+                    <div>Sport</div>
+                    <div>Position</div>
+                    <div>Age Category</div>
+                    <div>Last Tested</div>
+                    <div>Overall Score</div>
+                  </div>
+
+                  {filteredRoster.map((ath) => {
+                    const scoreEntry = scores[ath.id]
+                    const last = lastTested[ath.id]
+                    const pill = scorePill(scoreEntry?.overall_score)
+                    return (
+                      <div
+                        key={ath.id}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
+                          padding: '12px 16px',
+                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <div style={{ color: '#fff', fontWeight: 700 }}>{ath.full_name || 'Unknown'}</div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)' }}>{ath.sport || '—'}</div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)' }}>{ath.position || '—'}</div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)' }}>{ath.age_category || '—'}</div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)' }}>{formatDate(last)}</div>
+                        <div>
+                          <span
+                            style={{
+                              background: pill.bg,
+                              color: pill.color,
+                              padding: '6px 10px',
+                              borderRadius: '999px',
+                              fontWeight: 700,
+                              fontSize: '12px',
+                            }}
+                          >
+                            {pill.text}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </main>
       </div>
-    </DashboardLayout>
+    </div>
   )
 }
-
-const MetricCard = ({ label, value }) => (
-  <div className="bg-[#0d1a0e] border border-pfa-border rounded-xl p-4">
-    <div className="text-white/60 text-sm">{label}</div>
-    <div className="text-2xl font-bold text-white mt-1">{value}</div>
-  </div>
-)
 
 export default Dashboard
