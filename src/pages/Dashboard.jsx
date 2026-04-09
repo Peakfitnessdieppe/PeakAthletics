@@ -16,8 +16,9 @@ const Dashboard = () => {
   const [insights, setInsights] = useState({
     fastest: null,
     mostExplosive: null,
+    strongest: null,
+    conditioning: null,
     needsTesting: { criticalCount: 0, warningCount: 0, names: [] },
-    trendingUp: { count: 0, names: [] },
   })
   const [selectedAthlete, setSelectedAthlete] = useState(null)
   const [search, setSearch] = useState('')
@@ -48,11 +49,13 @@ const Dashboard = () => {
         .select('athlete_id, team_id, profiles(id, full_name, sport, position, age_category, gender, avatar_url)')
         .in('team_id', teamIds)
       if (rosterError) throw rosterError
-      const rosterList = (rosterData || []).map((r) => ({
-        athlete_id: r.athlete_id,
-        team_id: r.team_id,
-        ...r.profiles,
-      }))
+      const rosterList = (rosterData || [])
+        .map((r) => ({
+          athlete_id: r.athlete_id,
+          team_id: r.team_id,
+          ...r.profiles,
+        }))
+        .filter((r) => r.role === 'athlete')
       setRoster(rosterList)
 
       const athleteIds = rosterList.map((r) => r.id)
@@ -67,6 +70,7 @@ const Dashboard = () => {
         { data: lastData, error: lastError },
         { data: allResults, error: resultsError },
         { data: gameStats, error: gameStatsError },
+        { data: strengthCatScores, error: strengthError },
       ] = await Promise.all([
         supabase
           .from('pfa_composite_scores')
@@ -88,11 +92,17 @@ const Dashboard = () => {
           .select('athlete_id, goals, assists, points, plus_minus, season')
           .in('athlete_id', athleteIds)
           .order('season', { ascending: false }),
+        supabase
+          .from('pfa_composite_scores')
+          .select('athlete_id, strength_score, calculated_at')
+          .in('athlete_id', athleteIds)
+          .order('calculated_at', { ascending: false }),
       ])
       if (scoreError) throw scoreError
       if (lastError) throw lastError
       if (resultsError) throw resultsError
       if (gameStatsError) throw gameStatsError
+      if (strengthError) throw strengthError
 
       const latestScores = {}
       const history = {}
@@ -191,23 +201,49 @@ const Dashboard = () => {
         return { criticalCount, warningCount, names }
       })()
 
-      const trendingUp = (() => {
-        const names = []
-        rosterList.forEach((ath) => {
-          const scoresArr = history[ath.id] || []
-          if (scoresArr.length < 3) return
-          if (scoresArr[0] > scoresArr[1] && scoresArr[1] > scoresArr[2]) {
-            names.push(ath.full_name)
+      const strongest = (() => {
+        const latestStrength = {}
+        for (const s of strengthCatScores || []) {
+          if (!latestStrength[s.athlete_id]) latestStrength[s.athlete_id] = s
+        }
+        const strongestAthlete = Object.values(latestStrength).sort((a, b) => (b.strength_score || 0) - (a.strength_score || 0))[0]
+        if (!strongestAthlete) return null
+        const strongestProfile = rosterList.find((r) => r.id === strongestAthlete.athlete_id)
+        return strongestProfile
+          ? {
+              athleteName: strongestProfile.full_name,
+              value: Math.round(strongestAthlete.strength_score || 0),
+              position: strongestProfile.position,
+            }
+          : null
+      })()
+
+      const conditioning = (() => {
+        const beepResults = (allResults || []).filter((r) => r.test_type === 'beep_test')
+        const bestBeepPerAthlete = {}
+        for (const r of beepResults) {
+          if (!bestBeepPerAthlete[r.athlete_id] || r.value > bestBeepPerAthlete[r.athlete_id].value) {
+            bestBeepPerAthlete[r.athlete_id] = r
           }
-        })
-        return { count: names.length, names }
+        }
+        const topBeep = Object.values(bestBeepPerAthlete).sort((a, b) => b.value - a.value)[0]
+        if (!topBeep) return null
+        const topBeepProfile = rosterList.find((r) => r.id === topBeep.athlete_id)
+        return topBeepProfile
+          ? {
+              athleteName: topBeepProfile.full_name,
+              value: topBeep.value,
+              position: topBeepProfile.position,
+            }
+          : null
       })()
 
       setInsights({
         fastest,
         mostExplosive,
         needsTesting,
-        trendingUp,
+        strongest,
+        conditioning,
       })
     } catch (err) {
       console.error('Dashboard load error', err)
@@ -339,7 +375,7 @@ const Dashboard = () => {
         <main style={{ flex: 1, padding: '32px', minHeight: 'calc(100vh - 80px)' }}>
           {activeTab === 'roster' && (
             <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '16px' }}>
                 {/* Fastest */}
                 <div
                   style={{
@@ -388,7 +424,7 @@ const Dashboard = () => {
                   )}
                 </div>
 
-                {/* Needs testing */}
+                {/* Strongest */}
                 <div
                   style={{
                     background: '#0d1a0e',
@@ -399,32 +435,22 @@ const Dashboard = () => {
                   }}
                 >
                   <div style={{ color: 'rgba(239,68,68,0.8)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em' }}>
-                    ⚠️ NEEDS TESTING
+                    💪 STRONGEST
                   </div>
-                  {insights.needsTesting.criticalCount === 0 && insights.needsTesting.warningCount === 0 ? (
-                    <div style={{ color: '#3fae52', fontWeight: 700, marginTop: '10px' }}>✓ All athletes current</div>
-                  ) : (
+                  {insights.strongest ? (
                     <>
-                      <div style={{ display: 'flex', gap: '12px', marginTop: '10px', alignItems: 'baseline' }}>
-                        <div>
-                          <div style={{ color: '#ef4444', fontSize: '20px', fontWeight: 800 }}>{insights.needsTesting.criticalCount}</div>
-                          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>90+ days</div>
-                        </div>
-                        <div>
-                          <div style={{ color: '#f59e0b', fontSize: '20px', fontWeight: 800 }}>{insights.needsTesting.warningCount}</div>
-                          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>60+ days</div>
-                        </div>
+                      <div style={{ color: '#fff', fontSize: '18px', fontWeight: 700, marginTop: '8px' }}>{insights.strongest.athleteName}</div>
+                      <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '4px' }}>
+                        Strength Score: {insights.strongest.value}
                       </div>
-                      {insights.needsTesting.names.slice(0, 2).map((name) => (
-                        <div key={name} style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>
-                          {name}
-                        </div>
-                      ))}
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>{insights.strongest.position || '—'}</div>
                     </>
+                  ) : (
+                    <div style={{ color: 'rgba(255,255,255,0.4)', marginTop: '10px' }}>No strength data yet</div>
                   )}
                 </div>
 
-                {/* Peaking */}
+                {/* Conditioning */}
                 <div
                   style={{
                     background: '#0d1a0e',
@@ -434,26 +460,49 @@ const Dashboard = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em' }}>
-                    📈 PEAKING THIS MONTH
+                  <div style={{ color: 'rgba(6,182,212,0.8)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em' }}>
+                    🫁 CONDITIONING
                   </div>
-                  {insights.trendingUp.count > 0 ? (
+                  {insights.conditioning ? (
                     <>
-                      <div style={{ color: '#3fae52', fontSize: '36px', fontWeight: 800, marginTop: '6px', lineHeight: 1 }}>
-                        {insights.trendingUp.count}
-                      </div>
-                      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', marginTop: '2px' }}>athletes</div>
-                      {insights.trendingUp.names.slice(0, 2).map((name) => (
-                        <div key={name} style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>
-                          {name}
-                        </div>
-                      ))}
+                      <div style={{ color: '#fff', fontSize: '18px', fontWeight: 700, marginTop: '8px' }}>{insights.conditioning.athleteName}</div>
+                      <div style={{ color: '#06b6d4', fontSize: '13px', marginTop: '4px' }}>Beep Test: Level {insights.conditioning.value}</div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>{insights.conditioning.position || '—'}</div>
                     </>
                   ) : (
-                    <div style={{ color: 'rgba(255,255,255,0.4)', marginTop: '10px' }}>No trend data yet</div>
+                    <div style={{ color: 'rgba(255,255,255,0.4)', marginTop: '10px' }}>No beep test data yet</div>
                   )}
                 </div>
               </div>
+
+              {insights.needsTesting.names.length > 0 && (
+                <div
+                  style={{
+                    background: 'rgba(245,158,11,0.08)',
+                    border: '1px solid rgba(245,158,11,0.2)',
+                    borderRadius: '10px',
+                    padding: '12px 20px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                  }}
+                >
+                  <div style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em' }}>⚠️ NEEDS TESTING</div>
+                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', flex: 1 }}>
+                    {(() => {
+                      const names = insights.needsTesting.names
+                      const display = names.slice(0, 5)
+                      const more = names.length - display.length
+                      return display.join(' · ') + (more > 0 ? ` · +${more} more` : '')
+                    })()}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', display: 'flex', gap: '10px' }}>
+                    <span style={{ color: '#ef4444' }}>{insights.needsTesting.criticalCount} critical</span>
+                    <span style={{ color: '#f59e0b' }}>{insights.needsTesting.warningCount} overdue</span>
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                 <div style={{ color: '#fff', fontSize: '20px', fontWeight: 700 }}>Roster</div>

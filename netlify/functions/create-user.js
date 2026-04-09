@@ -64,7 +64,8 @@ exports.handler = async (event) => {
     }
   }
 
-  if (team_id) {
+  // Only link to athlete_teams if role is athlete
+  if (team_id && role === 'athlete') {
     await supabaseAdmin.from('athlete_teams').insert({ team_id, athlete_id: userId })
   }
 
