@@ -22,6 +22,7 @@ const Card = () => {
   const [photoMessage, setPhotoMessage] = useState('')
   const fileInputRef = useRef(null)
   const [checkedInToday, setCheckedInToday] = useState(false)
+  const [compScore, setCompScore] = useState(null)
 
   const todayStr = () => new Date().toISOString().split('T')[0]
 
@@ -230,6 +231,24 @@ const Card = () => {
   }, [profile?.id])
 
   useEffect(() => {
+    const fetchComposite = async () => {
+      if (!profile?.id) return
+      try {
+        const { data: compScores } = await supabase
+          .from('pfa_composite_scores')
+          .select('overall_score, speed_score, power_score, strength_score, agility_score, endurance_score, calculated_at')
+          .eq('athlete_id', profile.id)
+          .order('calculated_at', { ascending: false })
+          .limit(1)
+        setCompScore(compScores?.[0] || null)
+      } catch (err) {
+        console.error('Failed to load composite scores', err)
+      }
+    }
+    fetchComposite()
+  }, [profile?.id])
+
+  useEffect(() => {
     const loadRankings = async () => {
       if (!profile?.id || !profile?.age_category || !profile?.gender) return
       const rankings = await getAthleteTestRankings(profile.id, profile.age_category, profile.gender)
@@ -325,13 +344,13 @@ const Card = () => {
         .upload(path, file, { upsert: true })
       if (uploadError) throw uploadError
       const { data: urlData } = supabase.storage.from('athlete-photos').getPublicUrl(path)
-      const bustUrl = `${urlData.publicUrl}?t=${Date.now()}`
+      const newUrl = `${urlData.publicUrl}?t=${Date.now()}`
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ avatar_url: urlData.publicUrl, updated_at: new Date().toISOString() })
         .eq('id', profile.id)
       if (profileError) throw profileError
-      setAvatarUrl(bustUrl)
+      setAvatarUrl(newUrl)
       await fetchResults()
     } catch (err) {
       console.error('Upload failed', err)
@@ -419,6 +438,13 @@ const Card = () => {
         </button>
 
         <div className="flex flex-col items-center gap-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={onFileChange}
+          />
           <div style={{ position: 'relative', width: '340px', height: '520px' }}>
             {/* FRONT */}
             <div
@@ -520,6 +546,7 @@ const Card = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
+                        e.preventDefault()
                         fileInputRef.current?.click()
                       }}
                       style={{ background: 'rgba(63,174,82,0.9)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '12px auto 0', position: 'relative', zIndex: 10 }}
@@ -533,14 +560,6 @@ const Card = () => {
                     </div>
                   </div>
                 )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={onFileChange}
-                  style={{ position: 'relative', zIndex: 10 }}
-                />
                 <div className="absolute left-0 right-0 text-white" style={{ bottom: '0', background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0) 100%)', padding: '60px 16px 16px', textTransform: 'uppercase' }}>
                   <div className="text-[28px] font-extrabold tracking-[0.1em] leading-tight">{(profile?.full_name || 'Athlete').toUpperCase()}</div>
                   <div className="text-[11px]" style={{ color: '#3fae52' }}>{profile?.sport || 'Sport'}{profile?.position ? ` · ${profile.position}` : ''}</div>
@@ -607,6 +626,77 @@ const Card = () => {
                   const measurementRows = buildMeasurementSeasons(measurements)
                   return (
                     <>
+                      {/* STANDARDIZED SCORES */}
+                      <div style={{ padding: '12px 16px 0' }}>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 80px 80px',
+                            padding: '6px 0',
+                            borderBottom: '1px solid rgba(63,174,82,0.3)',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>STANDARDIZED SCORES</div>
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
+                          <div style={{ color: '#3fae52', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
+                        </div>
+
+                        {[
+                          { label: 'Overall', key: 'overall_score' },
+                          { label: 'Speed', key: 'speed_score' },
+                          { label: 'Power', key: 'power_score' },
+                          { label: 'Strength', key: 'strength_score' },
+                          { label: 'Agility', key: 'agility_score' },
+                          { label: 'Endurance', key: 'endurance_score' },
+                        ].map((row, i, arr) => {
+                          const latestTestDate =
+                            latestResults?.length > 0
+                              ? latestResults.reduce(
+                                  (latest, r) => (r.date_tested > latest ? r.date_tested : latest),
+                                  latestResults[0].date_tested
+                                )
+                              : null
+                          const scoreSeasonYear = latestTestDate ? getSeasonYear(latestTestDate) : null
+                          const score2025 =
+                            scoreSeasonYear === 2025 && compScore && compScore[row.key] != null
+                              ? Math.round(compScore[row.key])
+                              : null
+                          const score2026 =
+                            scoreSeasonYear === 2026 && compScore && compScore[row.key] != null
+                              ? Math.round(compScore[row.key])
+                              : null
+
+                          return (
+                            <div
+                              key={row.key}
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 80px 80px',
+                                padding: '5px 0',
+                                borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                              }}
+                            >
+                              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: '600' }}>{row.label}</div>
+                              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>
+                                {score2025 !== null && compScore?.[row.key] != null ? score2025 : '—'}
+                              </div>
+                              <div
+                                style={{
+                                  color: score2026 !== null ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                                  fontSize: '10px',
+                                  fontWeight: score2026 !== null ? '700' : '400',
+                                  textAlign: 'center',
+                                }}
+                              >
+                                {score2026 !== null && compScore?.[row.key] != null ? score2026 : '—'}
+                              </div>
+                            </div>
+                          )
+                        })}
+                        <div style={{ borderBottom: '1px solid rgba(63,174,82,0.2)', margin: '8px 0' }} />
+                      </div>
+
                       <div style={{ padding: '12px 16px 0' }}>
                         <div
                           style={{

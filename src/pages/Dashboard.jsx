@@ -20,8 +20,8 @@ const Dashboard = () => {
     strongest: null,
     conditioning: null,
     mostAgile: null,
-    needsTesting: { criticalCount: 0, warningCount: 0, names: [] },
   })
+  const [needsTesting, setNeedsTesting] = useState([])
   const [selectedAthlete, setSelectedAthlete] = useState(null)
   const [athleteResults, setAthleteResults] = useState([])
   const [allResultsState, setAllResultsState] = useState([])
@@ -140,17 +140,135 @@ const Dashboard = () => {
       }
 
       let allResults = []
-      try {
-        const { data, error } = await supabase
-          .from('pfa_test_results')
-          .select('athlete_id, test_type, value, date_tested')
-          .in('athlete_id', athleteIds)
-          .order('date_tested', { ascending: false })
-        if (error) console.warn('[Dashboard] query failed: all results', error.message)
-        else allResults = data || []
-      } catch (e) {
-        console.warn('[Dashboard] query exception: all results', e)
+      const { data: allResultsData, error: allResultsError } = await supabase
+        .from('pfa_test_results')
+        .select('athlete_id, test_type, value, date_tested, category')
+        .in('athlete_id', athleteIds)
+        .order('date_tested', { ascending: false })
+      console.log('[Dashboard] allResults error:', allResultsError)
+      console.log('[Dashboard] allResults:', allResultsData?.length, 'records')
+      allResults = allResultsData || []
+      console.log('[Dashboard] allResults count:', allResults?.length)
+      console.log('[Dashboard] allResults sample:', allResults?.slice(0, 3))
+
+      const allResultsDataSafe = allResults || []
+
+      // Insights calculations
+      // FASTEST — 10m sprint only
+      const sprintResults = allResultsDataSafe.filter((r) => r.test_type === '10m_sprint')
+      const bestSprintPerAthlete = {}
+      for (const r of sprintResults) {
+        if (!bestSprintPerAthlete[r.athlete_id] || r.value < bestSprintPerAthlete[r.athlete_id].value) {
+          bestSprintPerAthlete[r.athlete_id] = r
+        }
       }
+      const fastestEntry = Object.values(bestSprintPerAthlete).sort((a, b) => a.value - b.value)[0]
+
+      // MOST EXPLOSIVE — vertical jump and broad jump
+      const POWER_TESTS = ['vertical_jump', 'broad_jump']
+      const POWER_MAX = { vertical_jump: 80, broad_jump: 3 }
+      const powerByAthlete = {}
+      for (const r of allResultsDataSafe.filter((r) => POWER_TESTS.includes(r.test_type))) {
+        const max = POWER_MAX[r.test_type] || 100
+        const normalized = Math.min(100, (r.value / max) * 100)
+        if (!powerByAthlete[r.athlete_id]) powerByAthlete[r.athlete_id] = []
+        powerByAthlete[r.athlete_id].push(normalized)
+      }
+      const mostExplosiveEntry = Object.entries(powerByAthlete)
+        .map(([id, vals]) => ({ athlete_id: id, score: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) }))
+        .sort((a, b) => b.score - a.score)[0]
+
+      // STRONGEST — squat, bench, deadlift, pullups, pushups
+      const STRENGTH_TESTS = ['squat', 'trap_bar_deadlift', 'bench_press', 'pull_ups', 'push_ups']
+      const STRENGTH_MAX = { squat: 400, trap_bar_deadlift: 500, bench_press: 300, pull_ups: 30, push_ups: 60 }
+      const strengthByAthlete = {}
+      for (const r of allResultsDataSafe.filter((r) => STRENGTH_TESTS.includes(r.test_type))) {
+        const max = STRENGTH_MAX[r.test_type] || 100
+        const normalized = Math.min(100, (r.value / max) * 100)
+        if (!strengthByAthlete[r.athlete_id]) strengthByAthlete[r.athlete_id] = []
+        strengthByAthlete[r.athlete_id].push(normalized)
+      }
+      const strongestEntry = Object.entries(strengthByAthlete)
+        .map(([id, vals]) => ({ athlete_id: id, score: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) }))
+        .sort((a, b) => b.score - a.score)[0]
+
+      // CONDITIONING — beep test
+      const beepByAthlete = {}
+      for (const r of allResultsDataSafe.filter((r) => r.test_type === 'beep_test')) {
+        if (!beepByAthlete[r.athlete_id] || r.value > beepByAthlete[r.athlete_id].value) {
+          beepByAthlete[r.athlete_id] = r
+        }
+      }
+      const topBeepEntry = Object.values(beepByAthlete).sort((a, b) => b.value - a.value)[0]
+
+      // MOST AGILE — pro agility shuttle (lower is better)
+      const agilityByAthlete = {}
+      for (const r of allResultsDataSafe.filter((r) => r.test_type === 'pro_agility_shuttle')) {
+        if (!agilityByAthlete[r.athlete_id] || r.value < agilityByAthlete[r.athlete_id].value) {
+          agilityByAthlete[r.athlete_id] = r
+        }
+      }
+      const mostAgileEntry = Object.values(agilityByAthlete).sort((a, b) => a.value - b.value)[0]
+
+      const fastestProfile = fastestEntry ? athleteProfiles.find((p) => p.id === fastestEntry.athlete_id) : null
+      const mostExplosiveProfile = mostExplosiveEntry ? athleteProfiles.find((p) => p.id === mostExplosiveEntry.athlete_id) : null
+      const strongestProfile = strongestEntry ? athleteProfiles.find((p) => p.id === strongestEntry.athlete_id) : null
+      const topBeepProfile = topBeepEntry ? athleteProfiles.find((p) => p.id === topBeepEntry.athlete_id) : null
+      const mostAgileProfile = mostAgileEntry ? athleteProfiles.find((p) => p.id === mostAgileEntry.athlete_id) : null
+
+      const needsTestingList = (() => {
+        const now = new Date()
+        const lastByAthlete = {}
+        ;(allResults || []).forEach((r) => {
+          if (!lastByAthlete[r.athlete_id]) lastByAthlete[r.athlete_id] = r.date_tested
+        })
+
+        return rosterList.filter((ath) => {
+          const lastDate = lastByAthlete[ath.id]
+          if (!lastDate) return true
+          const daysAgo = Math.floor((now - new Date(lastDate)) / (1000 * 60 * 60 * 24))
+          return daysAgo > 60
+        })
+      })()
+
+      setInsights({
+        fastest: fastestEntry
+          ? {
+              name: fastestProfile?.full_name || 'Unknown',
+              value: '10m Sprint: ' + fastestEntry.value + 's',
+              position: fastestProfile?.position || '',
+            }
+          : null,
+        mostExplosive: mostExplosiveEntry
+          ? {
+              name: mostExplosiveProfile?.full_name || 'Unknown',
+              value: 'Power Score: ' + mostExplosiveEntry.score,
+              position: mostExplosiveProfile?.position || '',
+            }
+          : null,
+        strongest: strongestEntry
+          ? {
+              name: strongestProfile?.full_name || 'Unknown',
+              value: 'Strength Score: ' + strongestEntry.score,
+              position: strongestProfile?.position || '',
+            }
+          : null,
+        conditioning: topBeepEntry
+          ? {
+              name: topBeepProfile?.full_name || 'Unknown',
+              value: 'Beep Test: Level ' + topBeepEntry.value,
+              position: topBeepProfile?.position || '',
+            }
+          : null,
+        mostAgile: mostAgileEntry
+          ? {
+              name: mostAgileProfile?.full_name || 'Unknown',
+              value: 'Pro Agility: ' + mostAgileEntry.value + 's',
+              position: mostAgileProfile?.position || '',
+            }
+          : null,
+      })
+      setNeedsTesting(needsTestingList)
 
       let gameStats = []
       try {
@@ -196,159 +314,6 @@ const Dashboard = () => {
       setAllResultsState(allResults || [])
       setGameStatsState(gameStats || [])
 
-      // Insights calculations
-      const fastest = (() => {
-        const sprintResults = (allResults || []).filter((r) => r.test_type === '10m_sprint')
-        const bestSprintPerAthlete = {}
-        for (const r of sprintResults) {
-          const current = bestSprintPerAthlete[r.athlete_id]
-          if (!current || r.value < current.value) {
-            bestSprintPerAthlete[r.athlete_id] = r
-          }
-        }
-        const fastestEntry = Object.values(bestSprintPerAthlete).sort((a, b) => a.value - b.value)[0]
-        const fastestProfile = fastestEntry ? roster.find((r) => r.id === fastestEntry.athlete_id) : null
-
-        return fastestEntry && fastestProfile
-          ? {
-              athleteName: fastestProfile.full_name,
-              value: `${fastestEntry.value}s (10m sprint)`,
-              position: fastestProfile.position,
-            }
-          : null
-      })()
-
-      const mostAgile = (() => {
-        const agilityResults = (allResults || []).filter((r) => r.test_type === 'pro_agility_shuttle')
-        const bestAgilityPerAthlete = {}
-        for (const r of agilityResults) {
-          const current = bestAgilityPerAthlete[r.athlete_id]
-          if (!current || r.value < current.value) {
-            bestAgilityPerAthlete[r.athlete_id] = r
-          }
-        }
-        const mostAgileEntry = Object.values(bestAgilityPerAthlete).sort((a, b) => a.value - b.value)[0]
-        const mostAgileProfile = mostAgileEntry ? roster.find((r) => r.id === mostAgileEntry.athlete_id) : null
-
-        return mostAgileEntry && mostAgileProfile
-          ? {
-              athleteName: mostAgileProfile.full_name,
-              value: `${mostAgileEntry.value}s (Pro Agility)`,
-              position: mostAgileProfile.position,
-            }
-          : null
-      })()
-
-      const mostExplosive = (() => {
-        const POWER_TESTS = ['vertical_jump', 'broad_jump', 'ncmj', 'mb_chest_pass']
-        const powerResults = (allResults || []).filter((r) => POWER_TESTS.includes(r.test_type))
-        const POWER_MAX = { vertical_jump: 80, broad_jump: 3, ncmj: 60, mb_chest_pass: 10 }
-        const powerByAthlete = {}
-        for (const r of powerResults) {
-          const max = POWER_MAX[r.test_type] || 100
-          const normalized = Math.min(100, (r.value / max) * 100)
-          if (!powerByAthlete[r.athlete_id]) powerByAthlete[r.athlete_id] = []
-          powerByAthlete[r.athlete_id].push(normalized)
-        }
-        const avgPowerByAthlete = Object.entries(powerByAthlete)
-          .map(([id, vals]) => ({ athlete_id: id, score: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) }))
-          .sort((a, b) => b.score - a.score)
-        const mostExplosiveEntry = avgPowerByAthlete[0]
-        const mostExplosiveProfile = mostExplosiveEntry ? roster.find((r) => r.id === mostExplosiveEntry.athlete_id) : null
-        return mostExplosiveEntry && mostExplosiveProfile
-          ? { athleteName: mostExplosiveProfile.full_name, value: mostExplosiveEntry.score, position: mostExplosiveProfile.position }
-          : null
-      })()
-
-      const needsTesting = (() => {
-        const now = new Date()
-        const lastByAthlete = {}
-        ;(allResults || []).forEach((r) => {
-          if (!lastByAthlete[r.athlete_id]) lastByAthlete[r.athlete_id] = r.date_tested
-        })
-        let criticalCount = 0
-        let warningCount = 0
-        const names = []
-
-        rosterList.forEach((ath) => {
-          const lastDate = lastByAthlete[ath.id]
-          if (!lastDate) {
-            criticalCount += 1
-            names.push(ath.full_name)
-            return
-          }
-          const daysAgo = Math.floor((now - new Date(lastDate)) / (1000 * 60 * 60 * 24))
-          if (daysAgo > 90) {
-            criticalCount += 1
-            names.push(ath.full_name)
-          } else if (daysAgo > 60) {
-            warningCount += 1
-            names.push(ath.full_name)
-          }
-        })
-
-        return { criticalCount, warningCount, names }
-      })()
-
-      const strongest = (() => {
-        const STRENGTH_TESTS = ['squat', 'trap_bar_deadlift', 'bench_press', 'pull_ups', 'push_ups', 'imtp']
-        const strengthResults = (allResults || []).filter((r) => STRENGTH_TESTS.includes(r.test_type))
-        const STRENGTH_MAX = {
-          squat: 400,
-          trap_bar_deadlift: 500,
-          bench_press: 300,
-          pull_ups: 30,
-          push_ups: 60,
-          imtp: 500,
-        }
-        const strengthByAthlete = {}
-        for (const r of strengthResults) {
-          const max = STRENGTH_MAX[r.test_type] || 100
-          const normalized = Math.min(100, (r.value / max) * 100)
-          if (!strengthByAthlete[r.athlete_id]) strengthByAthlete[r.athlete_id] = []
-          strengthByAthlete[r.athlete_id].push(normalized)
-        }
-        const avgStrengthByAthlete = Object.entries(strengthByAthlete)
-          .map(([id, vals]) => ({ athlete_id: id, score: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) }))
-          .sort((a, b) => b.score - a.score)
-        const strongestEntry = avgStrengthByAthlete[0]
-        const strongestProfile = strongestEntry ? roster.find((r) => r.id === strongestEntry.athlete_id) : null
-        return strongestEntry && strongestProfile
-          ? {
-              athleteName: strongestProfile.full_name,
-              value: `Strength Score: ${strongestEntry.score}`,
-              position: strongestProfile.position,
-            }
-          : null
-      })()
-
-      const conditioning = (() => {
-        const beepResults = (allResults || []).filter((r) => r.test_type === 'beep_test')
-        const bestBeepPerAthlete = {}
-        for (const r of beepResults) {
-          if (!bestBeepPerAthlete[r.athlete_id] || r.value > bestBeepPerAthlete[r.athlete_id].value) {
-            bestBeepPerAthlete[r.athlete_id] = r
-          }
-        }
-        const topBeepEntry = Object.values(bestBeepPerAthlete).sort((a, b) => b.value - a.value)[0]
-        const topBeepProfile = topBeepEntry ? roster.find((r) => r.id === topBeepEntry.athlete_id) : null
-        return topBeepEntry && topBeepProfile
-          ? {
-              athleteName: topBeepProfile.full_name,
-              value: topBeepEntry.value,
-              position: topBeepProfile.position,
-            }
-          : null
-      })()
-
-      setInsights({
-        fastest,
-        mostExplosive,
-        needsTesting,
-        strongest,
-        conditioning,
-        mostAgile,
-      })
     } catch (err) {
       console.error('Dashboard load error', err)
     }
@@ -880,257 +845,117 @@ const Dashboard = () => {
                     }}
                   >
                     {/* Fastest */}
-                    <div
-                      style={{
-                        background: '#0d1a0e',
-                        border: '1px solid rgba(63,174,82,0.2)',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div
-                        style={{
-                          color: 'rgba(63,174,82,0.6)',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          letterSpacing: '0.1em',
-                        }}
-                      >
-                        🏃 FASTEST PLAYER
+                  <div
+                    style={{
+                      background: '#0d1a0e',
+                      border: '1px solid rgba(63,174,82,0.2)',
+                      borderRadius: '12px',
+                      padding: '20px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                      <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>🏃 FASTEST PLAYER</div>
+                      <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
+                        {insights.fastest?.name || 'No sprint data yet'}
                       </div>
-                      {insights.fastest ? (
-                        <>
-                          <div style={{ color: '#fff', fontSize: '18px', fontWeight: 700, marginTop: '8px' }}>
-                            {insights.fastest.athleteName}
-                          </div>
-                          <div style={{ color: '#3fae52', fontSize: '13px', marginTop: '4px' }}>
-                            {insights.fastest.value}
-                          </div>
-                          <div
-                            style={{
-                              color: 'rgba(255,255,255,0.4)',
-                              fontSize: '11px',
-                              marginTop: '4px',
-                            }}
-                          >
-                            {insights.fastest.position || '—'}
-                          </div>
-                        </>
-                      ) : (
-                        <div
-                          style={{
-                            color: 'rgba(255,255,255,0.4)',
-                            marginTop: '10px',
-                          }}
-                        >
-                          No sprint data yet
-                        </div>
-                      )}
-                    </div>
+                      <div style={{ color: '#3fae52', fontSize: '13px' }}>
+                        {insights.fastest?.value || ''}
+                      </div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
+                        {insights.fastest?.position || ''}
+                      </div>
+                  </div>
 
                     {/* Most explosive */}
-                    <div
-                      style={{
-                        background: '#0d1a0e',
-                        border: '1px solid rgba(63,174,82,0.2)',
+                  <div
+                    style={{
+                      background: '#0d1a0e',
+                      border: '1px solid rgba(63,174,82,0.2)',
                         borderRadius: '12px',
                         padding: '20px',
                         cursor: 'pointer',
                       }}
                     >
-                      <div
-                        style={{
-                          color: 'rgba(245,158,11,0.8)',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          letterSpacing: '0.1em',
-                        }}
-                      >
-                        ⚡ MOST EXPLOSIVE
+                      <div style={{ color: 'rgba(245,158,11,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>⚡ MOST EXPLOSIVE</div>
+                      <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
+                        {insights.mostExplosive?.name || 'No power data yet'}
                       </div>
-                      {insights.mostExplosive ? (
-                        <>
-                          <div style={{ color: '#fff', fontSize: '18px', fontWeight: 700, marginTop: '8px' }}>
-                            {insights.mostExplosive.athleteName}
-                          </div>
-                          <div style={{ color: '#f59e0b', fontSize: '13px', marginTop: '4px' }}>
-                            Power Score: {insights.mostExplosive.value}
-                          </div>
-                          <div
-                            style={{
-                              color: 'rgba(255,255,255,0.4)',
-                              fontSize: '11px',
-                              marginTop: '4px',
-                            }}
-                          >
-                            {insights.mostExplosive.position || '—'}
-                          </div>
-                        </>
-                      ) : (
-                        <div
-                          style={{
-                            color: 'rgba(255,255,255,0.4)',
-                            marginTop: '10px',
-                          }}
-                        >
-                          No power data yet
-                        </div>
-                      )}
-                    </div>
+                      <div style={{ color: '#f59e0b', fontSize: '13px' }}>
+                        {insights.mostExplosive?.value || ''}
+                      </div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
+                        {insights.mostExplosive?.position || ''}
+                      </div>
+                  </div>
 
                     {/* Strongest */}
-                    <div
-                      style={{
-                        background: '#0d1a0e',
+                  <div
+                    style={{
+                      background: '#0d1a0e',
                         border: '1px solid rgba(63,174,82,0.2)',
                         borderRadius: '12px',
                         padding: '20px',
                         cursor: 'pointer',
                       }}
                     >
-                      <div
-                        style={{
-                          color: 'rgba(239,68,68,0.8)',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          letterSpacing: '0.1em',
-                        }}
-                      >
-                        💪 STRONGEST
+                      <div style={{ color: 'rgba(239,68,68,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>💪 STRONGEST</div>
+                      <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
+                        {insights.strongest?.name || 'No strength data yet'}
                       </div>
-                      {insights.strongest ? (
-                        <>
-                          <div style={{ color: '#fff', fontSize: '18px', fontWeight: 700, marginTop: '8px' }}>
-                            {insights.strongest.athleteName}
-                          </div>
-                          <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '4px' }}>
-                            {insights.strongest.value}
-                          </div>
-                          <div
-                            style={{
-                              color: 'rgba(255,255,255,0.4)',
-                              fontSize: '11px',
-                              marginTop: '4px',
-                            }}
-                          >
-                            {insights.strongest.position || '—'}
-                          </div>
-                        </>
-                      ) : (
-                        <div
-                          style={{
-                            color: 'rgba(255,255,255,0.4)',
-                            marginTop: '10px',
-                          }}
-                        >
-                          No strength data yet
-                        </div>
-                      )}
-                    </div>
+                      <div style={{ color: '#ef4444', fontSize: '13px' }}>
+                        {insights.strongest?.value || ''}
+                      </div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
+                        {insights.strongest?.position || ''}
+                      </div>
+                  </div>
 
                     {/* Conditioning */}
-                    <div
-                      style={{
-                        background: '#0d1a0e',
+                  <div
+                    style={{
+                      background: '#0d1a0e',
                         border: '1px solid rgba(63,174,82,0.2)',
                         borderRadius: '12px',
                         padding: '20px',
                         cursor: 'pointer',
                       }}
                     >
-                      <div
-                        style={{
-                          color: 'rgba(6,182,212,0.8)',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          letterSpacing: '0.1em',
-                        }}
-                      >
-                        🫁 CONDITIONING
+                      <div style={{ color: 'rgba(6,182,212,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>🫁 CONDITIONING</div>
+                      <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
+                        {insights.conditioning?.name || 'No beep test data yet'}
                       </div>
-                      {insights.conditioning ? (
-                        <>
-                          <div style={{ color: '#fff', fontSize: '18px', fontWeight: 700, marginTop: '8px' }}>
-                            {insights.conditioning.athleteName}
-                          </div>
-                          <div style={{ color: '#06b6d4', fontSize: '13px', marginTop: '4px' }}>
-                            Beep Test: Level {insights.conditioning.value}
-                          </div>
-                          <div
-                            style={{
-                              color: 'rgba(255,255,255,0.4)',
-                              fontSize: '11px',
-                              marginTop: '4px',
-                            }}
-                          >
-                            {insights.conditioning.position || '—'}
-                          </div>
-                        </>
-                      ) : (
-                        <div
-                          style={{
-                            color: 'rgba(255,255,255,0.4)',
-                            marginTop: '10px',
-                          }}
-                        >
-                          No beep test data yet
-                        </div>
-                      )}
-                    </div>
+                      <div style={{ color: '#06b6d4', fontSize: '13px' }}>
+                        {insights.conditioning?.value || ''}
+                      </div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
+                        {insights.conditioning?.position || ''}
+                      </div>
+                  </div>
 
                     {/* Most Agile */}
-                    <div
-                      style={{
-                        background: '#0d1a0e',
+                  <div
+                    style={{
+                      background: '#0d1a0e',
                         border: '1px solid rgba(139,92,246,0.25)',
                         borderRadius: '12px',
                         padding: '20px',
                         cursor: 'pointer',
                       }}
                     >
-                      <div
-                        style={{
-                          color: 'rgba(139,92,246,0.8)',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          letterSpacing: '0.1em',
-                        }}
-                      >
-                        🔀 MOST AGILE
+                      <div style={{ color: 'rgba(139,92,246,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>🔀 MOST AGILE</div>
+                      <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
+                        {insights.mostAgile?.name || 'No agility data yet'}
                       </div>
-                      {insights.mostAgile ? (
-                        <>
-                          <div style={{ color: '#fff', fontSize: '18px', fontWeight: 700, marginTop: '8px' }}>
-                            {insights.mostAgile.athleteName}
-                          </div>
-                          <div style={{ color: '#8b5cf6', fontSize: '13px', marginTop: '4px' }}>
-                            {insights.mostAgile.value}
-                          </div>
-                          <div
-                            style={{
-                              color: 'rgba(255,255,255,0.4)',
-                              fontSize: '11px',
-                              marginTop: '4px',
-                            }}
-                          >
-                            {insights.mostAgile.position || '—'}
-                          </div>
-                        </>
-                      ) : (
-                        <div
-                          style={{
-                            color: 'rgba(255,255,255,0.4)',
-                            marginTop: '10px',
-                          }}
-                        >
-                          No agility data yet
-                        </div>
-                      )}
-                    </div>
+                      <div style={{ color: '#8b5cf6', fontSize: '13px' }}>
+                        {insights.mostAgile?.value || ''}
+                      </div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
+                        {insights.mostAgile?.position || ''}
+                      </div>
+                  </div>
                   </div>
 
-                  {insights.needsTesting.names.length > 0 && (
+                  {needsTesting.length > 0 && (
                     <div
                       style={{
                         background: 'rgba(245,158,11,0.08)',
@@ -1161,9 +986,8 @@ const Dashboard = () => {
                         }}
                       >
                         {(() => {
-                          const names = insights.needsTesting.names
-                          const display = names.slice(0, 5)
-                          const more = names.length - display.length
+                          const display = needsTesting.slice(0, 5).map((a) => a.full_name)
+                          const more = needsTesting.length - display.length
                           return display.join(' · ') + (more > 0 ? ` · +${more} more` : '')
                         })()}
                       </div>
@@ -1176,10 +1000,22 @@ const Dashboard = () => {
                         }}
                       >
                         <span style={{ color: '#ef4444' }}>
-                          {insights.needsTesting.criticalCount} critical
+                          {needsTesting.filter((ath) => {
+                            const lastDate = lastTested[ath.id]
+                            if (!lastDate) return true
+                            const daysAgo = Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24))
+                            return daysAgo > 90
+                          }).length}{' '}
+                          critical
                         </span>
                         <span style={{ color: '#f59e0b' }}>
-                          {insights.needsTesting.warningCount} overdue
+                          {needsTesting.filter((ath) => {
+                            const lastDate = lastTested[ath.id]
+                            if (!lastDate) return false
+                            const daysAgo = Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24))
+                            return daysAgo > 60 && daysAgo <= 90
+                          }).length}{' '}
+                          overdue
                         </span>
                       </div>
                     </div>
