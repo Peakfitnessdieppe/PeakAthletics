@@ -22,13 +22,15 @@ import {
 import { SPORTS } from '../constants/sports'
 import { formatRole } from '../utils/formatRole'
 
-const sectionList = ['Dashboard', 'Users', 'Teams', 'Coaches', 'Athletes', 'Roster', 'Settings']
+const sectionList = ['Dashboard', 'Users', 'PFA Staff', 'Teams', 'Coaches', 'Athletes', 'Roster', 'Settings']
 
 const navItemBase =
   'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium cursor-pointer transition-colors'
 
 const SECTION_LABELS = {
   users: 'Users',
+  staff: 'PFA Staff',
+  'PFA Staff': 'PFA Staff',
   teams: 'Teams',
   coaches: 'Coaches',
   athletes: 'Athletes',
@@ -73,6 +75,7 @@ const Admin = () => {
   const [userActionMessage, setUserActionMessage] = useState('')
 
   const [teams, setTeams] = useState([])
+  const [coachMap, setCoachMap] = useState({})
   const [teamsLoading, setTeamsLoading] = useState(false)
   const [teamModalOpen, setTeamModalOpen] = useState(false)
   const [editingTeam, setEditingTeam] = useState(null)
@@ -100,6 +103,8 @@ const Admin = () => {
   const [expandedCoaches, setExpandedCoaches] = useState({})
   const [coachAddSelected, setCoachAddSelected] = useState([])
   const [coachAddSearch, setCoachAddSearch] = useState('')
+
+  const [staffList, setStaffList] = useState([])
 
   const [athletes, setAthletes] = useState([])
   const [athletesLoading, setAthletesLoading] = useState(false)
@@ -400,6 +405,81 @@ const Admin = () => {
     </div>
   )
 
+  const renderStaff = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-white">PFA Staff</h3>
+          <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/70">{staffList.length}</span>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto bg-[#0d1a0e] border border-pfa-border rounded-xl">
+        <table className="min-w-full text-sm">
+          <thead className="text-white/60">
+            <tr className="border-b border-pfa-border">
+              <th className="py-3 px-3 text-left">Name</th>
+              <th className="py-3 px-3 text-left">Email</th>
+              <th className="py-3 px-3 text-left">Role</th>
+              <th className="py-3 px-3 text-left">Created</th>
+              <th className="py-3 px-3 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-pfa-border">
+            {staffList.length === 0 ? (
+              <tr>
+                <td className="py-3 px-3 text-white/60" colSpan={5}>
+                  No staff found.
+                </td>
+              </tr>
+            ) : (
+              staffList.map((staff) => {
+                const createdAt = staff.created_at
+                  ? new Date(staff.created_at).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })
+                  : '—'
+                const roleStyle =
+                  staff.role === 'pfa_admin'
+                    ? { background: 'rgba(255,215,0,0.15)', color: '#FFD700', padding: '4px 10px', borderRadius: '999px', fontWeight: 700 }
+                    : { background: 'rgba(63,174,82,0.15)', color: '#3fae52', padding: '4px 10px', borderRadius: '999px', fontWeight: 700 }
+
+                return (
+                  <tr key={staff.id} className="hover:bg-white/5">
+                    <td className="py-3 px-3 text-white font-semibold">{staff.full_name || 'Unnamed'}</td>
+                    <td className="py-3 px-3 text-white/60">{staff.email || '—'}</td>
+                    <td className="py-3 px-3">
+                      <span style={roleStyle}>{staff.role === 'pfa_admin' ? 'Admin' : 'Staff'}</span>
+                    </td>
+                    <td className="py-3 px-3 text-white/50">{createdAt}</td>
+                    <td className="py-3 px-3 space-x-2">
+                      <button
+                        onClick={() => openEditUser(staff)}
+                        className="text-pfa-green hover:underline"
+                      >
+                        Edit
+                      </button>
+                      {staff.role !== 'pfa_admin' && (
+                        <button
+                          onClick={() => handleRemoveStaff(staff)}
+                          className="text-red-400 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+
   const renderCoaches = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -657,11 +737,46 @@ const Admin = () => {
     setUsersLoading(false)
   }
 
+  const loadStaff = async () => {
+    try {
+      const { data: staffData, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('role', ['pfa_staff', 'pfa_admin'])
+        .order('full_name')
+      if (error) throw error
+      setStaffList(staffData || [])
+    } catch (err) {
+      console.error('Load staff failed', err)
+    }
+  }
+
   const loadTeams = async () => {
     setTeamsLoading(true)
     try {
-      const data = await getAllTeams()
-      setTeams(data || [])
+      const { data: teamsData, error: teamsError } = await supabase
+        .from('pfa_teams')
+        .select('*')
+        .order('name')
+      if (teamsError) throw teamsError
+
+      const { data: coachProfiles, error: coachError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'team_coach')
+      if (coachError) throw coachError
+
+      const lookup = {}
+      ;(coachProfiles || []).forEach((c) => {
+        lookup[c.id] = c.full_name
+      })
+      setCoachMap(lookup)
+
+      const teamsWithCoach = (teamsData || []).map((t) => ({
+        ...t,
+        coachName: t.coach_id ? lookup[t.coach_id] || t.coach_id : '—',
+      }))
+      setTeams(teamsWithCoach)
     } catch (err) {
       console.error('Teams load error', err)
     }
@@ -728,6 +843,12 @@ const Admin = () => {
     if (activeSection === 'Coaches') {
       loadCoaches()
       loadAllAthletesForTeams()
+    }
+  }, [activeSection])
+
+  useEffect(() => {
+    if (activeSection === 'PFA Staff') {
+      loadStaff()
     }
   }, [activeSection])
 
@@ -1697,7 +1818,7 @@ const Admin = () => {
                         style={{ backgroundColor: t.primary_color || '#3fae52' }}
                       />
                     </td>
-                    <td className="py-3 px-3">{t.coach_id || '-'}</td>
+                    <td className="py-3 px-3">{t.coachName || '—'}</td>
                     <td className="py-3 px-3 space-x-2">
                       <button
                         onClick={(e) => {
@@ -2503,6 +2624,8 @@ const Admin = () => {
         return renderDashboard()
       case 'Users':
         return renderUsers()
+      case 'PFA Staff':
+        return renderStaff()
       case 'Teams':
         return renderTeams()
       case 'Coaches':
