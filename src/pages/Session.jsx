@@ -24,6 +24,18 @@ const TEST_UNITS = {
   imtp: 'lbs',
 }
 
+const STRENGTH_LOAD_TESTS = ['squat', 'bench_press', 'trap_bar_deadlift']
+
+const calcE1RM = (load, reps) => {
+  if (!load || !reps || reps === 1) return load
+  return Math.round(load * (1 + reps / 30))
+}
+
+const calcRelativeStrength = (e1rm, bodyweightLbs) => {
+  if (!e1rm || !bodyweightLbs) return null
+  return Math.round((e1rm / bodyweightLbs) * 100) / 100
+}
+
 const TEST_LABELS = {
   '10m_sprint': '10m Sprint',
   '30m_sprint': '30m Sprint',
@@ -77,6 +89,9 @@ const Session = () => {
   const [historySearch, setHistorySearch] = useState('')
   const [historyCategory, setHistoryCategory] = useState('All')
   const [checkedInToday, setCheckedInToday] = useState(false)
+  const [loadValue, setLoadValue] = useState('')
+  const [repsValue, setRepsValue] = useState('')
+  const [latestBodyweight, setLatestBodyweight] = useState(null)
   const inputRef = useRef(null)
 
   const currentAthlete = participants[currentIndex] || null
@@ -120,6 +135,28 @@ const Session = () => {
   }, [])
 
   useEffect(() => {
+    const fetchBodyweight = async () => {
+      if (!currentAthlete) {
+        setLatestBodyweight(null)
+        return
+      }
+      try {
+        const { data: bwData } = await supabase
+          .from('pfa_body_measurements')
+          .select('weight')
+          .eq('athlete_id', currentAthlete.id)
+          .order('measurement_date', { ascending: false })
+          .limit(1)
+        setLatestBodyweight(bwData?.[0]?.weight || null)
+      } catch (err) {
+        console.error('Failed to fetch bodyweight', err)
+        setLatestBodyweight(null)
+      }
+    }
+    fetchBodyweight()
+  }, [currentAthlete])
+
+  useEffect(() => {
     if (!sessionId) return
     const channel = supabase
       .channel(`session-${sessionId}`)
@@ -161,7 +198,7 @@ const Session = () => {
     try {
       const { data, error } = await supabase
         .from('pfa_test_results')
-        .select('id, test_type, value, date_tested, category, athlete_id, profiles(full_name, sport, position)')
+        .select('id, test_type, value, date_tested, category, load_value, reps, relative_strength, athlete_id, profiles(full_name, sport, position)')
         .order('date_tested', { ascending: false })
       if (error) throw error
       setSessionHistory(data || [])
@@ -275,21 +312,49 @@ const Session = () => {
         setAnthropoForm({ weight: '', bodyFat: '', height: '' })
       } else {
         if (!currentTest) return
-        const numericValue = parseFloat(inputValue)
-        if (Number.isNaN(numericValue)) return
-        const saved = await saveTestResult({
-          athlete_id: currentAthlete.id,
-          session_id: sessionId,
-          category: selectedCategory,
-          test_type: selectedTestId,
-          value: numericValue,
-          unit: currentTest.unit,
-          higher_is_better: currentTest.higherIsBetter,
-          flagged,
-          date_tested: new Date().toISOString(),
-        })
-        setResults((prev) => [...prev, saved])
-        setInputValue('')
+        if (STRENGTH_LOAD_TESTS.includes(selectedTestId)) {
+          const e1rm = calcE1RM(parseFloat(loadValue), parseInt(repsValue))
+          if (!e1rm || Number.isNaN(e1rm)) return
+          const relStr = calcRelativeStrength(e1rm, latestBodyweight)
+          const { data: saved, error } = await supabase
+            .from('pfa_test_results')
+            .insert({
+              athlete_id: currentAthlete.id,
+              session_id: sessionId,
+              category: selectedCategory,
+              test_type: selectedTestId,
+              value: e1rm,
+              unit: currentTest.unit,
+              higher_is_better: currentTest.higherIsBetter,
+              flagged,
+              load_value: parseFloat(loadValue),
+              reps: parseInt(repsValue),
+              relative_strength: relStr,
+              date_tested: new Date().toISOString(),
+            })
+            .select('*')
+            .single()
+          if (error) throw error
+          setResults((prev) => [...prev, saved])
+          setLoadValue('')
+          setRepsValue('')
+        } else {
+          const numericValue = parseFloat(inputValue)
+          if (Number.isNaN(numericValue)) return
+          const saved = await saveTestResult({
+            athlete_id: currentAthlete.id,
+            session_id: sessionId,
+            category: selectedCategory,
+            test_type: selectedTestId,
+            value: numericValue,
+            unit: currentTest.unit,
+            higher_is_better: currentTest.higherIsBetter,
+            flagged,
+            date_tested: new Date().toISOString(),
+          })
+          setResults((prev) => [...prev, saved])
+          setInputValue('')
+        }
         loadHistory()
       }
       setCurrentIndex((idx) => Math.min(idx + 1, participants.length))
@@ -300,6 +365,8 @@ const Session = () => {
 
   const handleSkip = () => {
     setInputValue('')
+    setLoadValue('')
+    setRepsValue('')
     setCurrentIndex((idx) => Math.min(idx + 1, participants.length))
   }
 
@@ -557,14 +624,87 @@ const Session = () => {
                       </div>
                     </div>
                   ) : (
-                    <input
-                      ref={inputRef}
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={currentTest?.unit || ''}
-                      className="w-48 text-center text-5xl bg-[#0a0f0a] border border-pfa-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pfa-green"
-                    />
+                    <div>
+                      {STRENGTH_LOAD_TESTS.includes(selectedTestId) ? (
+                        <div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                            <div style={{ flex: 1 }}>
+                              <div
+                                style={{
+                                  color: 'rgba(255,255,255,0.5)',
+                                  fontSize: '10px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.08em',
+                                  marginBottom: '6px',
+                                }}
+                              >
+                                Load (lbs)
+                              </div>
+                              <input
+                                ref={inputRef}
+                                type="number"
+                                step="2.5"
+                                placeholder="135"
+                                value={loadValue}
+                                onChange={(e) => setLoadValue(e.target.value)}
+                                style={inputStyle}
+                                onKeyDown={handleKeyDown}
+                              />
+                            </div>
+                            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '20px', fontWeight: '200', paddingBottom: '10px' }}>×</div>
+                            <div style={{ width: '80px' }}>
+                              <div
+                                style={{
+                                  color: 'rgba(255,255,255,0.5)',
+                                  fontSize: '10px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.08em',
+                                  marginBottom: '6px',
+                                }}
+                              >
+                                Reps
+                              </div>
+                              <input
+                                type="number"
+                                step="1"
+                                min="1"
+                                max="30"
+                                placeholder="5"
+                                value={repsValue}
+                                onChange={(e) => setRepsValue(e.target.value)}
+                                style={inputStyle}
+                                onKeyDown={handleKeyDown}
+                              />
+                            </div>
+                          </div>
+                          {loadValue && repsValue && (
+                            <div style={{ marginTop: '8px', display: 'flex', gap: '16px' }}>
+                              <div style={{ color: '#3fae52', fontSize: '12px', fontWeight: '700' }}>
+                                e1RM: {calcE1RM(parseFloat(loadValue), parseInt(repsValue))} lbs
+                              </div>
+                              {latestBodyweight && (
+                                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>
+                                  Relative: {calcRelativeStrength(
+                                    calcE1RM(parseFloat(loadValue), parseInt(repsValue)),
+                                    latestBodyweight
+                                  )}
+                                  × BW
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <input
+                          ref={inputRef}
+                          value={inputValue}
+                          onChange={(e) => setInputValue(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder={currentTest?.unit || ''}
+                          className="w-48 text-center text-5xl bg-[#0a0f0a] border border-pfa-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pfa-green"
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -690,6 +830,9 @@ const Session = () => {
                   sport: i.profiles?.sport,
                   position: i.profiles?.position,
                   value: i.value,
+                  load_value: i.load_value,
+                  reps: i.reps,
+                  relative_strength: i.relative_strength,
                 })
               })
 
@@ -816,7 +959,25 @@ const Session = () => {
                                                 <div className="text-xs text-white/60">
                                                   {ath.sport || 'Sport'} {ath.position ? `· ${ath.position}` : ''}
                                                 </div>
-                                                <div className="text-xs text-pfa-green font-semibold">{ath.value}{unit}</div>
+                                                {STRENGTH_LOAD_TESTS.includes(testType) ? (
+                                                  <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ color: '#3fae52', fontSize: '13px', fontWeight: '700' }}>
+                                                      {Math.round(ath.value)} lbs
+                                                    </div>
+                                                    {ath.load_value && ath.reps && (
+                                                      <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px', marginTop: '2px' }}>
+                                                        {ath.load_value} × {ath.reps} reps
+                                                      </div>
+                                                    )}
+                                                    {ath.relative_strength && (
+                                                      <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px', marginTop: '1px' }}>
+                                                        {ath.relative_strength}× BW
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                ) : (
+                                                  <div className="text-xs text-pfa-green font-semibold">{ath.value}{unit}</div>
+                                                )}
                                               </div>
                                             )
                                           })}

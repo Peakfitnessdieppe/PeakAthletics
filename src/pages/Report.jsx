@@ -15,6 +15,7 @@ import {
 } from 'chart.js'
 import useAuth from '../hooks/useAuth'
 import { getAthleteReport, getPfaAverageScores, getAgeGroupAverageResults, getPeerStats, getAthleteGameStats } from '../services/reports'
+import { supabase } from '../services/supabase'
 
 Chart.register(
   RadarController,
@@ -34,24 +35,21 @@ const PFA_LOGO =
 
 const TEST_RANGES = {
   '10m_sprint': { min: 1.5, max: 2.5, higherIsBetter: false },
-  '30m_sprint': { min: 3.5, max: 5.5, higherIsBetter: false },
   pro_agility_shuttle: { min: 4.2, max: 6.2, higherIsBetter: false },
   squat: { min: 60, max: 400, higherIsBetter: true },
   trap_bar_deadlift: { min: 80, max: 500, higherIsBetter: true },
   bench_press: { min: 40, max: 300, higherIsBetter: true },
   pull_ups: { min: 0, max: 25, higherIsBetter: true },
   push_ups: { min: 0, max: 60, higherIsBetter: true },
-  imtp: { min: 60, max: 400, higherIsBetter: true },
   broad_jump: { min: 130, max: 290, higherIsBetter: true },
   vertical_jump: { min: 20, max: 80, higherIsBetter: true },
-  ncmj: { min: 20, max: 70, higherIsBetter: true },
   mb_chest_pass: { min: 2.5, max: 8.0, higherIsBetter: true },
   beep_test: { min: 4, max: 15, higherIsBetter: true },
 }
 
-const LOWER_IS_BETTER = new Set(['10m_sprint', '30m_sprint', 'pro_agility_shuttle'])
+const LOWER_IS_BETTER = new Set(['10m_sprint', 'pro_agility_shuttle'])
 
-const CATEGORY_WEIGHTS = { speed: 0.3, strength: 0.15, power: 0.25, agility: 0.2, endurance: 0.1 }
+const CATEGORY_WEIGHTS = { speed: 0.25, power: 0.25, strength: 0.25, agility: 0.15, endurance: 0.1 }
 
 const CATEGORIES = ['speed', 'strength', 'power', 'agility', 'endurance']
 
@@ -65,8 +63,8 @@ const CAT_DESCRIPTIONS = {
 
 const formatVal = (testType, value) => {
   if (value === null || value === undefined) return '—'
-  const kgTests = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
-  if (kgTests.includes(testType)) return `${parseFloat(value).toFixed(1)} kg`
+  const lbTests = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
+  if (lbTests.includes(testType)) return `${parseFloat(value).toFixed(1)} lbs`
   if (testType === 'broad_jump') return `${(value / 100).toFixed(2)} m`
   if (['10m_sprint', '30m_sprint', 'pro_agility_shuttle'].includes(testType)) return `${Number(value).toFixed(2)} s`
   if (['vertical_jump', 'ncmj'].includes(testType)) return `${Math.round(value)} cm`
@@ -284,6 +282,7 @@ const Report = () => {
   const [error, setError] = useState(null)
   const [peakiqText, setPeakiqText] = useState(null)
   const [peakiqLoading, setPeakiqLoading] = useState(false)
+  const [compScore, setCompScore] = useState(null)
 
   useEffect(() => {
     if (!athleteId) return
@@ -318,6 +317,14 @@ const Report = () => {
         setGameStats(gs || [])
         setPfaAvg(calcGroupAverageScores(Array.isArray(pfaResults) ? pfaResults : []))
         setAgeGroupAvg(calcGroupAverageScores(Array.isArray(ageGroupResults) ? ageGroupResults : []))
+
+        const { data: compScoreData } = await supabase
+          .from('pfa_composite_scores')
+          .select('overall_score, speed_score, power_score, strength_score, agility_score, endurance_score, calculated_at')
+          .eq('athlete_id', athleteId)
+          .order('calculated_at', { ascending: false })
+          .limit(1)
+        setCompScore(compScoreData?.[0] || null)
       } catch (err) {
         console.error('Report load error', err)
         setError(err.message)
@@ -386,6 +393,7 @@ const Report = () => {
         body: JSON.stringify({
           athleteId,
           audience: profile?.role || 'athlete',
+          units: 'lbs',
         }),
       })
       const json = await res.json()
@@ -432,6 +440,15 @@ const Report = () => {
   const { profile, benchmarks } = reportData
   const age = calcAge(profile?.date_of_birth || profile?.dob)
   const initials = (profile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+
+  const displayScores = {
+    overall: compScore?.overall_score != null ? Math.round(compScore.overall_score) : null,
+    speed: compScore?.speed_score != null ? Math.round(compScore.speed_score) : null,
+    power: compScore?.power_score != null ? Math.round(compScore.power_score) : null,
+    strength: compScore?.strength_score != null ? Math.round(compScore.strength_score) : null,
+    agility: compScore?.agility_score != null ? Math.round(compScore.agility_score) : null,
+    endurance: compScore?.endurance_score != null ? Math.round(compScore.endurance_score) : null,
+  }
 
   return (
     <div style={{ background: '#0a0f0a', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif', overflowX: 'hidden', width: '100%' }}>
@@ -517,7 +534,7 @@ const Report = () => {
             <span style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Physical Performance Results</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px' }}>Overall Score</span>
-              <span style={{ fontSize: '28px', fontWeight: '900', color: getScoreColor(catScores.overall) }}>{catScores.overall ?? '—'}</span>
+              <span style={{ fontSize: '28px', fontWeight: '900', color: getScoreColor(displayScores.overall) }}>{displayScores.overall ?? '—'}</span>
             </div>
           </div>
           <div
@@ -529,7 +546,7 @@ const Report = () => {
             }}
           >
             {CATEGORIES.map((cat) => {
-              const score = catScores[cat]
+              const score = displayScores[cat]
               const color = getScoreColor(score)
               return (
                 <div key={cat} style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
@@ -653,7 +670,7 @@ const Report = () => {
               <div key={cat} style={{ marginBottom: '40px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <h3 style={{ fontWeight: '800', fontSize: '18px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'white', margin: 0 }}>{cat}</h3>
-                  <span style={{ fontSize: '22px', fontWeight: '900', color: getScoreColor(catScores[cat]) }}>{catScores[cat] ?? '—'}</span>
+                  <span style={{ fontSize: '22px', fontWeight: '900', color: getScoreColor(displayScores[cat]) }}>{displayScores[cat] ?? '—'}</span>
                 </div>
                 <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', lineHeight: 1.6, marginBottom: '16px' }}>{CAT_DESCRIPTIONS[cat]}</p>
                 {catTestTypes.length === 0 && (
@@ -709,6 +726,23 @@ const Report = () => {
                     )
                   })}
                 </div>
+                {cat === 'strength' && (
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      padding: '12px 16px',
+                      background: 'rgba(255,255,255,0.03)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      color: 'rgba(255,255,255,0.35)',
+                      fontSize: '11px',
+                      lineHeight: '1.5',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    * Squat, Bench Press, and Trap Bar Deadlift values represent an estimated one-repetition maximum (1RM), calculated from the load and repetitions performed during testing using a validated predictive formula. Actual 1RM may vary.
+                  </div>
+                )}
               </div>
             )
           })}

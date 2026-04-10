@@ -6,6 +6,8 @@ import { supabase } from '../services/supabase'
 import { getLatestResults, getBaselineResults } from '../services/testResults'
 import { getAthleteTestRankings, getAthleteBodyMeasurements } from '../services/reports'
 
+const STRENGTH_LOAD_TESTS = ['squat', 'bench_press', 'trap_bar_deadlift']
+
 const cardNumber = '#001'
 
 const Card = () => {
@@ -31,8 +33,8 @@ const Card = () => {
     setLoading(true)
     try {
       const [latest, baseline, bodyMeasurements] = await Promise.all([
-        getLatestResults(profile.id),
-        getBaselineResults(profile.id),
+        getLatestResults(profile.id, { select: '*, load_value, reps, relative_strength' }),
+        getBaselineResults(profile.id, { select: '*, load_value, reps, relative_strength' }),
         getAthleteBodyMeasurements(profile.id),
       ])
       setLatestResults(latest || [])
@@ -161,29 +163,41 @@ const Card = () => {
       if (!byTestBySeason[r.test_type]) byTestBySeason[r.test_type] = {}
       const current = byTestBySeason[r.test_type][season]
       if (!current) {
-        byTestBySeason[r.test_type][season] = r.value
+        byTestBySeason[r.test_type][season] = r
       } else {
         const isBetter = LOWER_IS_BETTER.includes(r.test_type)
-          ? r.value < current
-          : r.value > current
-        if (isBetter) byTestBySeason[r.test_type][season] = r.value
+          ? r.value < current.value
+          : r.value > current.value
+        if (isBetter) byTestBySeason[r.test_type][season] = r
       }
     }
 
-    const formatVal = (testType, val) => {
-      if (val === undefined || val === null) return '—'
-      const v = ROUND_TO_INT.includes(testType) ? Math.round(val) : val
-      return `${v} ${TEST_UNITS[testType] || ''}`.trim()
+    const formatVal = (testType, rec) => {
+      if (!rec || rec.value === undefined || rec.value === null) return { main: '—', load: null, reps: null }
+      const v = ROUND_TO_INT.includes(testType) ? Math.round(rec.value) : rec.value
+      return {
+        main: `${v} ${TEST_UNITS[testType] || ''}`.trim(),
+        load: rec.load_value,
+        reps: rec.reps,
+      }
     }
 
-    return ALL_TESTS.map((testType) => ({
-      testType,
-      label: TEST_LABELS[testType],
-      unit: TEST_UNITS[testType],
-      season2025: formatVal(testType, byTestBySeason[testType]?.[2025]),
-      season2026: formatVal(testType, byTestBySeason[testType]?.[2026]),
-      hasAnyData: !!(byTestBySeason[testType]?.[2025] || byTestBySeason[testType]?.[2026]),
-    }))
+    return ALL_TESTS.map((testType) => {
+      const f2025 = formatVal(testType, byTestBySeason[testType]?.[2025])
+      const f2026 = formatVal(testType, byTestBySeason[testType]?.[2026])
+      return {
+        testType,
+        label: TEST_LABELS[testType],
+        unit: TEST_UNITS[testType],
+        season2025: f2025.main,
+        season2026: f2026.main,
+        load2025: f2025.load,
+        reps2025: f2025.reps,
+        load2026: f2026.load,
+        reps2026: f2026.reps,
+        hasAnyData: !!(byTestBySeason[testType]?.[2025] || byTestBySeason[testType]?.[2026]),
+      }
+    })
   }
 
   const inchesToFtIn = (inches) => {
@@ -516,6 +530,21 @@ const Card = () => {
                               {formatted.value}
                               <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginLeft: '2px' }}>{formatted.unit}</span>
                             </div>
+                            <div
+                              style={{
+                                color: '#fff',
+                                fontWeight: 700,
+                                fontSize: '14px',
+                                opacity: ranking.hasAnyData ? 1 : 0.35,
+                              }}
+                            >
+                              {ranking.season2025?.main || ranking.season2025}
+                              {['squat', 'bench_press', 'trap_bar_deadlift'].includes(ranking.testType) && ranking.season2025?.load && ranking.season2025?.reps && (
+                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '7px', marginTop: '2px' }}>
+                                  {ranking.season2025.load} × {ranking.season2025.reps}
+                                </div>
+                              )}
+                            </div>
                             {badge && (
                               <div
                                 style={{
@@ -766,16 +795,28 @@ const Card = () => {
                             }}
                           >
                             <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: '600' }}>{stat.label}</div>
-                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>{stat.season2025}</div>
+                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>
+                              <div>{stat.season2025}</div>
+                              {STRENGTH_LOAD_TESTS.includes(stat.testType) && stat.load2025 && stat.reps2025 && (
+                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '7px', marginTop: '1px' }}>
+                                  {stat.load2025} × {stat.reps2025}
+                                </div>
+                              )}
+                            </div>
                             <div
                               style={{
-                                color: stat.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                                color: stat.season2026 && stat.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)',
                                 fontSize: '10px',
-                                fontWeight: stat.season2026 !== '—' ? '700' : '400',
+                                fontWeight: stat.season2026 && stat.season2026 !== '—' ? '700' : '400',
                                 textAlign: 'center',
                               }}
                             >
-                              {stat.season2026}
+                              <div>{stat.season2026}</div>
+                              {STRENGTH_LOAD_TESTS.includes(stat.testType) && stat.load2026 && stat.reps2026 && (
+                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '7px', marginTop: '1px' }}>
+                                  {stat.load2026} × {stat.reps2026}
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
