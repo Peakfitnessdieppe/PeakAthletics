@@ -24,7 +24,7 @@ exports.handler = async (event) => {
 
     const { data: results } = await supabase
       .from('pfa_test_results')
-      .select('*')
+      .select('*, load_value, reps, relative_strength')
       .eq('athlete_id', athleteId)
       .order('date_tested', { ascending: false })
 
@@ -42,17 +42,35 @@ exports.handler = async (event) => {
       .eq('age_category', profile?.age_category)
       .eq('gender', profile?.gender)
 
+    const strengthTests = ['squat', 'bench_press', 'trap_bar_deadlift']
     const bestResults = {}
     for (const r of results || []) {
       if (!bestResults[r.test_type]) bestResults[r.test_type] = r
     }
 
+    const formatStrength = (r) => {
+      if (!r) return '—'
+      const e1rm = `${Math.round(r.value)} lbs e1RM`
+      const loadReps = r.load_value && r.reps ? ` (from ${r.load_value} lbs × ${r.reps} reps)` : ' (estimated)'
+      const rel = r.relative_strength ? ` — Relative Strength: ${r.relative_strength}× BW` : ''
+      return e1rm + loadReps + rel
+    }
+
+    const formatResult = (test, r) => {
+      if (strengthTests.includes(test)) return formatStrength(r)
+      if (!r) return '—'
+      return `${r.value} ${r.unit || ''} (${r.category})`
+    }
+
     const peerContext = (peerStats || [])
-      .map((p) => `${p.test_type}: peer mean=${Number(p.mean).toFixed(2)}, std_dev=${Number(p.std_dev).toFixed(2)}, n=${p.n}`)
+      .map((p) => {
+        const base = `${p.test_type}: peer mean=${Number(p.mean).toFixed(2)}${strengthTests.includes(p.test_type) ? ' lbs' : ''}, std_dev=${Number(p.std_dev).toFixed(2)}, n=${p.n}`
+        return base
+      })
       .join('\n')
 
     const resultsSummary = Object.entries(bestResults)
-      .map(([test, r]) => `${test}: ${r.value} ${r.unit} (${r.category})`)
+      .map(([test, r]) => `${test}: ${formatResult(test, r)}`)
       .join('\n')
 
     const gs = gameStats?.[0]
@@ -70,7 +88,9 @@ exports.handler = async (event) => {
 
     const tone = audienceInstructions[audience] || audienceInstructions.athlete
 
-    const prompt = `You are PeakIQ, an elite sports performance analyst for Peak Fitness Athletics in Dieppe, NB, Canada. You specialize in youth hockey and multi-sport athlete development.
+    const prompt = `IMPORTANT: All weight and strength values in this report are in POUNDS (lbs), not kilograms. Never convert these values. Always write "lbs" when referring to any strength measurement.
+
+You are PeakIQ, an elite sports performance analyst for Peak Fitness Athletics in Dieppe, NB, Canada. You specialize in youth hockey and multi-sport athlete development.
 
 Generate a comprehensive performance insight report for the following athlete:
 
