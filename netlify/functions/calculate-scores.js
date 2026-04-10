@@ -66,10 +66,17 @@ exports.handler = async (event) => {
 
   // Fetch all test results for these athletes
   const athleteIdList = athletes.map(a => a.id)
-  const { data: allResults } = await supabaseAdmin
+  const { data: allResults, error: resultsError } = await supabaseAdmin
     .from('pfa_test_results')
     .select('athlete_id, test_type, value, date_tested')
     .in('athlete_id', athleteIdList)
+    .limit(10000)
+
+  console.log('[CalcScores] Total athletes:', athletes?.length)
+  console.log('[CalcScores] Total results:', allResults?.length)
+  console.log('[CalcScores] Sample result:', allResults?.[0])
+  console.log('[CalcScores] Results fetch error:', resultsError)
+  console.log('[CalcScores] Results count:', allResults?.length)
 
   // Fetch peer stats for Z-score normalization
   // Group athletes by sport+age_category for peer comparison
@@ -150,6 +157,7 @@ exports.handler = async (event) => {
         if (isBetter) bestPerTest[r.test_type] = r.value
       }
     }
+    console.log('[CalcScores] Processing athlete:', athlete.id, 'results:', athleteResults.length, 'bestPerTest:', Object.keys(bestPerTest))
 
     // Calculate category scores
     const categoryScores = {}
@@ -177,25 +185,27 @@ exports.handler = async (event) => {
     const overallScore = weightedTotal > 0
       ? Math.round(weightedSum / weightedTotal)
       : null
-
-    if (overallScore !== null) {
-      upsertRows.push({
-        athlete_id: athlete.id,
-        overall_score: overallScore,
-        speed_score: categoryScores.speed,
-        power_score: categoryScores.power,
-        strength_score: categoryScores.strength,
-        agility_score: categoryScores.agility,
-        endurance_score: categoryScores.endurance,
-        calculated_at: new Date().toISOString()
-      })
-    }
+    upsertRows.push({
+      athlete_id: athlete.id,
+      overall_score: overallScore !== null && !isNaN(overallScore) ? overallScore : 0,
+      speed_score: categoryScores.speed || 0,
+      power_score: categoryScores.power || 0,
+      strength_score: categoryScores.strength || 0,
+      agility_score: categoryScores.agility || 0,
+      endurance_score: categoryScores.endurance || 0,
+      calculated_at: new Date().toISOString()
+    })
   }
+
+  console.log('[CalcScores] Rows to upsert:', upsertRows.length)
+  console.log('[CalcScores] Sample upsert row:', upsertRows[0])
 
   if (upsertRows.length > 0) {
     const { error: upsertError } = await supabaseAdmin
       .from('pfa_composite_scores')
       .upsert(upsertRows, { onConflict: 'athlete_id' })
+
+    console.log('[CalcScores] Upsert error:', upsertError)
     
     if (upsertError) {
       return { 

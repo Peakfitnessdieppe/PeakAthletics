@@ -130,9 +130,9 @@ const Card = () => {
       mb_chest_pass: 'MB Chest Pass',
       pro_agility_shuttle: 'Pro Agility',
       beep_test: 'Beep Test',
-      squat: 'Squat',
-      trap_bar_deadlift: 'Trap Bar Deadlift',
-      bench_press: 'Bench Press',
+      squat: 'Squat*',
+      trap_bar_deadlift: 'Trap Bar Deadlift*',
+      bench_press: 'Bench Press*',
       pull_ups: 'Pull-Ups',
       push_ups: 'Push-Ups',
       imtp: 'IMTP',
@@ -234,12 +234,13 @@ const Card = () => {
     const fetchComposite = async () => {
       if (!profile?.id) return
       try {
-        const { data: compScores } = await supabase
+        const { data: compScores, error } = await supabase
           .from('pfa_composite_scores')
           .select('overall_score, speed_score, power_score, strength_score, agility_score, endurance_score, calculated_at')
           .eq('athlete_id', profile.id)
           .order('calculated_at', { ascending: false })
           .limit(1)
+        console.log('[Card] compScore fetch result:', compScores, error)
         setCompScore(compScores?.[0] || null)
       } catch (err) {
         console.error('Failed to load composite scores', err)
@@ -650,14 +651,14 @@ const Card = () => {
                           { label: 'Agility', key: 'agility_score' },
                           { label: 'Endurance', key: 'endurance_score' },
                         ].map((row, i, arr) => {
-                          const latestTestDate =
-                            latestResults?.length > 0
-                              ? latestResults.reduce(
-                                  (latest, r) => (r.date_tested > latest ? r.date_tested : latest),
-                                  latestResults[0].date_tested
-                                )
-                              : null
+                          const latestTestDate = (latestResults || []).reduce((latest, r) => {
+                            return !latest || r.date_tested > latest ? r.date_tested : latest
+                          }, null)
                           const scoreSeasonYear = latestTestDate ? getSeasonYear(latestTestDate) : null
+                          console.log('[Card] latestResults:', latestResults?.length, latestResults?.[0])
+                          console.log('[Card] latestTestDate:', latestTestDate)
+                          console.log('[Card] scoreSeasonYear:', scoreSeasonYear)
+                          console.log('[Card] compScore:', compScore)
                           const score2025 =
                             scoreSeasonYear === 2025 && compScore && compScore[row.key] != null
                               ? Math.round(compScore[row.key])
@@ -778,6 +779,19 @@ const Card = () => {
                             </div>
                           </div>
                         ))}
+                        <div
+                          style={{
+                            marginTop: '8px',
+                            paddingTop: '8px',
+                            borderTop: '1px solid rgba(255,255,255,0.06)',
+                            color: 'rgba(255,255,255,0.3)',
+                            fontSize: '8px',
+                            lineHeight: '1.4',
+                            fontStyle: 'italic',
+                          }}
+                        >
+                          * Squat, Bench Press, and Trap Bar Deadlift values represent an estimated one-repetition maximum (1RM), calculated from the load and repetitions completed during testing using a validated predictive formula.
+                        </div>
                       </div>
                     </>
                   )

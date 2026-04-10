@@ -41,6 +41,85 @@ const SECTION_LABELS = {
   dashboard: 'Dashboard',
 }
 
+const CARD_MODAL_LOWER_IS_BETTER = ['10m_sprint', '30m_sprint', 'pro_agility_shuttle']
+const CARD_MODAL_TEST_LABELS = {
+  '10m_sprint': '10m Sprint',
+  '30m_sprint': '30m Sprint',
+  vertical_jump: 'Vertical Jump',
+  broad_jump: 'Broad Jump',
+  ncmj: 'NCMJ',
+  mb_chest_pass: 'MB Chest Pass',
+  pro_agility_shuttle: 'Pro Agility',
+  beep_test: 'Beep Test',
+  squat: 'Squat*',
+  trap_bar_deadlift: 'Trap Bar Deadlift*',
+  bench_press: 'Bench Press*',
+  pull_ups: 'Pull-Ups',
+  push_ups: 'Push-Ups',
+  imtp: 'IMTP',
+}
+const CARD_MODAL_TEST_UNITS = {
+  '10m_sprint': 's',
+  '30m_sprint': 's',
+  pro_agility_shuttle: 's',
+  vertical_jump: 'cm',
+  broad_jump: 'm',
+  ncmj: 'cm',
+  mb_chest_pass: 'm',
+  beep_test: 'lvl',
+  squat: 'lbs',
+  trap_bar_deadlift: 'lbs',
+  bench_press: 'lbs',
+  pull_ups: 'reps',
+  push_ups: 'reps',
+  imtp: 'lbs',
+}
+const CARD_MODAL_ALL_TESTS = [
+  '10m_sprint',
+  'vertical_jump',
+  'broad_jump',
+  'mb_chest_pass',
+  'pro_agility_shuttle',
+  'beep_test',
+  'squat',
+  'trap_bar_deadlift',
+  'bench_press',
+  'pull_ups',
+  'push_ups',
+  'imtp',
+]
+const CARD_MODAL_ROUND_TO_INT = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp', 'push_ups', 'pull_ups']
+
+const getCardModalSeasonYear = (dateStr) => {
+  const d = new Date(dateStr)
+  return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear()
+}
+
+const buildCardModalSeasonStats = (results) => {
+  const byTestBySeason = {}
+  for (const r of results || []) {
+    const season = getCardModalSeasonYear(r.date_tested)
+    if (!byTestBySeason[r.test_type]) byTestBySeason[r.test_type] = {}
+    const current = byTestBySeason[r.test_type][season]
+    const isBetter = CARD_MODAL_LOWER_IS_BETTER.includes(r.test_type)
+      ? r.value < (current ?? Infinity)
+      : r.value > (current ?? -Infinity)
+    if (!current || isBetter) byTestBySeason[r.test_type][season] = r.value
+  }
+  const formatVal = (testType, val) => {
+    if (val === undefined || val === null) return '—'
+    const v = CARD_MODAL_ROUND_TO_INT.includes(testType) ? Math.round(val) : val
+    return `${v} ${CARD_MODAL_TEST_UNITS[testType] || ''}`.trim()
+  }
+  return CARD_MODAL_ALL_TESTS.map((testType) => ({
+    testType,
+    label: CARD_MODAL_TEST_LABELS[testType] || testType,
+    season2025: formatVal(testType, byTestBySeason[testType]?.[2025]),
+    season2026: formatVal(testType, byTestBySeason[testType]?.[2026]),
+    hasAnyData: !!(byTestBySeason[testType]?.[2025] || byTestBySeason[testType]?.[2026]),
+  }))
+}
+
 const Admin = () => {
   const { user, profile, signOut } = useAuth()
   const [activeSection, setActiveSection] = useState('Dashboard')
@@ -105,6 +184,11 @@ const Admin = () => {
   const [coachAddSearch, setCoachAddSearch] = useState('')
 
   const [staffList, setStaffList] = useState([])
+
+  const [cardModalAthlete, setCardModalAthlete] = useState(null)
+  const [cardModalResults, setCardModalResults] = useState([])
+  const [cardModalMeasurements, setCardModalMeasurements] = useState([])
+  const [cardModalScores, setCardModalScores] = useState(null)
 
   const [athletes, setAthletes] = useState([])
   const [athletesLoading, setAthletesLoading] = useState(false)
@@ -819,6 +903,11 @@ const Admin = () => {
     }
   }
 
+  const getSeasonYear = (dateStr) => {
+    const d = new Date(dateStr)
+    return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear()
+  }
+
   const groupResultsByCategory = (rows = []) => {
     if (!rows || !Array.isArray(rows)) return {}
     return rows.reduce((acc, r) => {
@@ -847,7 +936,7 @@ const Admin = () => {
   }, [activeSection])
 
   useEffect(() => {
-    if (activeSection === 'PFA Staff') {
+    if (activeSection === 'PFA Staff' || activeSection === 'staff') {
       loadStaff()
     }
   }, [activeSection])
@@ -1865,7 +1954,47 @@ const Admin = () => {
                                 ) : (
                                   (teamRosterMap[t.id] || []).map((r) => (
                                     <tr key={`${t.id}-${r.athlete_id}`}>
-                                      <td className="py-2 px-3">{r.profiles?.full_name || '-'}</td>
+                                      <td
+                                        className="py-2 px-3"
+                                        style={{ cursor: 'pointer', color: '#3fae52', textDecoration: 'underline' }}
+                                        onClick={async () => {
+                                          const athlete = r.profiles || { athlete_id: r.athlete_id, full_name: r.full_name || 'Unknown' }
+                                          const athleteId = r.athlete_id || r.profiles?.id || athlete.id
+                                          const athleteName = r.profiles?.full_name || r.full_name || athlete.full_name || 'Unknown'
+                                          console.log('[CardModal] athlete object:', athlete)
+                                          setCardModalAthlete({ ...athlete, id: athleteId, full_name: athleteName })
+
+                                          const { data: results } = await supabase
+                                            .from('pfa_test_results')
+                                            .select('*')
+                                            .eq('athlete_id', athleteId)
+                                            .order('date_tested', { ascending: false })
+                                          setCardModalResults(results || [])
+                                          console.log('[CardModal] results for', athleteName, ':', results)
+                                          console.log('[CardModal] first result date:', results?.[0]?.date_tested)
+                                          console.log(
+                                            '[CardModal] season year:',
+                                            results?.[0]?.date_tested ? getCardModalSeasonYear(results[0].date_tested) : 'no results'
+                                          )
+
+                                          const { data: measurements } = await supabase
+                                            .from('pfa_body_measurements')
+                                            .select('*')
+                                            .eq('athlete_id', athleteId)
+                                            .order('measurement_date', { ascending: false })
+                                          setCardModalMeasurements(measurements || [])
+
+                                          const { data: scores } = await supabase
+                                            .from('pfa_composite_scores')
+                                            .select('*')
+                                            .eq('athlete_id', athleteId)
+                                            .order('calculated_at', { ascending: false })
+                                            .limit(1)
+                                          setCardModalScores(scores?.[0] || null)
+                                        }}
+                                      >
+                                        {r.profiles?.full_name || r.full_name || '-'}
+                                      </td>
                                       <td className="py-2 px-3">{r.profiles?.sport || '-'}</td>
                                       <td className="py-2 px-3">{r.profiles?.position || '-'}</td>
                                       <td className="py-2 px-3">{r.profiles?.age_category || '-'}</td>
@@ -2626,6 +2755,8 @@ const Admin = () => {
         return renderUsers()
       case 'PFA Staff':
         return renderStaff()
+      case 'staff':
+        return renderStaff()
       case 'Teams':
         return renderTeams()
       case 'Coaches':
@@ -2710,6 +2841,245 @@ const Admin = () => {
           </div>
           {renderSection()}
           {activeSection === 'scoreWeights' && renderScoreWeights()}
+          {cardModalAthlete && (
+            <div
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.85)',
+                zIndex: 9999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <button
+                onClick={() => setCardModalAthlete(null)}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: 'white',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                ×
+              </button>
+
+              <div
+                style={{
+                  maxWidth: '420px',
+                  width: '90vw',
+                  maxHeight: '85vh',
+                  overflowY: 'auto',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(160deg, #0d1a0e 0%, #0a0f0a 60%)',
+                  border: '2px solid rgba(63,174,82,0.4)',
+                  padding: '16px',
+                  position: 'relative',
+                  boxShadow: '0 20px 80px rgba(0,0,0,0.6)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ color: '#3fae52', fontWeight: 800, letterSpacing: '0.08em' }}>PFA</div>
+                  <div style={{ color: 'white', fontWeight: 700 }}>{cardModalAthlete?.full_name || 'Athlete'}</div>
+                </div>
+                <div style={{ borderBottom: '1px solid rgba(63,174,82,0.25)', margin: '8px 0' }} />
+
+                {(() => {
+                  const scoreRows = [
+                    { label: 'Overall', key: 'overall_score' },
+                    { label: 'Speed', key: 'speed_score' },
+                    { label: 'Power', key: 'power_score' },
+                    { label: 'Strength', key: 'strength_score' },
+                    { label: 'Agility', key: 'agility_score' },
+                    { label: 'Endurance', key: 'endurance_score' },
+                  ]
+                  const latestTestDate = (cardModalResults || []).reduce((latest, r) => {
+                    return !latest || r.date_tested > latest ? r.date_tested : latest
+                  }, null)
+                  const scoreSeasonYear = latestTestDate ? getSeasonYear(latestTestDate) : null
+
+                  return (
+                    <div style={{ padding: '12px 0' }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 80px 80px',
+                          padding: '6px 0',
+                          borderBottom: '1px solid rgba(63,174,82,0.3)',
+                          marginBottom: '4px',
+                        }}
+                      >
+                        <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em' }}>STANDARDIZED SCORES</div>
+                        <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', textAlign: 'center' }}>2025</div>
+                        <div style={{ color: '#3fae52', fontSize: '9px', fontWeight: '700', textAlign: 'center' }}>2026</div>
+                      </div>
+                      {scoreRows.map((row, idx) => {
+                        const val = cardModalScores?.[row.key]
+                        const score2025 = scoreSeasonYear === 2025 && val != null ? Math.round(val) : null
+                        const score2026 = scoreSeasonYear === 2026 && val != null ? Math.round(val) : null
+                        return (
+                          <div
+                            key={row.key}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 80px 80px',
+                              padding: '5px 0',
+                              borderBottom: idx < scoreRows.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                            }}
+                          >
+                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: '600' }}>{row.label}</div>
+                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>{score2025 !== null ? score2025 : '—'}</div>
+                            <div
+                              style={{
+                                color: score2026 !== null ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                                fontSize: '10px',
+                                fontWeight: score2026 !== null ? '700' : '400',
+                                textAlign: 'center',
+                              }}
+                            >
+                              {score2026 !== null ? score2026 : '—'}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
+
+                {(() => {
+                  const bySeason = {}
+                  for (const m of cardModalMeasurements || []) {
+                    const season = getSeasonYear(m.measurement_date)
+                    if (!bySeason[season]) bySeason[season] = m
+                  }
+                  const fmt = (val, suffix) => (val != null ? `${val}${suffix}` : '—')
+                  const heightToFtIn = (inches) => {
+                    if (!inches) return '—'
+                    const ft = Math.floor(inches / 12)
+                    const ins = Math.round(inches % 12)
+                    return `${ft}'${ins}"`
+                  }
+                  const rows = [
+                    { label: 'Height', season2025: bySeason[2025] ? heightToFtIn(bySeason[2025].height) : '—', season2026: bySeason[2026] ? heightToFtIn(bySeason[2026].height) : '—' },
+                    { label: 'Weight', season2025: bySeason[2025] ? fmt(bySeason[2025].weight, ' lbs') : '—', season2026: bySeason[2026] ? fmt(bySeason[2026].weight, ' lbs') : '—' },
+                    { label: 'Body Fat', season2025: bySeason[2025]?.body_fat_percentage != null ? `${bySeason[2025].body_fat_percentage}%` : '—', season2026: bySeason[2026]?.body_fat_percentage != null ? `${bySeason[2026].body_fat_percentage}%` : '—' },
+                  ]
+
+                  return (
+                    <div style={{ padding: '4px 0 12px' }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 80px 80px',
+                          padding: '6px 0',
+                          borderBottom: '1px solid rgba(63,174,82,0.3)',
+                          marginBottom: '4px',
+                        }}
+                      >
+                        <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em' }}>MEASUREMENTS</div>
+                        <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', textAlign: 'center' }}>2025</div>
+                        <div style={{ color: '#3fae52', fontSize: '9px', fontWeight: '700', textAlign: 'center' }}>2026</div>
+                      </div>
+                      {rows.map((row, idx) => (
+                        <div
+                          key={row.label}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 80px 80px',
+                            padding: '5px 0',
+                            borderBottom: idx < rows.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                          }}
+                        >
+                          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: '600' }}>{row.label}</div>
+                          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>{row.season2025}</div>
+                          <div
+                            style={{
+                              color: row.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                              fontSize: '10px',
+                              fontWeight: row.season2026 !== '—' ? '700' : '400',
+                              textAlign: 'center',
+                            }}
+                          >
+                            {row.season2026}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+
+                {(() => {
+                  const seasonStats = buildCardModalSeasonStats(cardModalResults)
+                  return (
+                    <div style={{ padding: '0 0 8px' }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 70px 70px',
+                          padding: '6px 0',
+                          borderBottom: '1px solid rgba(63,174,82,0.3)',
+                          marginBottom: '4px',
+                        }}
+                      >
+                        <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>TEST</div>
+                        <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', textAlign: 'center' }}>2025</div>
+                        <div style={{ color: '#3fae52', fontSize: '9px', fontWeight: '700', textAlign: 'center' }}>2026</div>
+                      </div>
+                      {seasonStats.map((stat, i) => (
+                        <div
+                          key={stat.testType}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 70px 70px',
+                            padding: '5px 0',
+                            borderBottom: i < seasonStats.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                            opacity: stat.hasAnyData ? 1 : 0.3,
+                          }}
+                        >
+                          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: '600' }}>{stat.label}</div>
+                          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>{stat.season2025}</div>
+                          <div
+                            style={{
+                              color: stat.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                              fontSize: '10px',
+                              fontWeight: stat.season2026 !== '—' ? '700' : '400',
+                              textAlign: 'center',
+                            }}
+                          >
+                            {stat.season2026}
+                          </div>
+                        </div>
+                      ))}
+                      <div
+                        style={{
+                          marginTop: '8px',
+                          paddingTop: '8px',
+                          borderTop: '1px solid rgba(255,255,255,0.06)',
+                          color: 'rgba(255,255,255,0.3)',
+                          fontSize: '8px',
+                          lineHeight: '1.4',
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        * Squat, Bench Press, and Trap Bar Deadlift values represent an estimated one-repetition maximum (1RM), calculated from the load and repetitions completed during testing using a validated predictive formula.
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </DashboardLayout>
