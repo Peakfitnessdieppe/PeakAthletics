@@ -64,19 +64,36 @@ exports.handler = async (event) => {
     return DEFAULT_WEIGHTS
   }
 
-  // Fetch all test results for these athletes
+  // Fetch all test results for these athletes with pagination
   const athleteIdList = athletes.map(a => a.id)
-  const { data: allResults, error: resultsError } = await supabaseAdmin
-    .from('pfa_test_results')
-    .select('athlete_id, test_type, value, date_tested')
-    .in('athlete_id', athleteIdList)
-    .limit(10000)
+  let allResults = []
+  let from = 0
+  const pageSize = 1000
+
+  while (true) {
+    const { data: page, error: pageError } = await supabaseAdmin
+      .from('pfa_test_results')
+      .select('athlete_id, test_type, value, date_tested')
+      .in('athlete_id', athleteIdList)
+      .range(from, from + pageSize - 1)
+
+    if (pageError) {
+      console.log('[CalcScores] Page fetch error:', pageError)
+      break
+    }
+
+    if (!page || page.length === 0) break
+
+    allResults = allResults.concat(page)
+    console.log('[CalcScores] Fetched page from', from, 'got', page.length, 'total now', allResults.length)
+
+    if (page.length < pageSize) break
+    from += pageSize
+  }
 
   console.log('[CalcScores] Total athletes:', athletes?.length)
   console.log('[CalcScores] Total results:', allResults?.length)
   console.log('[CalcScores] Sample result:', allResults?.[0])
-  console.log('[CalcScores] Results fetch error:', resultsError)
-  console.log('[CalcScores] Results count:', allResults?.length)
 
   // Fetch peer stats for Z-score normalization
   // Group athletes by sport+age_category for peer comparison
