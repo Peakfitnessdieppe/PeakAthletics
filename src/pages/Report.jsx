@@ -691,9 +691,21 @@ const Report = () => {
                     const hnbBench = relevant.find((b) => b.source === 'hnb')
                     const hcBench = relevant.find((b) => b.source === 'hc')
                     return (
-                      <div key={tt} style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.15)', borderRadius: '12px', padding: '16px' }}>
+                      <div
+                        key={tt}
+                        style={{
+                          background: '#0d1a0e',
+                          border: '1px solid rgba(63,174,82,0.15)',
+                          borderRadius: '12px',
+                          padding: '16px',
+                        }}
+                      >
                         <div style={{ color: '#3fae52', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
-                          {tt.replaceAll('_', ' ')}
+                          {{
+                            squat: 'Squat *',
+                            bench_press: 'Bench Press *',
+                            trap_bar_deadlift: 'Trap Bar Deadlift *',
+                          }[tt] || tt.replaceAll('_', ' ')}
                         </div>
                         <div style={{ fontSize: '22px', fontWeight: '900', color: 'white', marginBottom: '12px' }}>
                           {pb ? formatVal(tt, pb.value) : '—'}

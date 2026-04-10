@@ -171,7 +171,7 @@ const Dashboard = () => {
       try {
         const { data, error } = await supabase
           .from('pfa_composite_scores')
-          .select('athlete_id, overall_score, calculated_at')
+          .select('athlete_id, overall_score, speed_score, power_score, strength_score, agility_score, endurance_score, calculated_at')
           .in('athlete_id', athleteIds)
           .order('calculated_at', { ascending: false })
         if (error) console.warn('[Dashboard] query failed: composite scores', error.message)
@@ -724,7 +724,7 @@ const Dashboard = () => {
                     {['Speed', 'Power', 'Strength', 'Agility', 'Endurance'].map((cat) => {
                       const scoreVal = selectedAthleteScore?.[`${cat.toLowerCase()}_score`]
                       const pct = typeof scoreVal === 'number' ? Math.max(0, Math.min(100, scoreVal)) : 0
-                      const barColor = pct >= 70 ? '#3fae52' : pct >= 50 ? '#f59e0b' : 'rgba(239,68,68,0.8)'
+                      const color = typeof scoreVal !== 'number' ? 'rgba(255,255,255,0.25)' : pct >= 80 ? '#3fae52' : pct >= 60 ? '#f59e0b' : '#ef4444'
                       return (
                         <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
                           <div style={{ width: '80px', color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>
@@ -733,9 +733,9 @@ const Dashboard = () => {
                           <div
                             style={{
                               flex: 1,
-                              height: '8px',
-                              borderRadius: '4px',
-                              background: 'rgba(255,255,255,0.06)',
+                              height: '6px',
+                              borderRadius: '3px',
+                              background: 'rgba(255,255,255,0.08)',
                               overflow: 'hidden',
                             }}
                           >
@@ -743,12 +743,13 @@ const Dashboard = () => {
                               style={{
                                 width: `${pct}%`,
                                 height: '100%',
-                                background: typeof scoreVal === 'number' ? barColor : 'transparent',
+                                borderRadius: '3px',
+                                background: typeof scoreVal === 'number' ? color : 'transparent',
                                 transition: 'width 0.3s ease',
                               }}
                             />
                           </div>
-                          <div style={{ width: '32px', color: 'rgba(255,255,255,0.7)', fontSize: '12px', textAlign: 'right' }}>
+                          <div style={{ width: '32px', color, fontSize: '12px', textAlign: 'right', fontWeight: 700 }}>
                             {typeof scoreVal === 'number' ? Math.round(scoreVal) : '—'}
                           </div>
                         </div>
