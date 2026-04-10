@@ -10,6 +10,7 @@ import Checkin from './pages/Checkin'
 import Session from './pages/Session'
 import Admin from './pages/Admin'
 import Report from './pages/Report'
+import LandingPage from './pages/LandingPage'
 
 const App = () => {
   return (
@@ -17,14 +18,7 @@ const App = () => {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route
-            path="/"
-            element={
-              <RequireAuth>
-                <div />
-              </RequireAuth>
-            }
-          />
+          <Route path="/" element={<LandingPage />} />
           <Route
             path="/dashboard"
             element={
