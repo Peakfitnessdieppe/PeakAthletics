@@ -115,14 +115,13 @@ ${gameContext}
 INSTRUCTIONS:
 ${tone}
 
-Structure your response with these sections:
-1. **Performance Summary** — 2-3 sentences overview of this athlete's physical profile
-2. **Key Strengths** — Top 2-3 physical qualities this athlete excels at with specific data references
-3. **Priority Development Areas** — Top 2-3 areas to focus on with specific actionable recommendations
-4. **Dryland-to-Game Connection** — How their physical testing results connect to their on-ice performance (if game stats available)
-5. **Training Recommendations** — 3-5 specific training focus areas for the next 3 months
+Format your response with these exact section headers in ALL CAPS and bold, followed by a colon:
+PERFORMANCE SUMMARY
+KEY STRENGTHS
+AREAS FOR DEVELOPMENT
+TRAINING RECOMMENDATIONS
 
-Be specific, data-driven, and use the peer group context to frame whether results are above or below average. Keep the total response under 600 words. Do not use generic language — reference actual test results and numbers.`
+Use numbered lists for strengths, areas, and recommendations. Each item should have a bold title followed by a colon and explanation. Keep a professional, motivating tone appropriate for athletes and coaches. Do not use markdown symbols like # or ** — use plain text formatting only. Be specific, data-driven, and use the peer group context to frame whether results are above or below average. Keep the total response under 600 words. Do not use generic language — reference actual test results and numbers.`
 
     console.log('Calling OpenAI with prompt length:', prompt.length)
     console.log('OpenAI key present:', !!process.env.OPENAI_API_KEY)
@@ -136,7 +135,7 @@ Be specific, data-driven, and use the peer group context to frame whether result
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 800,
+        max_tokens: 2000,
         temperature: 0.7,
       }),
     })

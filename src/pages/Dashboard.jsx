@@ -75,6 +75,7 @@ const Dashboard = () => {
   const [needsTesting, setNeedsTesting] = useState([])
   const [selectedAthlete, setSelectedAthlete] = useState(null)
   const [athleteResults, setAthleteResults] = useState([])
+  const [athleteBodyweight, setAthleteBodyweight] = useState([])
   const [allResultsState, setAllResultsState] = useState([])
   const [gameStatsState, setGameStatsState] = useState([])
   const [search, setSearch] = useState('')
@@ -93,11 +94,18 @@ const Dashboard = () => {
       try {
         const { data } = await supabase
           .from('pfa_test_results')
-          .select('test_type, value, date_tested, category')
+          .select('test_type, value, date_tested, category, load_value, reps, relative_strength')
           .eq('athlete_id', selectedAthlete)
           .order('date_tested', { ascending: false })
           .limit(20)
         setAthleteResults(data || [])
+        const { data: bwData } = await supabase
+          .from('pfa_body_measurements')
+          .select('weight, body_fat_percentage, height, measurement_date')
+          .eq('athlete_id', selectedAthlete)
+          .order('measurement_date', { ascending: false })
+          .limit(3)
+        setAthleteBodyweight(bwData || [])
       } catch (err) {
         console.error('Load athlete results failed', err)
       }
@@ -180,6 +188,14 @@ const Dashboard = () => {
         console.warn('[Dashboard] query exception: composite scores', e)
       }
 
+      const latestScores = {}
+      const history = {}
+      ;(scoreData || []).forEach((s) => {
+        if (!latestScores[s.athlete_id]) latestScores[s.athlete_id] = s
+        if (!history[s.athlete_id]) history[s.athlete_id] = []
+        history[s.athlete_id].push(s.overall_score)
+      })
+
       let lastData = []
       try {
         const { data, error } = await supabase
@@ -218,33 +234,44 @@ const Dashboard = () => {
       }
       const fastestEntry = Object.values(bestSprintPerAthlete).sort((a, b) => a.value - b.value)[0]
 
-      // MOST EXPLOSIVE — vertical jump and broad jump
-      const POWER_TESTS = ['vertical_jump', 'broad_jump']
-      const POWER_MAX = { vertical_jump: 80, broad_jump: 3 }
-      const powerByAthlete = {}
-      for (const r of allResultsDataSafe.filter((r) => POWER_TESTS.includes(r.test_type))) {
-        const max = POWER_MAX[r.test_type] || 100
-        const normalized = Math.min(100, (r.value / max) * 100)
-        if (!powerByAthlete[r.athlete_id]) powerByAthlete[r.athlete_id] = []
-        powerByAthlete[r.athlete_id].push(normalized)
-      }
-      const mostExplosiveEntry = Object.entries(powerByAthlete)
-        .map(([id, vals]) => ({ athlete_id: id, score: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) }))
-        .sort((a, b) => b.score - a.score)[0]
+      // MOST EXPLOSIVE — highest power_score
+      const powerLeader = Object.values(latestScores)
+        .filter((s) => typeof s?.power_score === 'number')
+        .sort((a, b) => b.power_score - a.power_score)[0]
 
-      // STRONGEST — squat, bench, deadlift, pullups, pushups
-      const STRENGTH_TESTS = ['squat', 'trap_bar_deadlift', 'bench_press', 'pull_ups', 'push_ups']
-      const STRENGTH_MAX = { squat: 400, trap_bar_deadlift: 500, bench_press: 300, pull_ups: 30, push_ups: 60 }
-      const strengthByAthlete = {}
-      for (const r of allResultsDataSafe.filter((r) => STRENGTH_TESTS.includes(r.test_type))) {
-        const max = STRENGTH_MAX[r.test_type] || 100
-        const normalized = Math.min(100, (r.value / max) * 100)
-        if (!strengthByAthlete[r.athlete_id]) strengthByAthlete[r.athlete_id] = []
-        strengthByAthlete[r.athlete_id].push(normalized)
-      }
-      const strongestEntry = Object.entries(strengthByAthlete)
-        .map(([id, vals]) => ({ athlete_id: id, score: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) }))
-        .sort((a, b) => b.score - a.score)[0]
+      const bestVert = powerLeader
+        ? allResultsDataSafe
+            .filter((r) => r.athlete_id === powerLeader.athlete_id && r.test_type === 'vertical_jump')
+            .sort((a, b) => b.value - a.value)[0]
+        : null
+      const bestBroad = powerLeader
+        ? allResultsDataSafe
+            .filter((r) => r.athlete_id === powerLeader.athlete_id && r.test_type === 'broad_jump')
+            .sort((a, b) => b.value - a.value)[0]
+        : null
+
+      // STRONGEST — highest strength_score, show per-test e1RM rows
+      const strengthLeader = Object.values(latestScores)
+        .filter((s) => typeof s?.strength_score === 'number')
+        .sort((a, b) => b.strength_score - a.strength_score)[0]
+
+      const strengthLiftRows = strengthLeader
+        ? STRENGTH_LOAD_TESTS.map((testType) => {
+            const rows = allResultsDataSafe
+              .filter((r) => r.athlete_id === strengthLeader.athlete_id && r.test_type === testType && r.load_value && r.reps)
+              .map((r) => ({ ...r, e1rm: calcE1RM(r.load_value, r.reps) }))
+              .filter((r) => r.e1rm)
+            if (!rows.length) return null
+            const best = rows.sort((a, b) => b.e1rm - a.e1rm)[0]
+            return {
+              testType,
+              load: best.load_value,
+              reps: best.reps,
+              e1rm: best.e1rm,
+              relative_strength: best.relative_strength,
+            }
+          }).filter(Boolean)
+        : []
 
       // CONDITIONING — beep test
       const beepByAthlete = {}
@@ -265,8 +292,8 @@ const Dashboard = () => {
       const mostAgileEntry = Object.values(agilityByAthlete).sort((a, b) => a.value - b.value)[0]
 
       const fastestProfile = fastestEntry ? athleteProfiles.find((p) => p.id === fastestEntry.athlete_id) : null
-      const mostExplosiveProfile = mostExplosiveEntry ? athleteProfiles.find((p) => p.id === mostExplosiveEntry.athlete_id) : null
-      const strongestProfile = strongestEntry ? athleteProfiles.find((p) => p.id === strongestEntry.athlete_id) : null
+      const mostExplosiveProfile = powerLeader ? athleteProfiles.find((p) => p.id === powerLeader.athlete_id) : null
+      const strongestProfile = strengthLeader ? athleteProfiles.find((p) => p.id === strengthLeader.athlete_id) : null
       const topBeepProfile = topBeepEntry ? athleteProfiles.find((p) => p.id === topBeepEntry.athlete_id) : null
       const mostAgileProfile = mostAgileEntry ? athleteProfiles.find((p) => p.id === mostAgileEntry.athlete_id) : null
 
@@ -293,18 +320,21 @@ const Dashboard = () => {
               position: fastestProfile?.position || '',
             }
           : null,
-        mostExplosive: mostExplosiveEntry
+        mostExplosive: powerLeader
           ? {
               name: mostExplosiveProfile?.full_name || 'Unknown',
-              value: 'Power Score: ' + mostExplosiveEntry.score,
+              value: 'Power Score: ' + Math.round(powerLeader.power_score),
               position: mostExplosiveProfile?.position || '',
+              vertJump: bestVert?.value || null,
+              broadJump: bestBroad?.value || null,
             }
           : null,
-        strongest: strongestEntry
+        strongest: strengthLeader
           ? {
               name: strongestProfile?.full_name || 'Unknown',
-              value: 'Strength Score: ' + strongestEntry.score,
+              value: typeof strengthLeader.strength_score === 'number' ? `Strength Score: ${Math.round(strengthLeader.strength_score)}` : 'Strength Score: —',
               position: strongestProfile?.position || '',
+              lifts: strengthLiftRows,
             }
           : null,
         conditioning: topBeepEntry
@@ -337,26 +367,6 @@ const Dashboard = () => {
         console.warn('[Dashboard] query exception: game stats', e)
       }
 
-      let strengthCatScores = []
-      try {
-        const { data, error } = await supabase
-          .from('pfa_composite_scores')
-          .select('athlete_id, strength_score, calculated_at')
-          .in('athlete_id', athleteIds)
-          .order('calculated_at', { ascending: false })
-        if (error) console.warn('[Dashboard] query failed: strength scores', error.message)
-        else strengthCatScores = data || []
-      } catch (e) {
-        console.warn('[Dashboard] query exception: strength scores', e)
-      }
-
-      const latestScores = {}
-      const history = {}
-      ;(scoreData || []).forEach((s) => {
-        if (!latestScores[s.athlete_id]) latestScores[s.athlete_id] = s
-        if (!history[s.athlete_id]) history[s.athlete_id] = []
-        history[s.athlete_id].push(s.overall_score)
-      })
       const latestTested = {}
       ;(lastData || []).forEach((l) => {
         if (!latestTested[l.athlete_id]) latestTested[l.athlete_id] = l.date_tested
@@ -835,6 +845,16 @@ const Dashboard = () => {
                                         {TEST_UNITS[r.test_type] ? TEST_UNITS[r.test_type] : ''}
                                       </span>
                                     </div>
+                                    {STRENGTH_LOAD_TESTS.includes(r.test_type) && r.load_value && r.reps && (
+                                      <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px', marginTop: '2px' }}>
+                                        {r.load_value} × {r.reps} reps
+                                      </div>
+                                    )}
+                                    {r.relative_strength && (
+                                      <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px', marginTop: '1px' }}>
+                                        {parseFloat(r.relative_strength).toFixed(1)}× BW
+                                      </div>
+                                    )}
                                     <div
                                       style={{
                                         color: 'rgba(255,255,255,0.3)',
@@ -886,6 +906,44 @@ const Dashboard = () => {
                       </div>
                     </div>
                   )}
+                  {athleteBodyweight && athleteBodyweight.length > 0 && (
+                    <div style={{ marginTop: '16px' }}>
+                      <div style={{ color: '#fff', fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>
+                        Body Measurements
+                      </div>
+                      {athleteBodyweight.map((m, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            gap: '16px',
+                            fontSize: '11px',
+                            color: 'rgba(255,255,255,0.6)',
+                            padding: '4px 0',
+                            borderBottom: '1px solid rgba(255,255,255,0.04)',
+                          }}
+                        >
+                          <span>
+                            {m.measurement_date
+                              ? new Date(m.measurement_date).toLocaleDateString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })
+                              : '—'}
+                          </span>
+                          <span>Weight: {m.weight != null ? `${m.weight} lbs` : '—'}</span>
+                          <span>Body Fat: {m.body_fat_percentage != null ? `${m.body_fat_percentage}%` : '—'}</span>
+                          <span>
+                            Height:{' '}
+                            {m.height != null
+                              ? `${Math.floor(m.height / 12)}'${Math.round(m.height % 12)}"`
+                              : '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -902,16 +960,18 @@ const Dashboard = () => {
                     }}
                   >
                     {/* Fastest */}
-                  <div
-                    style={{
-                      background: '#0d1a0e',
-                      border: '1px solid rgba(63,174,82,0.2)',
-                      borderRadius: '12px',
-                      padding: '20px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                      <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>🏃 FASTEST PLAYER</div>
+                    <div
+                      style={{
+                        background: '#0d1a0e',
+                        border: '1px solid rgba(63,174,82,0.2)',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
+                        🏃 FASTEST PLAYER
+                      </div>
                       <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
                         {insights.fastest?.name || 'No sprint data yet'}
                       </div>
@@ -921,63 +981,141 @@ const Dashboard = () => {
                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
                         {insights.fastest?.position || ''}
                       </div>
-                  </div>
+                    </div>
 
                     {/* Most explosive */}
-                  <div
-                    style={{
-                      background: '#0d1a0e',
-                      border: '1px solid rgba(63,174,82,0.2)',
+                    <div
+                      style={{
+                        background: '#0d1a0e',
+                        border: '1px solid rgba(63,174,82,0.2)',
                         borderRadius: '12px',
                         padding: '20px',
                         cursor: 'pointer',
                       }}
                     >
-                      <div style={{ color: 'rgba(245,158,11,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>⚡ MOST EXPLOSIVE</div>
+                      <div style={{ color: 'rgba(245,158,11,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
+                        ⚡ MOST EXPLOSIVE
+                      </div>
                       <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
                         {insights.mostExplosive?.name || 'No power data yet'}
                       </div>
                       <div style={{ color: '#f59e0b', fontSize: '13px' }}>
                         {insights.mostExplosive?.value || ''}
                       </div>
+                      {((insights.mostExplosive?.vertJump && !isNaN(insights.mostExplosive.vertJump)) ||
+                        (insights.mostExplosive?.broadJump && !isNaN(insights.mostExplosive.broadJump))) && (
+                        <div style={{ marginTop: '6px', display: 'grid', gap: '6px' }}>
+                          {insights.mostExplosive?.vertJump && !isNaN(insights.mostExplosive.vertJump) && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                color: 'rgba(255,255,255,0.6)',
+                                fontSize: '10px',
+                              }}
+                            >
+                              <span style={{ color: 'rgba(255,255,255,0.75)' }}>Vertical Jump</span>
+                              <span style={{ textAlign: 'right', color: '#f59e0b', fontWeight: 700 }}>
+                                {insights.mostExplosive.vertJump} cm
+                              </span>
+                            </div>
+                          )}
+                          {insights.mostExplosive?.broadJump && !isNaN(insights.mostExplosive.broadJump) && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                color: 'rgba(255,255,255,0.6)',
+                                fontSize: '10px',
+                              }}
+                            >
+                              <span style={{ color: 'rgba(255,255,255,0.75)' }}>Broad Jump</span>
+                              <span style={{ textAlign: 'right', color: '#f59e0b', fontWeight: 700 }}>
+                                {insights.mostExplosive.broadJump} m
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
                         {insights.mostExplosive?.position || ''}
                       </div>
-                  </div>
+                    </div>
 
                     {/* Strongest */}
-                  <div
-                    style={{
-                      background: '#0d1a0e',
+                    <div
+                      style={{
+                        background: '#0d1a0e',
                         border: '1px solid rgba(63,174,82,0.2)',
                         borderRadius: '12px',
                         padding: '20px',
                         cursor: 'pointer',
                       }}
                     >
-                      <div style={{ color: 'rgba(239,68,68,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>💪 STRONGEST</div>
+                      <div style={{ color: 'rgba(239,68,68,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
+                        💪 STRONGEST
+                      </div>
                       <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
                         {insights.strongest?.name || 'No strength data yet'}
                       </div>
                       <div style={{ color: '#ef4444', fontSize: '13px' }}>
                         {insights.strongest?.value || ''}
                       </div>
+                      {insights.strongest?.lifts?.length > 0 && (
+                        <div style={{ marginTop: '6px', display: 'grid', gap: '4px' }}>
+                          {insights.strongest.lifts.map((lift) => (
+                            <div
+                              key={lift.testType}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                color: 'rgba(255,255,255,0.6)',
+                                fontSize: '10px',
+                              }}
+                            >
+                              <span style={{ color: 'rgba(255,255,255,0.75)' }}>
+                                {lift.testType === 'bench_press'
+                                  ? 'Bench'
+                                  : lift.testType === 'trap_bar_deadlift'
+                                  ? 'Trap Bar DL'
+                                  : TEST_LABELS[lift.testType] || lift.testType}
+                              </span>
+                              <span style={{ textAlign: 'right' }}>
+                                {lift.load} × {lift.reps}
+                              </span>
+                              <span style={{ textAlign: 'right', color: '#ef4444', fontWeight: 700 }}>
+                                {Math.round(lift.e1rm)} lbs
+                              </span>
+                              {lift.relative_strength && (
+                                <span style={{ textAlign: 'right', color: 'rgba(255,255,255,0.65)' }}>
+                                  {parseFloat(lift.relative_strength).toFixed(1)}× BW
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
                         {insights.strongest?.position || ''}
                       </div>
-                  </div>
+                    </div>
 
                     {/* Conditioning */}
-                  <div
-                    style={{
-                      background: '#0d1a0e',
+                    <div
+                      style={{
+                        background: '#0d1a0e',
                         border: '1px solid rgba(63,174,82,0.2)',
                         borderRadius: '12px',
                         padding: '20px',
                         cursor: 'pointer',
                       }}
                     >
-                      <div style={{ color: 'rgba(6,182,212,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>🫁 CONDITIONING</div>
+                      <div style={{ color: 'rgba(6,182,212,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
+                        🫁 CONDITIONING
+                      </div>
                       <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
                         {insights.conditioning?.name || 'No beep test data yet'}
                       </div>
@@ -987,19 +1125,21 @@ const Dashboard = () => {
                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
                         {insights.conditioning?.position || ''}
                       </div>
-                  </div>
+                    </div>
 
                     {/* Most Agile */}
-                  <div
-                    style={{
-                      background: '#0d1a0e',
+                    <div
+                      style={{
+                        background: '#0d1a0e',
                         border: '1px solid rgba(139,92,246,0.25)',
                         borderRadius: '12px',
                         padding: '20px',
                         cursor: 'pointer',
                       }}
                     >
-                      <div style={{ color: 'rgba(139,92,246,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>🔀 MOST AGILE</div>
+                      <div style={{ color: 'rgba(139,92,246,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
+                        🔀 MOST AGILE
+                      </div>
                       <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
                         {insights.mostAgile?.name || 'No agility data yet'}
                       </div>
@@ -1009,7 +1149,7 @@ const Dashboard = () => {
                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
                         {insights.mostAgile?.position || ''}
                       </div>
-                  </div>
+                    </div>
                   </div>
 
                   {needsTesting.length > 0 && (
@@ -1593,7 +1733,7 @@ const Dashboard = () => {
                                                           )}
                                                           {item.relative_strength && (
                                                             <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px', marginTop: '1px' }}>
-                                                              {item.relative_strength}× BW
+                                                              {parseFloat(item.relative_strength).toFixed(1)}× BW
                                                             </div>
                                                           )}
                                                         </div>
@@ -1607,7 +1747,7 @@ const Dashboard = () => {
                                                             style={{
                                                               color: '#3fae52',
                                                               fontSize: '12px',
-                                                              fontWeight: 700,
+                                                              fontWeight: '700',
                                                             }}
                                                           >
                                                             {formatResultValue(testType, item.value)}{unit}
@@ -1640,7 +1780,7 @@ const Dashboard = () => {
                     style={{
                       color: '#fff',
                       fontSize: '20px',
-                      fontWeight: 700,
+                      fontWeight: '700',
                       marginBottom: '12px',
                     }}
                   >
@@ -1816,8 +1956,9 @@ const Dashboard = () => {
                                           textAlign: 'right',
                                         }}
                                       >
-                                        {entry.value}
-                                        {TEST_UNITS[test] || ''}
+                                        {STRENGTH_LOAD_TESTS.includes(test)
+                                          ? `${Math.round(entry.value)} lbs`
+                                          : `${entry.value} ${TEST_UNITS[test] || ''}`}
                                       </div>
                                     </div>
                                   )
