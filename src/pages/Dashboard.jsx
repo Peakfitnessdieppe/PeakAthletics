@@ -427,7 +427,6 @@ const Dashboard = () => {
   const navItems = [
     { key: 'roster', label: 'Roster', onClick: () => setActiveTab('roster') },
     { key: 'leaderboards', label: 'Leaderboards', onClick: () => setActiveTab('leaderboards') },
-    { key: 'checkins', label: 'Check-ins', onClick: () => navigate('/checkin') },
   ]
 
   const getDaysAgo = (dateStr) => {

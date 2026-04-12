@@ -23,10 +23,7 @@ const Card = () => {
   const [uploading, setUploading] = useState(false)
   const [photoMessage, setPhotoMessage] = useState('')
   const fileInputRef = useRef(null)
-  const [checkedInToday, setCheckedInToday] = useState(false)
   const [compScore, setCompScore] = useState(null)
-
-  const todayStr = () => new Date().toISOString().split('T')[0]
 
   const fetchResults = async () => {
     if (!profile?.id) return
@@ -284,25 +281,6 @@ const Card = () => {
     }
     loadRankings()
   }, [profile?.id, profile?.age_category, profile?.gender])
-
-  useEffect(() => {
-    const fetchCheckinStatus = async () => {
-      if (!profile?.id) return
-      try {
-        const { data, error } = await supabase
-          .from('athlete_checkins')
-          .select('id')
-          .eq('athlete_id', profile.id)
-          .eq('checkin_date', todayStr())
-          .maybeSingle()
-        if (error && error.code !== 'PGRST116') throw error
-        setCheckedInToday(!!data)
-      } catch (err) {
-        console.error('Check-in status error', err)
-      }
-    }
-    fetchCheckinStatus()
-  }, [profile?.id])
 
   useEffect(() => {
     setAvatarUrl(profile?.avatar_url || null)
@@ -873,18 +851,6 @@ const Card = () => {
           ) : (
             <div className="text-white/60 text-sm">Tap to flip</div>
           )}
-          <button
-            type="button"
-            onClick={() => navigate('/checkin')}
-            disabled={checkedInToday}
-            className={`mt-2 w-full max-w-xs border rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-              checkedInToday
-                ? 'border-white/10 text-white/40 bg-white/5 cursor-not-allowed'
-                : 'border-[#3fae52] text-[#3fae52] bg-transparent hover:bg-[#3fae52]/10'
-            }`}
-          >
-            {checkedInToday ? 'Checked in today ✓' : 'Weekly Check-in'}
-          </button>
           <button
             type="button"
             onClick={() => navigate('/report')}
