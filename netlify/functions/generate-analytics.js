@@ -157,6 +157,12 @@ ${resultsSummary}
 GAME STATISTICS (${profile.sport}):
 ${gameContext}
 
+REQUIRED KEYS — these must always appear in the response regardless of data availability:
+this_season, speed_insight, strength_insight, power_insight, agility_insight, endurance_insight, physical_standouts, scores_summary, what_to_watch, next_steps
+
+CONDITIONAL KEYS — only include if the relevant test data exists in the results:
+squat_insight (if squat data exists), bench_press_insight (if bench press data exists), trap_bar_insight (if trap bar data exists), pull_ups_insight (if pull ups data exists), push_ups_insight (if push ups data exists), vertical_jump_insight (if vertical jump data exists), broad_jump_insight (if broad jump data exists), mb_chest_pass_insight (if mb chest pass data exists)
+
 Generate a JSON object with EXACTLY these keys. No markdown, no backticks, no extra text — just raw JSON:
 
 {
@@ -238,6 +244,7 @@ Every value must be a single string. No nested objects. No arrays. No line break
       'agility_insight',
       'endurance_insight',
       'physical_standouts',
+      'scores_summary',
       'what_to_watch',
       'next_steps'
     ]
