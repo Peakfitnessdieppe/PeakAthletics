@@ -2144,21 +2144,55 @@ const Admin = () => {
     }
 
     const handleRecalcAll = async () => {
-      setRecalcStatus('Recalculating all scores...')
-      const fnUrl = window.location.hostname === 'localhost'
-        ? 'http://localhost:8888/.netlify/functions/calculate-scores'
-        : '/.netlify/functions/calculate-scores'
-      const res = await fetch(fnUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      const result = await res.json()
-      setRecalcStatus(
-        result.success
-          ? `✓ Recalculated scores for ${result.processed} athletes`
-          : `Error: ${result.error}`
-      )
+      setRecalcStatus('Recalculating scores for all athletes...')
+      try {
+        const res = await fetch('/.netlify/functions/recalculate-scores', { method: 'POST' })
+        if (!res.ok) throw new Error('Failed to recalculate')
+        
+        setRecalcStatus('✓ Scores recalculated — generating insights...')
+
+        // Fetch all athlete IDs
+        const { data: athletes, error: athleteError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'athlete')
+
+        if (athleteError || !athletes?.length) {
+          setRecalcStatus('✓ Scores recalculated (no athletes found for insights)')
+          return
+        }
+
+        // Generate insights for each athlete sequentially with a small delay
+        let successCount = 0
+        let failCount = 0
+
+        for (const athlete of athletes) {
+          try {
+            const insightRes = await fetch('/.netlify/functions/generate-analytics', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ athleteId: athlete.id, force: true })
+            })
+            if (insightRes.ok) {
+              successCount++
+            } else {
+              failCount++
+            }
+            setRecalcStatus(`✓ Scores recalculated — generating insights (${successCount + failCount}/${athletes.length})...`)
+            // Small delay to avoid overwhelming OpenAI rate limits
+            await new Promise(resolve => setTimeout(resolve, 500))
+          } catch (err) {
+            console.error('Insight generation failed for athlete:', athlete.id, err)
+            failCount++
+          }
+        }
+
+        setRecalcStatus(`✓ Scores recalculated — insights generated for ${successCount} athletes${failCount > 0 ? ` (${failCount} failed)` : ''}`)
+
+      } catch (err) {
+        console.error(err)
+        setRecalcStatus('Failed to recalculate scores')
+      }
     }
 
     const defaultWeights = [

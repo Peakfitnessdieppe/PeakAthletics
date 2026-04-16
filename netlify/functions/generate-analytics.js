@@ -143,6 +143,14 @@ Power: ${compScore?.power_score || 'N/A'} (peer avg: ${peerAvg.power})
 Agility: ${compScore?.agility_score || 'N/A'} (peer avg: ${peerAvg.agility})
 Endurance: ${compScore?.endurance_score || 'N/A'} (peer avg: ${peerAvg.endurance})
 
+IMPORTANT CONTEXT FOR FRAMING:
+For each category, compare the athlete score to the peer average provided. If the athlete score is HIGHER than the peer average, frame the insight as above average or strong. If LOWER, frame as a development area. Never say a score is below average when the athlete score exceeds the peer average.
+Speed score ${compScore?.speed_score} vs peer avg ${peerAvg.speed}: ${(compScore?.speed_score || 0) > parseFloat(peerAvg.speed) ? 'ABOVE average — frame positively' : 'BELOW average — frame as development area'}
+Strength score ${compScore?.strength_score} vs peer avg ${peerAvg.strength}: ${(compScore?.strength_score || 0) > parseFloat(peerAvg.strength) ? 'ABOVE average — frame positively' : 'BELOW average — frame as development area'}
+Power score ${compScore?.power_score} vs peer avg ${peerAvg.power}: ${(compScore?.power_score || 0) > parseFloat(peerAvg.power) ? 'ABOVE average — frame positively' : 'BELOW average — frame as development area'}
+Agility score ${compScore?.agility_score} vs peer avg ${peerAvg.agility}: ${(compScore?.agility_score || 0) > parseFloat(peerAvg.agility) ? 'ABOVE average — frame positively' : 'BELOW average — frame as development area'}
+Endurance score ${compScore?.endurance_score} vs peer avg ${peerAvg.endurance}: ${(compScore?.endurance_score || 0) > parseFloat(peerAvg.endurance) ? 'ABOVE average — frame positively' : 'BELOW average — frame as development area'}
+
 TEST RESULTS (personal bests):
 ${resultsSummary}
 
@@ -170,7 +178,9 @@ Generate a JSON object with EXACTLY these keys. No markdown, no backticks, no ex
 
   "physical_standouts": "2-3 sentences highlighting the athlete's most impressive absolute numbers with peer context. Be specific — name the exact numbers and what they mean relative to other athletes tested. This is what parents screenshot and share. Make every word earn its place.",
 
-  "what_to_watch": "3-4 sentences that work simultaneously for parents, coaches, scouts, and the athlete. Lead with something visually observable at the next game that directly reflects a specific physical metric — name the actual number. Then connect a second physical attribute to an on-ice behavior a keen observer would notice. Write with confidence and specificity. This should make anyone reading it want to watch the next game differently. It should be screenshot-worthy — something a parent sends to the coach or posts. No generic language. Every sentence must be anchored to a real test result or improvement.",
+  "scores_summary": "2-3 sentences that contextualize the composite scores for a parent. Start by framing what the overall score of [X] means relative to peers. Then call out the 1-2 highest scoring categories with specific peer context — name the score and what it means. End with a positive forward-looking sentence about the development areas. Write warmly and confidently — this is the paragraph that gives parents the full picture in plain English.",
+
+  "what_to_watch": "3-4 sentences written for someone who knows hockey — a parent who watches every game, a coach evaluating a player, or a scout seeing him for the first time. Do NOT start with 'At the next game' or 'Keep an eye on'. Lead with a specific, confident, data-anchored observation that reframes how the reader sees this athlete. Name the exact metric and connect it to a specific on-ice situation — not generic 'puck battles' but the exact moment: a board battle in the corner, a faceoff acceleration, a back-check recovery, a shot off the rush. The second sentence should give a scout-level insight that most casual observers would miss. Third sentence connects his physical trajectory to what is coming — what will be even more visible next season as the training compounds. Make it feel like insider knowledge, not a parent guide.",
 
   "next_steps": "1-2 sentences about what we are building toward and what improvement we are targeting in the next testing session."
 }
