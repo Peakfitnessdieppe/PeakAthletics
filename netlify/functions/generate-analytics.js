@@ -152,21 +152,33 @@ ${gameContext}
 Generate a JSON object with EXACTLY these keys. No markdown, no backticks, no extra text — just raw JSON:
 
 {
-  "opening": "One warm sentence addressed to parents that frames this report positively. Reference the athlete by first name. Example tone: 'Marc has had a standout development season and this report tells that story.'",
+  "this_season": "2-3 sentences that tell the story of this athlete's development season. Lead with their most impressive physical gains using real numbers. If game stats exist, weave them in as proof the physical development is translating. If no game stats exist, focus purely on the physical trajectory and what the numbers mean. Warm, proud, narrative tone — this is the first thing a parent reads.",
 
-  "speed_insight": "One sentence about speed performance for parents. Reference the actual sprint time. Connect to sport if above average.",
-  "strength_insight": "One sentence about strength for parents. Reference e1RM numbers. Mention relative strength if impressive.",
-  "power_insight": "One sentence about power/explosiveness for parents. Reference jump numbers.",
+  "speed_insight": "One sentence about speed for parents. Reference actual sprint time. Connect to sport if above average.",
+  "strength_insight": "One sentence about overall strength for parents. Reference the standout lift.",
+  "squat_insight": "One sentence about squat specifically. Reference e1RM and relative strength if impressive. Only generate if squat data exists.",
+  "bench_press_insight": "One sentence about bench press specifically. Reference e1RM. Only generate if bench press data exists.",
+  "trap_bar_insight": "One sentence about trap bar deadlift specifically. Reference e1RM and relative strength. Only generate if trap bar data exists.",
+  "pull_ups_insight": "One sentence about pull ups if data exists. Otherwise omit this key.",
+  "push_ups_insight": "One sentence about push ups if data exists. Otherwise omit this key.",
+  "power_insight": "One sentence about overall explosive power for parents.",
+  "vertical_jump_insight": "One sentence about vertical jump specifically. Only generate if vertical jump data exists.",
+  "broad_jump_insight": "One sentence about broad jump specifically. Reference the measurement and what it means athletically. Only generate if broad jump data exists.",
+  "mb_chest_pass_insight": "One sentence about medicine ball chest pass if data exists. Otherwise omit this key.",
   "agility_insight": "One sentence about agility for parents. Reference shuttle time.",
   "endurance_insight": "One sentence about endurance for parents. Reference beep test level.",
 
-  "whats_working": "2-3 sentences celebrating the athlete's standout physical qualities. Warm, proud tone. Be specific with numbers. This is what parents will screenshot.",
-  "where_focused": "2-3 sentences about training priorities framed positively — not weaknesses but intentional focus areas. Use 'we are working with ${firstName} on...' framing.",
-  "on_the_ice": "2-3 sentences connecting ${firstName}'s physical development to ${profile.sport} performance. How do the physical gains show up in the game? Sport-specific language.",
-  "next_steps": "1-2 sentences about what to expect next — what we are building toward, when the next testing window is relevant, what improvement we are targeting."
+  "physical_standouts": "2-3 sentences highlighting the athlete's most impressive absolute numbers with peer context. Be specific — name the exact numbers and what they mean relative to other athletes tested. This is what parents screenshot and share. Make every word earn its place.",
+
+  "what_to_watch_for": "2-3 sentences giving parents something specific to observe at the next game or practice that directly reflects the training. Connect gym metrics to observable on-field/ice behaviors. Use language parents can actually use when talking to coaches. Sport-specific.",
+
+  "whats_working": "2-3 sentences celebrating standout physical qualities. Warm, proud tone. Specific numbers. This is what parents will screenshot.",
+  "where_focused": "2-3 sentences about training priorities framed positively. Use 'we are working with [first name] on...' framing. Never frame as weaknesses.",
+  "on_the_ice": "2-3 sentences connecting physical development to sport performance. How do the physical gains show up in the game? Sport-specific language.",
+  "next_steps": "1-2 sentences about what we are building toward and what improvement we are targeting in the next testing session."
 }
 
-Every value must be a single string. No nested objects. No arrays. No line breaks within values.`
+Every value must be a single string. No nested objects. No arrays. No line breaks within values. If a test result does not exist for a specific insight key, omit that key entirely from the JSON rather than returning an empty string or placeholder.`
 
     console.log('Calling OpenAI for athlete:', athleteId)
 
