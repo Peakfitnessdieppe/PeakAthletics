@@ -170,11 +170,8 @@ Generate a JSON object with EXACTLY these keys. No markdown, no backticks, no ex
 
   "physical_standouts": "2-3 sentences highlighting the athlete's most impressive absolute numbers with peer context. Be specific — name the exact numbers and what they mean relative to other athletes tested. This is what parents screenshot and share. Make every word earn its place.",
 
-  "what_to_watch_for": "2-3 sentences giving parents something specific to observe at the next game or practice that directly reflects the training. Connect gym metrics to observable on-field/ice behaviors. Use language parents can actually use when talking to coaches. Sport-specific.",
+  "what_to_watch": "3-4 sentences that work simultaneously for parents, coaches, scouts, and the athlete. Lead with something visually observable at the next game that directly reflects a specific physical metric — name the actual number. Then connect a second physical attribute to an on-ice behavior a keen observer would notice. Write with confidence and specificity. This should make anyone reading it want to watch the next game differently. It should be screenshot-worthy — something a parent sends to the coach or posts. No generic language. Every sentence must be anchored to a real test result or improvement.",
 
-  "whats_working": "2-3 sentences celebrating standout physical qualities. Warm, proud tone. Specific numbers. This is what parents will screenshot.",
-  "where_focused": "2-3 sentences about training priorities framed positively. Use 'we are working with [first name] on...' framing. Never frame as weaknesses.",
-  "on_the_ice": "2-3 sentences connecting physical development to sport performance. How do the physical gains show up in the game? Sport-specific language.",
   "next_steps": "1-2 sentences about what we are building toward and what improvement we are targeting in the next testing session."
 }
 
@@ -213,6 +210,33 @@ Every value must be a single string. No nested objects. No arrays. No line break
       console.error('JSON parse error:', parseErr, 'Raw:', rawContent)
       return { statusCode: 500, body: JSON.stringify({ error: 'Failed to parse AI response' }) }
     }
+
+    // Remove any legacy keys the model may have hallucinated
+    const ALLOWED_KEYS = [
+      'this_season',
+      'speed_insight',
+      'strength_insight', 
+      'squat_insight',
+      'bench_press_insight',
+      'trap_bar_insight',
+      'pull_ups_insight',
+      'push_ups_insight',
+      'power_insight',
+      'vertical_jump_insight',
+      'broad_jump_insight',
+      'mb_chest_pass_insight',
+      'agility_insight',
+      'endurance_insight',
+      'physical_standouts',
+      'what_to_watch',
+      'next_steps'
+    ]
+
+    const cleanedInsight = {}
+    for (const key of ALLOWED_KEYS) {
+      if (insightJson[key]) cleanedInsight[key] = insightJson[key]
+    }
+    insightJson = cleanedInsight
 
     // Cache in pfa_ai_insights table
     const { error: upsertError } = await supabase

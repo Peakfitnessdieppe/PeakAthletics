@@ -729,7 +729,7 @@ const Report = () => {
         </div>
       </div>
 
-      {insights?.opening && (
+      {insights?.this_season && (
         <div style={{
           maxWidth: '900px',
           margin: '0 auto 32px auto',
@@ -741,7 +741,7 @@ const Report = () => {
           borderLeft: '3px solid #3fae52',
           paddingLeft: '16px'
         }}>
-          {insights.opening}
+          {insights.this_season}
         </div>
       )}
 
@@ -1152,7 +1152,7 @@ const Report = () => {
         {/* ── SECTION 4: PER CATEGORY BREAKDOWN ── */}
         <div style={{ marginTop: '48px' }}>
           <div style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid rgba(63,174,82,0.2)', paddingBottom: '8px' }}>
-            Training Results
+            Development Testing
           </div>
           {CATEGORIES.map((cat) => {
             const results = groupedResults[cat] || []
@@ -1185,6 +1185,7 @@ const Report = () => {
                   const athleteScore = compScore?.[key + '_score']
                   const peerAverage = peerAvg?.[key]
                   const aiInsight = insights?.[insightKey]
+                  const showAiInsight = catTestTypes.length > 1 && aiInsight
 
                   if (!athleteScore || !peerAverage) return null
 
@@ -1218,13 +1219,13 @@ const Report = () => {
                         background: 'rgba(63,174,82,0.05)',
                         borderLeft: `3px solid ${colorStyle}`,
                         borderRadius: '4px',
-                        marginBottom: aiInsight ? '8px' : '0'
+                        marginBottom: showAiInsight ? '8px' : '0'
                       }}>
                         <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', fontStyle: 'italic' }}>
                           {rankText}
                         </span>
                       </div>
-                      {aiInsight && (
+                      {showAiInsight && (
                         <div style={{
                           padding: '10px 14px',
                           background: 'rgba(255,255,255,0.03)',
@@ -1299,6 +1300,37 @@ const Report = () => {
                             )}
                           </div>
                         )}
+                        {(() => {
+                          const testInsightMap = {
+                            'squat': 'squat_insight',
+                            'bench_press': 'bench_press_insight',
+                            'trap_bar_deadlift': 'trap_bar_insight',
+                            'pull_ups': 'pull_ups_insight',
+                            'push_ups': 'push_ups_insight',
+                            'vertical_jump': 'vertical_jump_insight',
+                            'broad_jump': 'broad_jump_insight',
+                            'mb_chest_pass': 'mb_chest_pass_insight',
+                            '10m_sprint': 'speed_insight',
+                            'pro_agility_shuttle': 'agility_insight',
+                            'beep_test': 'endurance_insight',
+                          }
+                          const insightKey = testInsightMap[tt]
+                          const insightText = insights?.[insightKey]
+                          if (!insightText) return null
+                          return (
+                            <div style={{
+                              marginTop: '12px',
+                              paddingTop: '10px',
+                              borderTop: '1px solid rgba(63,174,82,0.1)',
+                              fontSize: '12px',
+                              color: 'rgba(255,255,255,0.55)',
+                              lineHeight: 1.6,
+                              fontStyle: 'italic'
+                            }}>
+                              {insightText}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )
                   })}
@@ -1326,6 +1358,73 @@ const Report = () => {
         </div>
 
         {/* ── SECTION 5: DEVELOPMENT REPORT ── */}
+        {insights?.physical_standouts && (
+          <div style={{ maxWidth: '900px', margin: '0 auto 40px auto', padding: '0 24px' }}>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: '700',
+              letterSpacing: '0.15em',
+              color: '#3fae52',
+              textTransform: 'uppercase',
+              marginBottom: '16px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid rgba(63,174,82,0.2)'
+            }}>
+              Physical Standouts
+            </div>
+            <div style={{
+              padding: '20px 24px',
+              background: '#0d1a0d',
+              border: '1px solid rgba(63,174,82,0.15)',
+              borderLeft: '3px solid #3fae52',
+              borderRadius: '12px',
+            }}>
+              <p style={{
+                fontSize: '15px',
+                color: 'rgba(255,255,255,0.85)',
+                lineHeight: 1.8,
+                margin: 0,
+                fontWeight: '400'
+              }}>
+                {insights.physical_standouts}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {insights?.what_to_watch_for && (
+          <div style={{ maxWidth: '900px', margin: '0 auto 40px auto', padding: '0 24px' }}>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: '700',
+              letterSpacing: '0.15em',
+              color: '#3fae52',
+              textTransform: 'uppercase',
+              marginBottom: '16px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid rgba(63,174,82,0.2)'
+            }}>
+              What To Watch For
+            </div>
+            <div style={{
+              padding: '20px 24px',
+              background: '#0d1a0d',
+              border: '1px solid rgba(63,174,82,0.15)',
+              borderLeft: '3px solid rgba(255,255,255,0.2)',
+              borderRadius: '12px',
+            }}>
+              <p style={{
+                fontSize: '15px',
+                color: 'rgba(255,255,255,0.85)',
+                lineHeight: 1.8,
+                margin: 0
+              }}>
+                {insights.what_to_watch_for}
+              </p>
+            </div>
+          </div>
+        )}
+
         {(insights || insightsLoading) && (
           <div style={{ maxWidth: '900px', margin: '0 auto 48px auto', padding: '0 24px' }}>
             <div style={{
