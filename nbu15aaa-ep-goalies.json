@@ -1,0 +1,150 @@
+[
+  {
+    "player": "Connor McDavid",
+    "playerUrl": "https://www.eliteprospects.com/player/183442/connor-mcdavid",
+    "team": "81",
+    "gp": "48",
+    "mins": "86",
+    "gaa": "134"
+  },
+  {
+    "player": "Nikita Kucherov",
+    "playerUrl": "https://www.eliteprospects.com/player/77237/nikita-kucherov",
+    "team": "75",
+    "gp": "44",
+    "mins": "86",
+    "gaa": "130"
+  },
+  {
+    "player": "Nathan MacKinnon",
+    "playerUrl": "https://www.eliteprospects.com/player/99204/nathan-mackinnon",
+    "team": "79",
+    "gp": "52",
+    "mins": "74",
+    "gaa": "126"
+  },
+  {
+    "player": "Macklin Celebrini",
+    "playerUrl": "https://www.eliteprospects.com/player/597559/macklin-celebrini",
+    "team": "80",
+    "gp": "44",
+    "mins": "68",
+    "gaa": "112"
+  },
+  {
+    "player": "Mark Scheifele",
+    "playerUrl": "https://www.eliteprospects.com/player/75379/mark-scheifele",
+    "team": "80",
+    "gp": "35",
+    "mins": "66",
+    "gaa": "101"
+  },
+  {
+    "player": "Alexandre LeBlanc",
+    "playerUrl": "https://www.eliteprospects.com/player/1130200/alexandre-leblanc",
+    "team": "Dieppe Flyers U15 AAA",
+    "gp": "15",
+    "mins": "2.94",
+    "gaa": ".906",
+    "svpct": "9"
+  },
+  {
+    "player": "Mathis Theriault",
+    "playerUrl": "https://www.eliteprospects.com/player/1128644/mathis-theriault",
+    "team": "Dieppe Flyers U15 AAA",
+    "gp": "16",
+    "mins": "3.48",
+    "gaa": ".891",
+    "svpct": "6"
+  },
+  {
+    "player": "Jayden Richford",
+    "playerUrl": "https://www.eliteprospects.com/player/1221698/jayden-richford",
+    "team": "Moncton Hawks U15 AAA",
+    "gp": "17",
+    "mins": "2.11",
+    "gaa": ".887",
+    "svpct": "9"
+  },
+  {
+    "player": "Roman Matchett",
+    "playerUrl": "https://www.eliteprospects.com/player/1130217/roman-matchett",
+    "team": "Northern Rivermen U15 AAA",
+    "gp": "18",
+    "mins": "4.25",
+    "gaa": ".884",
+    "svpct": "2"
+  },
+  {
+    "player": "Kobe Savoie",
+    "playerUrl": "https://www.eliteprospects.com/player/1223799/kobe-savoie",
+    "team": "Northern Rivermen U15 AAA",
+    "gp": "16",
+    "mins": "5.05",
+    "gaa": ".877",
+    "svpct": "4"
+  },
+  {
+    "player": "Dexter McLaughlin",
+    "playerUrl": "https://www.eliteprospects.com/player/1220810/dexter-mclaughlin",
+    "team": "Moncton Hawks U15 AAA",
+    "gp": "17",
+    "mins": "2.71",
+    "gaa": ".877",
+    "svpct": "13"
+  },
+  {
+    "player": "Nolan Gillingham",
+    "playerUrl": "https://www.eliteprospects.com/player/1130184/nolan-gillingham",
+    "team": "Fredericton Caps U15 AAA",
+    "gp": "13",
+    "mins": "4.15",
+    "gaa": "-",
+    "svpct": "3"
+  },
+  {
+    "player": "Dawson Brewer",
+    "playerUrl": "https://www.eliteprospects.com/player/1066343/dawson-brewer",
+    "team": "Fredericton Caps U15 AAA",
+    "gp": "19",
+    "mins": "4.04",
+    "gaa": "-",
+    "svpct": "7"
+  },
+  {
+    "player": "Peyton Thibodeau",
+    "playerUrl": "https://www.eliteprospects.com/player/1128650/peyton-thibodeau",
+    "team": "Southern Rangers U15 AAA",
+    "gp": "12",
+    "mins": "3.17",
+    "gaa": "-",
+    "svpct": "10"
+  },
+  {
+    "player": "Stirling Baskin",
+    "playerUrl": "https://www.eliteprospects.com/player/1054296/stirling-baskin",
+    "team": "Southern Rangers U15 AAA",
+    "gp": "20",
+    "mins": "2.43",
+    "gaa": "-",
+    "svpct": "12"
+  },
+  {
+    "player": "Zavier Maillet",
+    "playerUrl": "https://www.eliteprospects.com/player/1230387/zavier-maillet",
+    "team": "Dieppe Flyers U15 AAA",
+    "gp": "1",
+    "mins": "4.68",
+    "gaa": ".889",
+    "svpct": "0"
+  },
+  {
+    "player": "Cameron Vincent",
+    "playerUrl": "https://www.eliteprospects.com/player/1130166/cameron-vincent",
+    "team": "Southern Rangers U15 AAA",
+    "gp": "1",
+    "mins": "8.33",
+    "gaa": "-",
+    "svpct": "0"
+  }
+]

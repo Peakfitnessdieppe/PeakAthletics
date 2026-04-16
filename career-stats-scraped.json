@@ -1,0 +1,301 @@
+[
+  {
+    "name": "Marc MacPhee",
+    "athleteId": "93299047-5ca7-4b05-93b1-5de8e55891a0",
+    "stats": [
+      {
+        "season": "2023-24",
+        "team": "Moncton Hawks U15 AAA",
+        "league": "NBU15AAAHL",
+        "gp": "6",
+        "g": "11",
+        "a": "2",
+        "pts": "13",
+        "pim": "0",
+        "gaa": null,
+        "svpct": null
+      },
+      {
+        "season": "2024-25",
+        "team": "Moncton Flyers U18 AAA",
+        "league": "NBPEIMU18HL",
+        "gp": "10",
+        "g": "4",
+        "a": "6",
+        "pts": "10",
+        "pim": "2",
+        "gaa": null,
+        "svpct": null
+      },
+      {
+        "season": "2025-26",
+        "team": "Moncton Flyers U18 AAA",
+        "league": "NBPEIMU18HL",
+        "gp": "9",
+        "g": "6",
+        "a": "13",
+        "pts": "19",
+        "pim": "6",
+        "gaa": null,
+        "svpct": null
+      },
+      {
+        "season": "2024-25",
+        "team": "Moncton Flyers U18 AAA",
+        "league": "Monctonian AAA Challenge",
+        "gp": "1",
+        "g": "0",
+        "a": "1",
+        "pts": "1",
+        "pim": "0",
+        "gaa": null,
+        "svpct": null
+      },
+      {
+        "season": "2025-26",
+        "team": "Moncton Flyers U18 AAA",
+        "league": "Monctonian AAA Challenge",
+        "gp": "2",
+        "g": "2",
+        "a": "2",
+        "pts": "4",
+        "pim": "0",
+        "gaa": null,
+        "svpct": null
+      }
+    ]
+  },
+  {
+    "name": "Alexandre LeBlanc",
+    "athleteId": "60c5a35a-9692-463c-afb1-e711eb68a75d",
+    "stats": [
+      {
+        "season": "2024-25",
+        "team": "Moncton Scorpions U14 AAA",
+        "league": "NBU14AAAHL",
+        "gp": "3",
+        "g": "0",
+        "a": "0",
+        "pts": "0",
+        "pim": "0",
+        "gaa": "1.96",
+        "svpct": "-"
+      }
+    ]
+  },
+  {
+    "name": "Mathis Theriault",
+    "athleteId": "ae04cb9b-a37e-4410-9dba-83e9906bbc8a",
+    "stats": [
+      {
+        "season": "2024-25",
+        "team": "Northern Moose U14 AAA",
+        "league": "NBU14AAAHL",
+        "gp": "3",
+        "g": "0",
+        "a": "0",
+        "pts": "0",
+        "pim": "0",
+        "gaa": "1.93",
+        "svpct": "-"
+      }
+    ]
+  },
+  {
+    "name": "Dexter McLaughlin",
+    "athleteId": "ede99572-e159-4885-b5a0-11eeace14557",
+    "stats": []
+  },
+  {
+    "name": "Xavier LeBlanc",
+    "athleteId": "8dec6d7d-4946-42ab-bf78-0cfa99f92cbe",
+    "stats": [
+      {
+        "season": "2023-24",
+        "team": "Dieppe Flyers U15 AAA",
+        "league": "NBU15AAAHL",
+        "gp": "4",
+        "g": "0",
+        "a": "0",
+        "pts": "0",
+        "pim": "0",
+        "gaa": "2.38",
+        "svpct": "-"
+      },
+      {
+        "season": "2025-26",
+        "team": "Moncton Flyers U18 AAA",
+        "league": "NBPEIMU18HL",
+        "gp": "5",
+        "g": "0",
+        "a": "0",
+        "pts": "0",
+        "pim": "0",
+        "gaa": "4.22",
+        "svpct": ".879"
+      },
+      {
+        "season": "2025-26",
+        "team": "Moncton Flyers U18 AAA",
+        "league": "Monctonian AAA Challenge",
+        "gp": "1",
+        "g": "0",
+        "a": "0",
+        "pts": "0",
+        "pim": "0",
+        "gaa": "3.27",
+        "svpct": "-"
+      }
+    ]
+  },
+  {
+    "name": "Dominic Cormier",
+    "athleteId": "b7dc3d56-539c-46b9-b45a-006cc590c247",
+    "stats": [
+      {
+        "season": "2024-25",
+        "team": "EDZA East Phantoms U14 AAA",
+        "league": "NBU14AAAHL",
+        "gp": "6",
+        "g": "0",
+        "a": "6",
+        "pts": "6",
+        "pim": "2",
+        "gaa": null,
+        "svpct": null
+      },
+      {
+        "season": "2025-26",
+        "team": "Moncton Flyers U18 AAA",
+        "league": "NBPEIMU18HL",
+        "gp": "1",
+        "g": "0",
+        "a": "0",
+        "pts": "0",
+        "pim": "0",
+        "gaa": null,
+        "svpct": null
+      }
+    ]
+  },
+  {
+    "name": "Mattéo Bélanger",
+    "athleteId": "2c0ce928-2060-4d46-beb9-4b076706bc79",
+    "stats": [
+      {
+        "season": "2024-25",
+        "team": "EDZA East Phantoms U14 AAA",
+        "league": "NBU14AAAHL",
+        "gp": "6",
+        "g": "2",
+        "a": "6",
+        "pts": "8",
+        "pim": "2",
+        "gaa": null,
+        "svpct": null
+      }
+    ]
+  },
+  {
+    "name": "Kian Daigle",
+    "athleteId": "0a9c6bd5-cfeb-4fbe-ae0f-b8c0b32ae016",
+    "stats": [
+      {
+        "season": "2024-25",
+        "team": "Port City Sharks U14 AAA",
+        "league": "NBU14AAAHL",
+        "gp": "6",
+        "g": "6",
+        "a": "4",
+        "pts": "10",
+        "pim": "6",
+        "gaa": null,
+        "svpct": null
+      }
+    ]
+  },
+  {
+    "name": "Kaleb LeBlanc",
+    "athleteId": "685bd50f-3466-4397-a443-ecaa85d0bafc",
+    "stats": [
+      {
+        "season": "2024-25",
+        "team": "Port City Sharks U14 AAA",
+        "league": "NBU14AAAHL",
+        "gp": "6",
+        "g": "5",
+        "a": "4",
+        "pts": "9",
+        "pim": "0",
+        "gaa": null,
+        "svpct": null
+      }
+    ]
+  },
+  {
+    "name": "Nikolas Melanson",
+    "athleteId": "b46d0964-8a75-47dd-9d42-6010d752b261",
+    "stats": [
+      {
+        "season": "2024-25",
+        "team": "Moncton Scorpions U14 AAA",
+        "league": "NBU14AAAHL",
+        "gp": "4",
+        "g": "2",
+        "a": "0",
+        "pts": "2",
+        "pim": "2",
+        "gaa": null,
+        "svpct": null
+      }
+    ]
+  },
+  {
+    "name": "Dallas Hamilton",
+    "athleteId": "5df33627-2fee-4f90-9f97-67bc7759af9d",
+    "stats": [
+      {
+        "season": "2024-25",
+        "team": "Northern Rivermen U15 AAA",
+        "league": "NBU15AAAHL",
+        "gp": "4",
+        "g": "0",
+        "a": "1",
+        "pts": "1",
+        "pim": "0",
+        "gaa": null,
+        "svpct": null
+      }
+    ]
+  },
+  {
+    "name": "Caleb Boudreau",
+    "athleteId": "b37801d1-ee6e-4632-bf12-eec958836b42",
+    "stats": [
+      {
+        "season": "2024-25",
+        "team": "Port City Sharks U14 AAA",
+        "league": "NBU14AAAHL",
+        "gp": "6",
+        "g": "0",
+        "a": "0",
+        "pts": "0",
+        "pim": "2",
+        "gaa": null,
+        "svpct": null
+      },
+      {
+        "season": "2025-26",
+        "team": "St. Stephen High",
+        "league": "NBIAA",
+        "gp": "5",
+        "g": "1",
+        "a": "1",
+        "pts": "2",
+        "pim": "12",
+        "gaa": null,
+        "svpct": null
+      }
+    ]
+  }
+]

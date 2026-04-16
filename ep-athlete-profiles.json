@@ -1,0 +1,113 @@
+[
+  {
+    "name": "Alexandre LeBlanc",
+    "height_cm": 185,
+    "weight_kg": 68,
+    "dob": null,
+    "place_of_birth": null,
+    "updates": {
+      "height": 185,
+      "weight": 150
+    }
+  },
+  {
+    "name": "Mathis Theriault",
+    "height_cm": null,
+    "weight_kg": null,
+    "dob": "Jan 21, 2011",
+    "place_of_birth": null,
+    "updates": {}
+  },
+  {
+    "name": "Dexter McLaughlin",
+    "height_cm": null,
+    "weight_kg": null,
+    "dob": null,
+    "place_of_birth": null,
+    "updates": {}
+  },
+  {
+    "name": "Xavier LeBlanc",
+    "height_cm": 185,
+    "weight_kg": 77,
+    "dob": "Mar 06, 2010",
+    "place_of_birth": "NB, CAN",
+    "updates": {
+      "height": 185,
+      "weight": 170
+    }
+  },
+  {
+    "name": "Marc MacPhee",
+    "height_cm": 183,
+    "weight_kg": 87,
+    "dob": "May 06, 2008",
+    "place_of_birth": "NB, CAN",
+    "updates": {
+      "height": 183,
+      "weight": 192
+    }
+  },
+  {
+    "name": "Dominic Cormier",
+    "height_cm": 176,
+    "weight_kg": 67,
+    "dob": "Mar 30, 2011",
+    "place_of_birth": "NB, CAN",
+    "updates": {
+      "height": 176,
+      "weight": 148
+    }
+  },
+  {
+    "name": "Mattéo Bélanger",
+    "height_cm": null,
+    "weight_kg": null,
+    "dob": null,
+    "place_of_birth": "NB, CAN",
+    "updates": {}
+  },
+  {
+    "name": "Kian Daigle",
+    "height_cm": null,
+    "weight_kg": null,
+    "dob": null,
+    "place_of_birth": null,
+    "updates": {}
+  },
+  {
+    "name": "Kaleb LeBlanc",
+    "height_cm": 177,
+    "weight_kg": 68,
+    "dob": "May 07, 2012",
+    "place_of_birth": null,
+    "updates": {
+      "height": 177,
+      "weight": 150
+    }
+  },
+  {
+    "name": "Nikolas Melanson",
+    "height_cm": null,
+    "weight_kg": null,
+    "dob": null,
+    "place_of_birth": null,
+    "updates": {}
+  },
+  {
+    "name": "Dallas Hamilton",
+    "height_cm": null,
+    "weight_kg": null,
+    "dob": null,
+    "place_of_birth": null,
+    "updates": {}
+  },
+  {
+    "name": "Caleb Boudreau",
+    "height_cm": null,
+    "weight_kg": null,
+    "dob": null,
+    "place_of_birth": null,
+    "updates": {}
+  }
+]

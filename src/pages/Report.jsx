@@ -14,7 +14,7 @@ import {
   LinearScale,
 } from 'chart.js'
 import useAuth from '../hooks/useAuth'
-import { getAthleteReport, getPfaAverageScores, getAgeGroupAverageResults, getPeerStats, getAthleteGameStats } from '../services/reports'
+import { getAthleteReport, getAgeGroupAverageResults, getPeerStats, getAthleteGameStats } from '../services/reports'
 import { supabase } from '../services/supabase'
 
 Chart.register(
@@ -33,6 +33,10 @@ Chart.register(
 const PFA_LOGO =
   'https://iilysafrbbnklelzzqyh.supabase.co/storage/v1/object/public/Assets/Peak%20Athletics%20Logo%202.png'
 
+const STRENGTH_LOAD_TESTS = ['squat', 'bench_press', 'trap_bar_deadlift']
+const LOWER_IS_BETTER = ['10m_sprint', 'pro_agility_shuttle']
+const calcE1RM = (load, reps) => (!load || !reps || reps === 1) ? load : Math.round(load * (1 + reps / 30))
+
 const TEST_RANGES = {
   '10m_sprint': { min: 1.5, max: 2.5, higherIsBetter: false },
   pro_agility_shuttle: { min: 4.2, max: 6.2, higherIsBetter: false },
@@ -47,7 +51,27 @@ const TEST_RANGES = {
   beep_test: { min: 4, max: 15, higherIsBetter: true },
 }
 
-const LOWER_IS_BETTER = new Set(['10m_sprint', 'pro_agility_shuttle'])
+const LOWER_IS_BETTER_SET = new Set(LOWER_IS_BETTER)
+
+const deduplicateByBestPerDay = (results, testType) => {
+  const byDay = {}
+  results.forEach((r) => {
+    if (!r?.date_tested) return
+    const day = r.date_tested.split('T')[0]
+    if (!byDay[day]) {
+      byDay[day] = r
+    } else {
+      const current = byDay[day].value
+      const incoming = r.value
+      if (LOWER_IS_BETTER.includes(testType)) {
+        if (incoming < current) byDay[day] = r
+      } else {
+        if (incoming > current) byDay[day] = r
+      }
+    }
+  })
+  return Object.values(byDay).sort((a, b) => new Date(a.date_tested) - new Date(b.date_tested))
+}
 
 const CATEGORY_WEIGHTS = { speed: 0.25, power: 0.25, strength: 0.25, agility: 0.15, endurance: 0.1 }
 
@@ -81,8 +105,8 @@ const normalizeScore = (testType, value, peerStats) => {
   const peer = peerStats?.find((s) => s.test_type === testType)
   if (peer && peer.std_dev && peer.n >= 5) {
     const z = (value - peer.mean) / peer.std_dev
-    const LOWER_IS_BETTER = ['10m_sprint', '30m_sprint', 'pro_agility_shuttle']
-    const adjustedZ = LOWER_IS_BETTER.includes(testType) ? -z : z
+    const LOWER_IS_BETTER_LOCAL = ['10m_sprint', '30m_sprint', 'pro_agility_shuttle']
+    const adjustedZ = LOWER_IS_BETTER_LOCAL.includes(testType) ? -z : z
     return Math.round(Math.min(100, Math.max(0, 50 + adjustedZ * 15)))
   }
 
@@ -128,15 +152,16 @@ const calcGroupAverageScores = (results) => {
     if (!byAthlete[r.athlete_id]) byAthlete[r.athlete_id] = []
     byAthlete[r.athlete_id].push(r)
   }
-  const catTotals = { speed: [], strength: [], power: [], agility: [], endurance: [] }
+  const catTotals = { speed: [], strength: [], power: [], agility: [], endurance: [], overall: [] }
   for (const athleteResults of Object.values(byAthlete)) {
     const s = calcCategoryScores(athleteResults, [])
     for (const c of CATEGORIES) {
       if (s[c] !== null) catTotals[c].push(s[c])
     }
+    if (s.overall !== null) catTotals.overall.push(s.overall)
   }
   const avg = {}
-  for (const c of CATEGORIES) {
+  for (const c of [...CATEGORIES, 'overall']) {
     avg[c] = catTotals[c].length ? Math.round(catTotals[c].reduce((a, b) => a + b, 0) / catTotals[c].length) : 0
   }
   return avg
@@ -160,13 +185,13 @@ const getScoreColor = (score) => {
   return '#f87171'
 }
 
-const RADAR_DEFAULTS = (label, data, color, fill) => ({
+const RADAR_DEFAULTS = (label, data, color, fill, pointColor) => ({
   label,
   data,
   backgroundColor: fill,
   borderColor: color,
   borderWidth: 2,
-  pointBackgroundColor: color,
+  pointBackgroundColor: pointColor || color,
   pointRadius: 3,
 })
 
@@ -187,8 +212,8 @@ function RadarChartCanvas({ title, athleteScores, compScores, compLabel }) {
       data: {
         labels: ['Speed', 'Strength', 'Power', 'Agility', 'Endurance'],
         datasets: [
-          RADAR_DEFAULTS('Athlete', CATEGORIES.map((c) => athleteScores[c] ?? 0), '#3fae52', 'rgba(63,174,82,0.25)'),
-          RADAR_DEFAULTS(compLabel, CATEGORIES.map((c) => compScores[c] ?? 0), 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.08)'),
+          RADAR_DEFAULTS('Athlete', CATEGORIES.map((c) => athleteScores[c] ?? 0), '#3fae52', 'rgba(63,174,82,0.15)'),
+          RADAR_DEFAULTS(compLabel, CATEGORIES.map((c) => compScores[c] ?? 0), 'rgba(255,255,255,0.3)', 'rgba(255,255,255,0.08)', '#ffffff'),
         ],
       },
       options: {
@@ -198,8 +223,8 @@ function RadarChartCanvas({ title, athleteScores, compScores, compLabel }) {
             min: 0,
             max: 100,
             ticks: { display: false, stepSize: 20 },
-            grid: { color: 'rgba(63,174,82,0.2)' },
-            angleLines: { color: 'rgba(63,174,82,0.2)' },
+            grid: { color: 'rgba(255,255,255,0.1)' },
+            angleLines: { color: 'rgba(255,255,255,0.1)' },
             pointLabels: { color: 'rgba(255,255,255,0.7)', font: { size: 11 } },
           },
         },
@@ -215,7 +240,7 @@ function RadarChartCanvas({ title, athleteScores, compScores, compLabel }) {
   return (
     <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px' }}>
       <div style={{ color: '#3fae52', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>{title}</div>
-      <canvas ref={canvasRef} style={{ maxHeight: '220px' }} />
+      <canvas ref={canvasRef} style={{ height: '350px', maxHeight: '350px', background: 'transparent' }} />
     </div>
   )
 }
@@ -274,15 +299,18 @@ const Report = () => {
   const athleteId = searchParams.get('athleteId') || authProfile?.id
 
   const [reportData, setReportData] = useState({ profile: null, results: [], benchmarks: [] })
-  const [pfaAvg, setPfaAvg] = useState({})
   const [ageGroupAvg, setAgeGroupAvg] = useState({})
   const [peerStats, setPeerStats] = useState([])
   const [gameStats, setGameStats] = useState([])
+  const [allTestResults, setAllTestResults] = useState([])
+  const [allCompositeScores, setAllCompositeScores] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [peakiqText, setPeakiqText] = useState(null)
   const [peakiqLoading, setPeakiqLoading] = useState(false)
   const [compScore, setCompScore] = useState(null)
+  const [latestMeasurement, setLatestMeasurement] = useState(null)
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false)
 
   useEffect(() => {
     if (!athleteId) return
@@ -299,14 +327,21 @@ const Report = () => {
   }, [athleteId])
 
   useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', handleResize)
+      return () => window.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!athleteId) return
     const load = async () => {
       setLoading(true)
       try {
         const data = await getAthleteReport(athleteId)
         setReportData(data || { profile: null, results: [], benchmarks: [] })
-        const [pfaResults, ageGroupResults] = await Promise.all([
-          getPfaAverageScores(data.profile?.sport, data.profile?.age_category, data.profile?.gender),
+        const [ageGroupResults] = await Promise.all([
           getAgeGroupAverageResults(data.profile?.sport, data.profile?.age_category, data.profile?.gender),
         ])
         if (data.profile?.sport && data.profile?.age_category && data.profile?.gender) {
@@ -315,7 +350,6 @@ const Report = () => {
         }
         const gs = await getAthleteGameStats(athleteId)
         setGameStats(gs || [])
-        setPfaAvg(calcGroupAverageScores(Array.isArray(pfaResults) ? pfaResults : []))
         setAgeGroupAvg(calcGroupAverageScores(Array.isArray(ageGroupResults) ? ageGroupResults : []))
 
         const { data: compScoreData } = await supabase
@@ -325,6 +359,36 @@ const Report = () => {
           .order('calculated_at', { ascending: false })
           .limit(1)
         setCompScore(compScoreData?.[0] || null)
+
+        const { data: allCompScoresData } = await supabase
+          .from('pfa_composite_scores')
+          .select('*')
+          .eq('athlete_id', athleteId)
+          .order('calculated_at', { ascending: true })
+        setAllCompositeScores(allCompScoresData || [])
+
+        const { data: allTestsData } = await supabase
+          .from('pfa_test_results')
+          .select('*')
+          .eq('athlete_id', athleteId)
+          .order('date_tested', { ascending: true })
+        setAllTestResults(allTestsData || [])
+
+        const { data: gsAll } = await supabase
+          .from('game_stats')
+          .select('*')
+          .eq('athlete_id', athleteId)
+          .eq('sport', 'Hockey')
+          .order('season', { ascending: true })
+        if (gsAll) setGameStats(gsAll)
+
+        const { data: bodyData } = await supabase
+          .from('pfa_body_measurements')
+          .select('height, weight, measurement_date')
+          .eq('athlete_id', athleteId)
+          .order('measurement_date', { ascending: false })
+          .limit(1)
+        setLatestMeasurement(bodyData?.[0] || null)
       } catch (err) {
         console.error('Report load error', err)
         setError(err.message)
@@ -334,10 +398,7 @@ const Report = () => {
     load()
   }, [athleteId])
 
-  const catScores = useMemo(() => {
-    if (!reportData?.results) return {}
-    return calcCategoryScores(reportData.results, peerStats)
-  }, [reportData?.results, peerStats])
+  const peerAvg = ageGroupAvg
 
   const groupedResults = useMemo(() => {
     const map = { speed: [], strength: [], power: [], agility: [], endurance: [] }
@@ -347,6 +408,57 @@ const Report = () => {
     return map
   }, [reportData?.results])
 
+  const getTestSeries = (testType) => (allTestResults || []).filter((r) => r.test_type === testType).sort((a, b) => new Date(a.date_tested) - new Date(b.date_tested))
+
+  const formatDiff = (num, unit) => {
+    if (num == null || Number.isNaN(num)) return '—'
+    const sign = num > 0 ? '+' : num < 0 ? '' : ''
+    return `${sign}${num.toFixed(2)}${unit}`
+  }
+
+  const speedSeries = getTestSeries('10m_sprint')
+  const powerSeriesVJ = getTestSeries('vertical_jump')
+  const powerSeriesBJ = getTestSeries('broad_jump')
+  const agilitySeries = deduplicateByBestPerDay(getTestSeries('pro_agility_shuttle'), 'pro_agility_shuttle')
+
+  const buildStrengthSeries = (type) => getTestSeries(type).filter((r) => r.load_value)
+  const strengthSeriesSquat = buildStrengthSeries('squat')
+  const strengthSeriesTBDL = buildStrengthSeries('trap_bar_deadlift')
+  const benchSeries = deduplicateByBestPerDay(
+    buildStrengthSeries('bench_press').map((r) => ({ ...r, value: calcE1RM(r.load_value, r.reps) })),
+    'bench_press'
+  )
+  const trapSeries = deduplicateByBestPerDay(
+    buildStrengthSeries('trap_bar_deadlift').map((r) => ({ ...r, value: calcE1RM(r.load_value, r.reps) })),
+    'trap_bar_deadlift'
+  )
+  const verticalJumpSeries = deduplicateByBestPerDay(powerSeriesVJ, 'vertical_jump')
+  const beepSeries = deduplicateByBestPerDay(getTestSeries('beep_test'), 'beep_test')
+
+  const latestScoresTimeline = allCompositeScores || []
+
+  const hockeyCareerRows = useMemo(() => {
+    const rows = (gameStats || []).filter((r) => {
+      const gp = r.games_played || 0
+      const team = (r.team_name || r.teamName || '').trim()
+      if (!team) return false
+      return gp > 0
+    })
+
+    const bestBySeason = {}
+    for (const r of rows) {
+      const key = r.season || ''
+      const existing = bestBySeason[key]
+      if (!existing || (r.games_played || 0) > (existing.games_played || 0)) {
+        bestBySeason[key] = r
+      }
+    }
+
+    const deduped = Object.values(bestBySeason)
+    deduped.sort((a, b) => (b.season || '').localeCompare(a.season || ''))
+    return deduped
+  }, [gameStats])
+
   const testHistories = useMemo(() => {
     const h = {}
     for (const r of (reportData?.results ?? [])) {
@@ -354,7 +466,7 @@ const Report = () => {
       h[r.test_type].push(r)
     }
     for (const key of Object.keys(h)) {
-      h[key].sort((a, b) => new Date(a.date_tested) - new Date(b.date_tested))
+      h[key] = deduplicateByBestPerDay(h[key], key)
     }
     return h
   }, [reportData?.results])
@@ -362,7 +474,7 @@ const Report = () => {
   const personalBests = useMemo(() => {
     const pb = {}
     for (const r of (reportData?.results ?? [])) {
-      const isLower = LOWER_IS_BETTER.has(r.test_type)
+      const isLower = LOWER_IS_BETTER_SET.has(r.test_type)
       if (!pb[r.test_type]) {
         pb[r.test_type] = r
       } else {
@@ -440,6 +552,18 @@ const Report = () => {
   const { profile, benchmarks } = reportData
   const age = calcAge(profile?.date_of_birth || profile?.dob)
   const initials = (profile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+  const firstName = (profile?.full_name || 'Athlete').split(' ')[0]
+
+  const formatHeight = (inches) => {
+    if (inches == null) return '—'
+    const ft = Math.floor(inches / 12)
+    const inch = Math.round(inches % 12)
+    return `${ft}'${inch}"`
+  }
+
+  const heroHeight = formatHeight(latestMeasurement?.height ?? profile?.height ?? profile?.height_inches)
+  const heroWeightValue = latestMeasurement?.weight ?? profile?.weight
+  const heroWeight = heroWeightValue != null ? `${Math.round(heroWeightValue)} lbs` : '—'
 
   const displayScores = {
     overall: compScore?.overall_score != null ? Math.round(compScore.overall_score) : null,
@@ -451,7 +575,7 @@ const Report = () => {
   }
 
   return (
-    <div style={{ background: '#0a0f0a', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif', overflowX: 'hidden', width: '100%' }}>
+    <div style={{ background: '#050705', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif', overflowX: 'hidden', width: '100%' }}>
 
       {/* BACK BUTTON */}
       <div style={{ padding: '16px 24px' }}>
@@ -463,64 +587,165 @@ const Report = () => {
         </button>
       </div>
 
-      {/* ── SECTION 1: ATHLETE HEADER ── */}
-      <div style={{ background: 'linear-gradient(135deg, #0d1a0e, #1a2e1a)', borderBottom: '1px solid rgba(63,174,82,0.3)', padding: '32px 24px' }}>
+      {/* ── SECTION 1: ATHLETE HERO ── */}
+      <div
+        style={{
+          width: '100%',
+          minHeight: '220px',
+          backgroundColor: '#050705',
+          position: 'relative',
+          overflow: 'hidden',
+          overflowX: 'hidden',
+          padding: '24px 24px 20px',
+        }}
+      >
         <div
           style={{
-            maxWidth: '960px',
+            maxWidth: '1200px',
             margin: '0 auto',
-            display: 'flex',
-            flexWrap: 'wrap',
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '280px 1fr',
             gap: '16px',
-            alignItems: 'center',
-            padding: '0',
+            alignItems: 'stretch',
+            position: 'relative',
+            zIndex: 1,
           }}
         >
-
-          {/* Photo */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt={profile.full_name} style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #3fae52' }} />
-            ) : (
-              <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: 'rgba(63,174,82,0.15)', border: '2px solid rgba(63,174,82,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: '800', color: '#3fae52' }}>
-                {initials}
-              </div>
-            )}
-            {profile?.position && (
-              <span style={{ background: 'rgba(63,174,82,0.15)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '12px', padding: '2px 10px', fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                {profile.position}
-              </span>
-            )}
-          </div>
-
-          {/* Name + team */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
-              <img src={PFA_LOGO} alt="PFA" style={{ width: '36px', height: '36px', objectFit: 'contain' }} />
-              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontWeight: '600', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Performance Report</span>
+          {/* Player Card */}
+          <div style={{ position: 'relative', alignSelf: isMobile ? 'start' : 'end', width: isMobile ? '100%' : 'auto' }}>
+            <div
+              style={{
+                width: '100%',
+                maxWidth: isMobile ? '100%' : '260px',
+                height: '310px',
+                background: 'linear-gradient(180deg, rgba(63,174,82,0.15), rgba(10,15,10,0.9))',
+                border: '2px solid rgba(63,174,82,0.5)',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.65)',
+                clipPath: 'polygon(0 0, 100% 0, 100% 88%, 40% 100%, 0 100%)',
+                position: 'relative',
+                overflow: 'hidden',
+                transform: 'translateY(30px)',
+              }}
+            >
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px', background: 'linear-gradient(180deg, #3fae52, rgba(63,174,82,0.2))', boxShadow: '0 0 18px rgba(63,174,82,0.4)' }} />
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.full_name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'linear-gradient(180deg, rgba(63,174,82,0.25), rgba(10,15,10,0.9))',
+                    color: '#3fae52',
+                    fontSize: '48px',
+                    fontWeight: '900',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  {initials}
+                </div>
+              )}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: '24%',
+                  background: 'linear-gradient(90deg, rgba(10,15,10,0) 0%, rgba(10,15,10,0.85) 100%)',
+                  pointerEvents: 'none',
+                }}
+              />
             </div>
-            <h1 style={{ fontSize: '32px', fontWeight: '900', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 6px', lineHeight: 1.1 }}>
-              {profile?.full_name || 'Athlete'}
-            </h1>
-            <div style={{ color: '#3fae52', fontSize: '13px', fontWeight: '600' }}>
-              {profile?.pfa_teams?.name || profile?.team_name || '—'} {profile?.age_category ? `· ${profile.age_category}` : ''}
+          </div>
+
+          {/* Text + Stats */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0', justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '-4px', flexWrap: isMobile ? 'wrap' : 'nowrap', maxWidth: '100%' }}>
+              <img src={PFA_LOGO} alt="PFA" style={{ width: isMobile ? '64px' : '82px', height: isMobile ? '64px' : '82px', objectFit: 'contain' }} />
+              <span style={{ fontSize: isMobile ? '11px' : '12px', color: 'rgba(255,255,255,0.7)', fontWeight: '800', letterSpacing: '0.2em', textTransform: 'uppercase', lineHeight: 1.2 }}>Performance Report</span>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: 'clamp(2rem, 5vw, 3.5rem)',
+                  fontWeight: 900,
+                  letterSpacing: '-0.02em',
+                  textTransform: 'uppercase',
+                  lineHeight: 1,
+                  marginBottom: '6px',
+                }}
+              >
+                {profile?.full_name || 'Athlete'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {profile?.position && (
+                  <span
+                    style={{
+                      background: '#3fae52',
+                      color: '#000',
+                      fontWeight: 800,
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      letterSpacing: '0.12em',
+                      fontSize: '11px',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {profile.position}
+                  </span>
+                )}
+                <span style={{ color: '#9ce6a8', fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  {profile?.pfa_teams?.name || profile?.team_name || '—'}
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: isMobile ? 'wrap' : 'nowrap',
+                gap: '10px',
+                alignItems: 'stretch',
+              }}
+            >
+              {[
+                { label: 'HT', value: heroHeight },
+                { label: 'WT', value: heroWeight },
+                { label: 'AGE', value: age },
+                { label: 'LEVEL', value: profile?.competition_level || '—' },
+                { label: 'SPORT', value: profile?.sport || '—' },
+              ].map((item, idx, arr) => (
+                <div
+                  key={item.label}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 10px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    borderLeft: '3px solid rgba(63,174,82,0.6)',
+                    flex: isMobile ? (item.label === 'SPORT' ? '0 0 100%' : '0 0 calc(50% - 8px)') : '0 0 auto',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', letterSpacing: '0.14em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                  <div style={{ color: 'white', fontWeight: 800, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
+                  {idx !== arr.length - 1 && !isMobile && <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.05)' }} />}
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Info grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px', fontSize: '12px' }}>
-            {[
-              { label: 'Age', value: age },
-              { label: 'DOB', value: profile?.date_of_birth?.slice(0, 10) || profile?.dob?.slice(0, 10) || '—' },
-              { label: 'Sport', value: profile?.sport || '—' },
-              { label: 'Level', value: profile?.competition_level || '—' },
-            ].map(({ label, value }) => (
-              <div key={label}>
-                <div style={{ color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.1em' }}>{label}</div>
-                <div style={{ color: 'white', fontWeight: '600', marginTop: '2px' }}>{value}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -529,13 +754,10 @@ const Report = () => {
         <div style={{ maxWidth: '960px', margin: '0 auto', padding: '0 8px 64px', width: '100%' }}>
 
         {/* ── SECTION 2: COMPOSITE SCORES ── */}
-        <div style={{ marginTop: '32px' }}>
+        <div style={{ marginTop: '20px' }}>
           <div style={{ background: 'rgba(63,174,82,0.08)', borderBottom: '1px solid rgba(63,174,82,0.25)', padding: '12px 0', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Physical Performance Results</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px' }}>Overall Score</span>
-              <span style={{ fontSize: '28px', fontWeight: '900', color: getScoreColor(displayScores.overall) }}>{displayScores.overall ?? '—'}</span>
-            </div>
+            <div />
           </div>
           <div
             style={{
@@ -545,6 +767,13 @@ const Report = () => {
               width: '100%',
             }}
           >
+            <div style={{ background: 'linear-gradient(135deg, rgba(63,174,82,0.18), rgba(10,15,10,0.9))', border: '1px solid rgba(63,174,82,0.45)', borderRadius: '14px', padding: '18px', textAlign: 'center', boxShadow: '0 12px 30px rgba(0,0,0,0.4)' }}>
+              <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: '10px' }}>Overall</div>
+              <div style={{ fontSize: '56px', fontWeight: '900', color: getScoreColor(displayScores.overall), lineHeight: 1 }}>{displayScores.overall ?? '—'}</div>
+              <div style={{ marginTop: '12px', height: '5px', background: 'rgba(255,255,255,0.12)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${displayScores.overall ?? 0}%`, background: getScoreColor(displayScores.overall), borderRadius: '3px' }} />
+              </div>
+            </div>
             {CATEGORIES.map((cat) => {
               const score = displayScores[cat]
               const color = getScoreColor(score)
@@ -561,99 +790,365 @@ const Report = () => {
           </div>
         </div>
 
-        {/* ── SECTION 3: RADAR CHARTS ── */}
-        <div style={{ marginTop: '40px' }}>
-          <div style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '16px', borderBottom: '1px solid rgba(63,174,82,0.2)', paddingBottom: '8px' }}>
-            Performance Comparisons
+        {/* ── SECTION 2B: ATHLETE DEVELOPMENT ── */}
+        <div style={{ marginTop: '32px', borderTop: '2px solid #3fae52', paddingTop: '20px' }}>
+          <div style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '16px' }}>
+            Athlete Development
           </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '16px',
-            }}
-          >
-            <div style={{ minHeight: '320px' }}>
-              <RadarChartCanvas
-                title="Athlete vs PFA Average"
-                athleteScores={catScores}
-                compScores={pfaAvg}
-                compLabel="PFA Avg"
-              />
-            </div>
-            <div style={{ minHeight: '320px' }}>
-              <RadarChartCanvas
-                title="Athlete vs Age Group Average"
-                athleteScores={catScores}
-                compScores={ageGroupAvg}
-                compLabel="Age Group Avg"
-              />
-            </div>
-            <div style={{ minHeight: '320px' }}>
-              {gameStats.length === 0 ? (
-                <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '320px', width: '100%' }}>
-                  <div style={{ color: '#3fae52', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>Athlete vs Game Stats</div>
-                  <div style={{ color: 'rgba(63,174,82,0.5)', fontSize: '13px', textAlign: 'center', lineHeight: 1.6 }}>Game Statistics Not Available — Stats will appear here once recorded</div>
-                </div>
-              ) : (
-                (() => {
-                  const latestStats = gameStats[0]
-                  const normalizeGameStat = (value, max) => Math.min(100, Math.max(0, (value / max) * 100))
-                  const gp = latestStats.games_played || 1
-                  const ptsPG = (latestStats.points || 0) / gp
-                  const goalsPG = (latestStats.goals || 0) / gp
-                  const assistsPG = (latestStats.assists || 0) / gp
 
-                  const gameRadarData = {
-                    speed: normalizeGameStat(ptsPG, 2.0),
-                    strength: normalizeGameStat((latestStats.pim || 0) / gp, 3.0),
-                    power: normalizeGameStat(goalsPG, 1.0),
-                    agility: normalizeGameStat(assistsPG, 1.2),
-                    endurance: normalizeGameStat(gp, 40),
-                  }
-
-                  return (
-                    <div style={{ minHeight: '320px', display: 'flex', flexDirection: 'column' }}>
-                      <RadarChartCanvas
-                        title="Dryland vs Game Performance"
-                        athleteScores={catScores}
-                        compScores={gameRadarData}
-                        compLabel="Game Stats"
-                      />
-                    </div>
-                  )
-                })()
-              )}
-            </div>
-          </div>
-          {gameStats.length > 0 && (
-            <div
-              style={{
-                background: 'rgba(63,174,82,0.05)',
-                border: '1px solid rgba(63,174,82,0.2)',
-                borderRadius: '12px',
-                padding: '20px',
-                marginTop: '16px',
-              }}
-            >
-              <div style={{ color: '#3fae52', fontSize: '11px', fontWeight: '700', letterSpacing: '0.15em', marginBottom: '12px' }}>
-                GAME STATS — {gameStats[0].league} · {gameStats[0].season}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '16px' }}>
-                {[
-                  { label: 'GP', value: gameStats[0].games_played },
-                  { label: 'G', value: gameStats[0].goals },
-                  { label: 'A', value: gameStats[0].assists },
-                  { label: 'PTS', value: gameStats[0].points },
-                  { label: 'PPG', value: (gameStats[0].points / gameStats[0].games_played).toFixed(2) },
-                  { label: 'PIM', value: gameStats[0].pim || 0 },
-                ].map((stat) => (
-                  <div key={stat.label} style={{ textAlign: 'center' }}>
-                    <div style={{ color: '#3fae52', fontSize: '24px', fontWeight: '700' }}>{stat.value}</div>
-                    <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '2px' }}>{stat.label}</div>
+          {/* Block 1: Physical Highlights */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+            {/* Speed Callout */}
+            {(() => {
+              const series = speedSeries
+              if (!series.length) return null
+              const first = series[0]
+              const last = series[series.length - 1]
+              const hasComparison = series.length > 1
+              const diff = hasComparison ? (Number(first.value) - Number(last.value)) : null // lower is better
+              const improved = hasComparison && diff > 0
+              const regressed = hasComparison && diff < 0
+              let displayVal = `${Number(last.value).toFixed(2)}s`
+              if (improved) displayVal = `${Math.abs(diff || 0).toFixed(2)}s faster`
+              if (regressed) displayVal = `${Math.abs(diff || 0).toFixed(2)}s slower`
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const subtitle = improved
+                ? 'Acceleration improving — trending in the right direction'
+                : regressed
+                  ? 'Acceleration has slowed since last test — flagged for attention'
+                  : 'Current acceleration benchmark'
+              return (
+                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                  <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {displayVal}
                   </div>
-                ))}
+                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>Sprint Speed</div>
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                    {subtitle}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Power Callout */}
+            {(() => {
+              let series = powerSeriesVJ
+              let label = 'Explosive Power'
+              let subtitleImprove = 'Vertical jump improvement at Peak Fitness'
+              let subtitlePB = 'Current power benchmark'
+              if (!series.length && powerSeriesBJ.length) {
+                series = powerSeriesBJ
+                label = 'Broad Jump'
+                subtitleImprove = 'Improvement at Peak Fitness'
+                subtitlePB = 'Current power benchmark'
+              }
+              if (!series.length) return null
+              const first = series[0]
+              const last = series[series.length - 1]
+              const hasComparison = series.length > 1
+              const diff = hasComparison ? (Number(last.value) - Number(first.value)) : null
+              const improved = hasComparison && diff > 0
+              const regressed = hasComparison && diff < 0
+              const magnitude = Math.abs(diff || 0)
+              const displayVal = hasComparison ? `${regressed ? '-' : '+'}${magnitude.toFixed(0)} cm` : `${Number(last.value).toFixed(0)} cm`
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const subtitle = improved
+                ? 'Explosive power trending up'
+                : regressed
+                  ? 'Power output declined since last test — flagged for attention'
+                  : subtitlePB
+              return (
+                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                  <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {displayVal}
+                  </div>
+                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>{label}</div>
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                    {subtitle}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Strength Callout */}
+            {(() => {
+              let series = strengthSeriesSquat
+              let label = 'Squat Strength'
+              let subtitleImprove = 'e1RM improvement at Peak Fitness'
+              let subtitlePB = 'Estimated 1-rep max'
+              if (!series.length && strengthSeriesTBDL.length) {
+                series = strengthSeriesTBDL
+                label = 'Trap Bar Deadlift Strength'
+                subtitleImprove = 'e1RM improvement at Peak Fitness'
+                subtitlePB = 'Estimated 1-rep max'
+              }
+              if (!series.length) return null
+              const e1s = series.map((r) => calcE1RM(r.load_value, r.reps)).filter((v) => v != null)
+              if (!e1s.length) return null
+              const first = e1s[0]
+              const last = e1s[e1s.length - 1]
+              const hasComparison = e1s.length > 1
+              const diff = hasComparison ? (last - first) : null
+              const improved = hasComparison && diff > 0
+              const regressed = hasComparison && diff < 0
+              const displayVal = hasComparison ? `${regressed ? '-' : '+'}${Math.round(Math.abs(diff || 0))} lbs` : `${Math.round(last)} lbs`
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const subtitle = improved
+                ? 'Strength trending up'
+                : regressed
+                  ? 'Strength output declined since last test — flagged for attention'
+                  : subtitlePB
+              return (
+                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                  <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {displayVal}
+                  </div>
+                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>{label}</div>
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                    {subtitle}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Agility Callout */}
+            {(() => {
+              const series = agilitySeries
+              if (!series.length) return null
+              if (series.length >= 2) {
+                const first = series[0]
+                const last = series[series.length - 1]
+                const improvement = Number(first.value) - Number(last.value)
+                return (
+                  <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                    <div style={{ color: '#3fae52', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                      {`${improvement.toFixed(2)}s faster`}
+                    </div>
+                    <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>AGILITY</div>
+                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                      Change of direction improving
+                    </div>
+                  </div>
+                )
+              }
+              const best = series[series.length - 1]
+              return (
+                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                  <div style={{ color: 'white', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {`${Number(best.value).toFixed(2)}s`}
+                  </div>
+                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>PRO AGILITY</div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                    Current agility benchmark
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Bench Press Callout */}
+            {(() => {
+              const series = benchSeries
+              if (!series.length) return null
+              if (series.length >= 2) {
+                const first = series[0]
+                const last = series[series.length - 1]
+                const diff = Number(last.value) - Number(first.value)
+                return (
+                  <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                    <div style={{ color: '#3fae52', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                      {`${diff >= 0 ? '+' : ''}${Math.round(diff)} lbs`}
+                    </div>
+                    <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BENCH PRESS</div>
+                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                      Upper body strength improving
+                    </div>
+                  </div>
+                )
+              }
+              const best = series[series.length - 1]
+              return (
+                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                  <div style={{ color: 'white', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {`${Math.round(Number(best.value))} lbs`}
+                  </div>
+                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BENCH PRESS</div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                    Estimated 1-rep max
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Trap Bar Deadlift Callout */}
+            {(() => {
+              const series = trapSeries
+              if (!series.length) return null
+              if (series.length >= 2) {
+                const first = series[0]
+                const last = series[series.length - 1]
+                const diff = Number(last.value) - Number(first.value)
+                return (
+                  <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                    <div style={{ color: '#3fae52', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                      {`${diff >= 0 ? '+' : ''}${Math.round(diff)} lbs`}
+                    </div>
+                    <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>TRAP BAR DL</div>
+                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                      Posterior chain strength improving
+                    </div>
+                  </div>
+                )
+              }
+              const best = series[series.length - 1]
+              return (
+                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                  <div style={{ color: 'white', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {`${Math.round(Number(best.value))} lbs`}
+                  </div>
+                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>TRAP BAR DL</div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                    Estimated 1-rep max
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Vertical Jump Callout */}
+            {(() => {
+              const series = verticalJumpSeries
+              if (!series.length) return null
+              if (series.length >= 2) {
+                const first = series[0]
+                const last = series[series.length - 1]
+                const diff = Number(last.value) - Number(first.value)
+                return (
+                  <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                    <div style={{ color: '#3fae52', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                      {`${diff >= 0 ? '+' : ''}${Math.round(diff)} cm`}
+                    </div>
+                    <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>VERTICAL JUMP</div>
+                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                      Explosive power improving
+                    </div>
+                  </div>
+                )
+              }
+              const best = series[series.length - 1]
+              return (
+                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                  <div style={{ color: 'white', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {`${Math.round(Number(best.value))} cm`}
+                  </div>
+                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>VERTICAL JUMP</div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                    Current power benchmark
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Beep Test Callout */}
+            {(() => {
+              const series = beepSeries
+              if (!series.length) return null
+              if (series.length >= 2) {
+                const first = series[0]
+                const last = series[series.length - 1]
+                const diff = Number(last.value) - Number(first.value)
+                return (
+                  <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                    <div style={{ color: '#3fae52', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                      {`${diff >= 0 ? '+' : ''}${diff.toFixed(1)} levels`}
+                    </div>
+                    <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BEEP TEST</div>
+                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                      Aerobic capacity improving
+                    </div>
+                  </div>
+                )
+              }
+              const best = series[series.length - 1]
+              return (
+                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                  <div style={{ color: 'white', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {`Level ${Number(best.value).toFixed(1)}`}
+                  </div>
+                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BEEP TEST</div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                    Current endurance benchmark
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* Block 3: Hockey Career Stats */}
+          {profile?.sport === 'Hockey' && hockeyCareerRows.length > 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(63,174,82,0.15)', borderRadius: '12px', padding: '16px' }}>
+              <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>Hockey Career</div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
+                  <thead>
+                    <tr style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      {['Season', 'Team', 'League', 'GP', 'G', 'A', 'PTS', 'PIM'].map((h) => (
+                        <th key={h} style={{ textAlign: 'left', padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hockeyCareerRows.map((row, idx) => {
+                      const isGoalie = row.position === 'G'
+                      return (
+                        <tr key={`${row.season}-${row.league}-${idx}`} style={{ background: idx === 0 ? 'rgba(63,174,82,0.05)' : 'transparent' }}>
+                          <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)', borderLeft: idx === 0 ? '3px solid #3fae52' : 'none' }}>{row.season || '—'}</td>
+                          <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            {(() => {
+                              const team = row.team_name || row.teamName
+                              if (!team || team === '—') return row.league || ''
+                              return team
+                            })()}
+                          </td>
+                          <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.league || '—'}</td>
+                          <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.games_played ?? '—'}</td>
+                          {isGoalie ? (
+                            <>
+                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.gaa != null ? Number(row.gaa).toFixed(2) : '—'}</td>
+                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.save_pct != null ? Number(row.save_pct).toFixed(3) : '—'}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.goals ?? 0}</td>
+                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.assists ?? 0}</td>
+                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.points ?? 0}</td>
+                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.pim ?? 0}</td>
+                            </>
+                          )}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
+
+              {(() => {
+                const rows = hockeyCareerRows.filter((r) => r.position !== 'G' && r.games_played > 0 && r.points != null)
+                if (rows.length < 2) return null
+                const withPpg = rows.map((r) => ({ ...r, ppg: (r.points || 0) / (r.games_played || 1) }))
+                withPpg.sort((a, b) => (a.season || '').localeCompare(b.season || ''))
+                const earliest = withPpg[0]
+                const latest = withPpg[withPpg.length - 1]
+                if (!earliest || !latest) return null
+                const earliestPpg = earliest.ppg || 0
+                const latestPpg = latest.ppg || 0
+                if (latestPpg <= earliestPpg) return null
+                const growth = ((latestPpg - earliestPpg) / (earliestPpg || 1)) * 100
+                const firstName = (profile?.full_name || 'Athlete').split(' ')[0]
+                return (
+                  <div style={{ marginTop: '12px', color: '#3fae52', fontSize: '12px', fontStyle: 'italic' }}>
+                    {firstName}'s points per game has grown from {earliestPpg.toFixed(2)} ({earliest.season || '—'}) to {latestPpg.toFixed(2)} ({latest.season || '—'}) — a {growth.toFixed(1)}% increase.
+                  </div>
+                )
+              })()}
             </div>
           )}
         </div>
@@ -661,7 +1156,7 @@ const Report = () => {
         {/* ── SECTION 4: PER CATEGORY BREAKDOWN ── */}
         <div style={{ marginTop: '48px' }}>
           <div style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid rgba(63,174,82,0.2)', paddingBottom: '8px' }}>
-            Category Breakdown
+            Training Results
           </div>
           {CATEGORIES.map((cat) => {
             const results = groupedResults[cat] || []
@@ -673,6 +1168,56 @@ const Report = () => {
                   <span style={{ fontSize: '22px', fontWeight: '900', color: getScoreColor(displayScores[cat]) }}>{displayScores[cat] ?? '—'}</span>
                 </div>
                 <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', lineHeight: 1.6, marginBottom: '16px' }}>{CAT_DESCRIPTIONS[cat]}</p>
+                {(() => {
+                  const categoryKeyMap = {
+                    speed: 'speed',
+                    strength: 'strength',
+                    power: 'power',
+                    agility: 'agility',
+                    endurance: 'endurance'
+                  }
+                  const key = categoryKeyMap[cat]
+                  const athleteScore = compScore?.[key + '_score']
+                  const peerAverage = peerAvg?.[key]
+                  if (!athleteScore || !peerAverage) return null
+
+                  const ratio = athleteScore / peerAverage
+                  const firstName = profile?.full_name?.split(' ')[0] || 'This athlete'
+                  const ageCategory = profile?.age_category || ''
+                  const sport = profile?.sport || 'athletes'
+
+                  let rankText, colorStyle
+                  if (ratio >= 1.4) {
+                    rankText = `${firstName} ranks in the top 10% for ${cat.toLowerCase()} among ${ageCategory} ${sport} athletes we have tested.` 
+                    colorStyle = '#3fae52'
+                  } else if (ratio >= 1.2) {
+                    rankText = `${firstName} ranks in the top 25% for ${cat.toLowerCase()} among ${ageCategory} ${sport} athletes we have tested.` 
+                    colorStyle = '#3fae52'
+                  } else if (ratio >= 1.0) {
+                    rankText = `${firstName} is above average for ${cat.toLowerCase()} among ${ageCategory} ${sport} athletes we have tested.` 
+                    colorStyle = '#f5a623'
+                  } else if (ratio >= 0.85) {
+                    rankText = `${cat} is an active development priority for ${firstName} this season.` 
+                    colorStyle = '#f5a623'
+                  } else {
+                    rankText = `${cat} is a key development focus for ${firstName} — we are actively working on this.` 
+                    colorStyle = '#e05c2a'
+                  }
+
+                  return (
+                    <div style={{
+                      marginBottom: '16px',
+                      padding: '10px 14px',
+                      background: 'rgba(63,174,82,0.05)',
+                      borderLeft: `3px solid ${colorStyle}`,
+                      borderRadius: '4px',
+                    }}>
+                      <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', fontStyle: 'italic' }}>
+                        {rankText}
+                      </span>
+                    </div>
+                  )
+                })()}
                 {catTestTypes.length === 0 && (
                   <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px', padding: '16px', background: '#0d1a0e', borderRadius: '8px' }}>No results recorded yet</div>
                 )}
@@ -709,7 +1254,6 @@ const Report = () => {
                         </div>
                         <div style={{ fontSize: '22px', fontWeight: '900', color: 'white', marginBottom: '12px' }}>
                           {pb ? formatVal(tt, pb.value) : '—'}
-                          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginLeft: '6px', fontWeight: '400' }}>Personal Best</span>
                         </div>
                         {history.length > 1 && <LineChartCanvas testType={tt} history={history} />}
                         {(pfaBench || hnbBench || hcBench) && (

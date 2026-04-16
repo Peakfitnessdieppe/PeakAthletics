@@ -1,0 +1,159 @@
+[
+  {
+    "player": "Connor McDavid",
+    "playerUrl": "https://www.eliteprospects.com/player/183442/connor-mcdavid",
+    "team": "81",
+    "gp": "48",
+    "mins": "86",
+    "gaa": "134"
+  },
+  {
+    "player": "Nikita Kucherov",
+    "playerUrl": "https://www.eliteprospects.com/player/77237/nikita-kucherov",
+    "team": "75",
+    "gp": "44",
+    "mins": "86",
+    "gaa": "130"
+  },
+  {
+    "player": "Nathan MacKinnon",
+    "playerUrl": "https://www.eliteprospects.com/player/99204/nathan-mackinnon",
+    "team": "79",
+    "gp": "52",
+    "mins": "74",
+    "gaa": "126"
+  },
+  {
+    "player": "Macklin Celebrini",
+    "playerUrl": "https://www.eliteprospects.com/player/597559/macklin-celebrini",
+    "team": "80",
+    "gp": "44",
+    "mins": "68",
+    "gaa": "112"
+  },
+  {
+    "player": "Mark Scheifele",
+    "playerUrl": "https://www.eliteprospects.com/player/75379/mark-scheifele",
+    "team": "80",
+    "gp": "35",
+    "mins": "66",
+    "gaa": "101"
+  },
+  {
+    "player": "Dax Robichaud",
+    "playerUrl": "https://www.eliteprospects.com/player/923559/dax-robichaud",
+    "team": "Fredericton Caps U18 AAA",
+    "gp": "22",
+    "mins": "2.80",
+    "gaa": ".905",
+    "svpct": "16"
+  },
+  {
+    "player": "Xavier LeBlanc",
+    "playerUrl": "https://www.eliteprospects.com/player/940308/xavier-leblanc",
+    "team": "Moncton Flyers U18 AAA",
+    "gp": "21",
+    "mins": "3.24",
+    "gaa": ".895",
+    "svpct": "10"
+  },
+  {
+    "player": "Hayden Paris",
+    "playerUrl": "https://www.eliteprospects.com/player/889799/hayden-paris",
+    "team": "Saint John Vitos U18 AAA",
+    "gp": "25",
+    "mins": "3.38",
+    "gaa": ".894",
+    "svpct": "15"
+  },
+  {
+    "player": "Jessy Cormier",
+    "playerUrl": "https://www.eliteprospects.com/player/972037/jessy-cormier",
+    "team": "Northern Moose U18 AAA",
+    "gp": "21",
+    "mins": "3.76",
+    "gaa": ".890",
+    "svpct": "8"
+  },
+  {
+    "player": "Coby Maund",
+    "playerUrl": "https://www.eliteprospects.com/player/972926/coby-maund",
+    "team": "Kensington Wild U18 AAA",
+    "gp": "19",
+    "mins": "3.63",
+    "gaa": ".890",
+    "svpct": "5"
+  },
+  {
+    "player": "Brody Sark",
+    "playerUrl": "https://www.eliteprospects.com/player/973083/brody-sark",
+    "team": "Fredericton Caps U18 AAA",
+    "gp": "16",
+    "mins": "3.17",
+    "gaa": ".887",
+    "svpct": "12"
+  },
+  {
+    "player": "Jase MacPherson",
+    "playerUrl": "https://www.eliteprospects.com/player/972947/jase-macpherson",
+    "team": "Kensington Wild U18 AAA",
+    "gp": "20",
+    "mins": "3.77",
+    "gaa": ".885",
+    "svpct": "11"
+  },
+  {
+    "player": "Zach Clinton",
+    "playerUrl": "https://www.eliteprospects.com/player/834380/zach-clinton",
+    "team": "Charlottetown Knights U18 AAA",
+    "gp": "19",
+    "mins": "4.40",
+    "gaa": ".876",
+    "svpct": "5"
+  },
+  {
+    "player": "Lincoln Kennedy",
+    "playerUrl": "https://www.eliteprospects.com/player/972955/lincoln-kennedy",
+    "team": "Charlottetown Knights U18 AAA",
+    "gp": "19",
+    "mins": "4.40",
+    "gaa": ".875",
+    "svpct": "7"
+  },
+  {
+    "player": "Luca Leger-Andrade",
+    "playerUrl": "https://www.eliteprospects.com/player/890863/luca-leger-andrade",
+    "team": "Moncton Flyers U18 AAA",
+    "gp": "20",
+    "mins": "3.56",
+    "gaa": ".875",
+    "svpct": "13"
+  },
+  {
+    "player": "Michael Downey",
+    "playerUrl": "https://www.eliteprospects.com/player/1125666/michael-downey",
+    "team": "Saint John Vitos U18 AAA",
+    "gp": "14",
+    "mins": "4.18",
+    "gaa": ".874",
+    "svpct": "7"
+  },
+  {
+    "player": "Zavier Roy",
+    "playerUrl": "https://www.eliteprospects.com/player/892718/zavier-roy",
+    "team": "Northern Moose U18 AAA",
+    "gp": "20",
+    "mins": "4.67",
+    "gaa": ".868",
+    "svpct": "7"
+  },
+  {
+    "player": "Stirling Baskin",
+    "playerUrl": "https://www.eliteprospects.com/player/1054296/stirling-baskin",
+    "team": "Saint John Vitos U18 AAA",
+    "gp": "1",
+    "mins": "6.63",
+    "gaa": ".872",
+    "svpct": "0"
+  }
+]

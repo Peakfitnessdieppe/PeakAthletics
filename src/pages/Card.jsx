@@ -315,7 +315,7 @@ const Card = () => {
           try {
             const url = new URL(currentUrl)
             const segments = url.pathname.split('/')
-            const bucketIndex = segments.findIndex((p) => decodeURIComponent(p) === 'Athlete Photos' || decodeURIComponent(p) === 'athlete-photos')
+            const bucketIndex = segments.findIndex((p) => decodeURIComponent(p) === 'Athlete Photos')
             if (bucketIndex >= 0) return decodeURIComponent(segments.slice(bucketIndex + 1).join('/'))
           } catch (err) {
             console.error('Parse old avatar URL failed', err)
@@ -324,7 +324,7 @@ const Card = () => {
           return `${profile.id}/avatar.${extGuess}`
         })()
         if (oldPath) {
-          const { error: removeError } = await supabase.storage.from('athlete-photos').remove([oldPath])
+          const { error: removeError } = await supabase.storage.from('Athlete Photos').remove([oldPath])
           if (removeError) console.error('Remove old photo failed', removeError)
         }
       }
@@ -333,10 +333,10 @@ const Card = () => {
       const ext = file.name.split('.').pop()
       const path = `${profile.id}_${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage
-        .from('athlete-photos')
+        .from('Athlete Photos')
         .upload(path, file, { upsert: true })
       if (uploadError) throw uploadError
-      const { data: urlData } = supabase.storage.from('athlete-photos').getPublicUrl(path)
+      const { data: urlData } = supabase.storage.from('Athlete Photos').getPublicUrl(path)
       const newUrl = `${urlData.publicUrl}?t=${Date.now()}`
       const { error: profileError } = await supabase
         .from('profiles')
@@ -356,7 +356,7 @@ const Card = () => {
     try {
       const url = new URL(avatarUrl)
       const segments = url.pathname.split('/')
-      const bucketIndex = segments.findIndex((p) => decodeURIComponent(p) === 'Athlete Photos' || decodeURIComponent(p) === 'athlete-photos')
+      const bucketIndex = segments.findIndex((p) => decodeURIComponent(p) === 'Athlete Photos')
       if (bucketIndex >= 0) {
         return decodeURIComponent(segments.slice(bucketIndex + 1).join('/'))
       }
@@ -374,7 +374,7 @@ const Card = () => {
     try {
       const path = getAvatarPath()
       if (path) {
-        const { error: removeError } = await supabase.storage.from('athlete-photos').remove([path])
+        const { error: removeError } = await supabase.storage.from('Athlete Photos').remove([path])
         if (removeError) throw removeError
       }
       const { error: profileError } = await supabase

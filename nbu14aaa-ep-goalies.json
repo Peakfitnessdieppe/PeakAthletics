@@ -1,0 +1,177 @@
+[
+  {
+    "player": "Connor McDavid",
+    "playerUrl": "https://www.eliteprospects.com/player/183442/connor-mcdavid",
+    "team": "81",
+    "gp": "48",
+    "mins": "86",
+    "gaa": "134"
+  },
+  {
+    "player": "Nikita Kucherov",
+    "playerUrl": "https://www.eliteprospects.com/player/77237/nikita-kucherov",
+    "team": "75",
+    "gp": "44",
+    "mins": "86",
+    "gaa": "130"
+  },
+  {
+    "player": "Nathan MacKinnon",
+    "playerUrl": "https://www.eliteprospects.com/player/99204/nathan-mackinnon",
+    "team": "79",
+    "gp": "52",
+    "mins": "74",
+    "gaa": "126"
+  },
+  {
+    "player": "Macklin Celebrini",
+    "playerUrl": "https://www.eliteprospects.com/player/597559/macklin-celebrini",
+    "team": "80",
+    "gp": "44",
+    "mins": "68",
+    "gaa": "112"
+  },
+  {
+    "player": "Mark Scheifele",
+    "playerUrl": "https://www.eliteprospects.com/player/75379/mark-scheifele",
+    "team": "80",
+    "gp": "35",
+    "mins": "66",
+    "gaa": "101"
+  },
+  {
+    "player": "Matthew LeBlanc",
+    "playerUrl": "https://www.eliteprospects.com/player/1230402/matthew-leblanc",
+    "team": "Fredericton Caps U14 AAA",
+    "gp": "15",
+    "mins": "2.16",
+    "gaa": ".917",
+    "svpct": "12"
+  },
+  {
+    "player": "Caleb Landry",
+    "playerUrl": "https://www.eliteprospects.com/player/1230419/caleb-landry",
+    "team": "Moncton Scorpions U14 AAA",
+    "gp": "19",
+    "mins": "2.67",
+    "gaa": ".899",
+    "svpct": "10"
+  },
+  {
+    "player": "Chad Bourcier",
+    "playerUrl": "https://www.eliteprospects.com/player/1230401/chad-bourcier",
+    "team": "Fredericton Caps U14 AAA",
+    "gp": "20",
+    "mins": "2.76",
+    "gaa": ".898",
+    "svpct": "14"
+  },
+  {
+    "player": "Owen Currie",
+    "playerUrl": "https://www.eliteprospects.com/player/1230371/owen-currie",
+    "team": "Port City Sharks U14 AAA",
+    "gp": "16",
+    "mins": "4.07",
+    "gaa": ".896",
+    "svpct": "10"
+  },
+  {
+    "player": "Felix Theriault",
+    "playerUrl": "https://www.eliteprospects.com/player/1201107/felix-theriault",
+    "team": "North West Pionniers U14 AAA",
+    "gp": "17",
+    "mins": "3.53",
+    "gaa": ".886",
+    "svpct": "7"
+  },
+  {
+    "player": "Zavier Maillet",
+    "playerUrl": "https://www.eliteprospects.com/player/1230387/zavier-maillet",
+    "team": "EDZA East Phantoms U14 AAA",
+    "gp": "16",
+    "mins": "3.82",
+    "gaa": ".884",
+    "svpct": "6"
+  },
+  {
+    "player": "Halen Frenette",
+    "playerUrl": "https://www.eliteprospects.com/player/1230420/halen-frenette",
+    "team": "Moncton Scorpions U14 AAA",
+    "gp": "13",
+    "mins": "2.87",
+    "gaa": ".883",
+    "svpct": "7"
+  },
+  {
+    "player": "Kovy Leblanc",
+    "playerUrl": "https://www.eliteprospects.com/player/1201129/kovy-leblanc",
+    "team": "EDZA East Phantoms U14 AAA",
+    "gp": "19",
+    "mins": "3.79",
+    "gaa": ".881",
+    "svpct": "8"
+  },
+  {
+    "player": "Liam McLaughlin",
+    "playerUrl": "https://www.eliteprospects.com/player/1230427/liam-mclaughlin",
+    "team": "Northern Moose U14 AAA",
+    "gp": "18",
+    "mins": "4.44",
+    "gaa": ".873",
+    "svpct": "3"
+  },
+  {
+    "player": "Tommy Macmillan",
+    "playerUrl": "https://www.eliteprospects.com/player/1233532/tommy-macmillan",
+    "team": "Port City Sharks U14 AAA",
+    "gp": "20",
+    "mins": "3.97",
+    "gaa": ".871",
+    "svpct": "9"
+  },
+  {
+    "player": "Max Michaud",
+    "playerUrl": "https://www.eliteprospects.com/player/1130149/max-michaud",
+    "team": "North West Pionniers U14 AAA",
+    "gp": "20",
+    "mins": "3.84",
+    "gaa": ".863",
+    "svpct": "5"
+  },
+  {
+    "player": "Nico Paulin",
+    "playerUrl": "https://www.eliteprospects.com/player/1185658/nico-paulin",
+    "team": "Northern Moose U14 AAA",
+    "gp": "17",
+    "mins": "4.48",
+    "gaa": ".862",
+    "svpct": "6"
+  },
+  {
+    "player": "Christophe Gauvin",
+    "playerUrl": "https://www.eliteprospects.com/player/1230421/christophe-gauvin",
+    "team": "Moncton Scorpions U14 AAA",
+    "gp": "3",
+    "mins": "2.18",
+    "gaa": ".882",
+    "svpct": "2"
+  },
+  {
+    "player": "Sébastien Gionet",
+    "playerUrl": "https://www.eliteprospects.com/player/1230422/sebastien-gionet",
+    "team": "totals",
+    "gp": "6",
+    "mins": "3.68",
+    "gaa": ".836",
+    "svpct": "0"
+  },
+  {
+    "player": "Olivier Thompson",
+    "playerUrl": "https://www.eliteprospects.com/player/1230987/olivier-thompson",
+    "team": "Moncton Scorpions U14 AAA",
+    "gp": "1",
+    "mins": "6.00",
+    "gaa": ".824",
+    "svpct": "0"
+  }
+]
