@@ -576,12 +576,12 @@ const Report = () => {
           position: 'relative',
           overflow: 'hidden',
           overflowX: 'hidden',
-          padding: '24px 24px 20px',
+          padding: isMobile ? '24px 16px 0 16px' : '40px 24px 0 24px',
         }}
       >
         <div
           style={{
-            maxWidth: '1200px',
+            maxWidth: '1100px',
             margin: '0 auto',
             display: 'grid',
             gridTemplateColumns: isMobile ? '1fr' : '280px 1fr',
@@ -589,6 +589,7 @@ const Report = () => {
             alignItems: 'stretch',
             position: 'relative',
             zIndex: 1,
+            justifyItems: isMobile ? 'center' : 'stretch',
           }}
         >
           {/* Player Card */}
@@ -647,7 +648,7 @@ const Report = () => {
           </div>
 
           {/* Text + Stats */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0', justifyContent: 'flex-start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0', justifyContent: 'flex-start', alignItems: isMobile ? 'center' : 'flex-start', textAlign: isMobile ? 'center' : 'left' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '-4px', flexWrap: isMobile ? 'wrap' : 'nowrap', maxWidth: '100%' }}>
               <img src={PFA_LOGO} alt="PFA" style={{ width: isMobile ? '64px' : '82px', height: isMobile ? '64px' : '82px', objectFit: 'contain' }} />
               <span style={{ fontSize: isMobile ? '11px' : '12px', color: 'rgba(255,255,255,0.7)', fontWeight: '800', letterSpacing: '0.2em', textTransform: 'uppercase', lineHeight: 1.2 }}>Performance Report</span>
@@ -731,9 +732,9 @@ const Report = () => {
 
       {insights?.this_season && (
         <div style={{
-          maxWidth: '900px',
-          margin: '0 auto 32px auto',
-          padding: '0 24px',
+          maxWidth: '1100px',
+          margin: '32px auto 40px auto',
+          padding: isMobile ? '0 16px' : '0 24px',
           fontSize: '1.05rem',
           color: 'rgba(255,255,255,0.8)',
           fontStyle: 'italic',
@@ -750,7 +751,7 @@ const Report = () => {
         <div style={{ maxWidth: '960px', margin: '0 auto', padding: '0 8px 64px', width: '100%' }}>
 
         {/* ── SECTION 2: COMPOSITE SCORES ── */}
-        <div style={{ marginTop: '20px' }}>
+        <div style={{ marginTop: '40px' }}>
           <div style={{ background: 'rgba(63,174,82,0.08)', borderBottom: '1px solid rgba(63,174,82,0.25)', padding: '12px 0', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Physical Performance Results</span>
             <div />
@@ -1149,6 +1150,40 @@ const Report = () => {
           )}
         </div>
 
+        {insights?.physical_standouts && (
+          <div style={{ maxWidth: '900px', margin: '40px auto 40px auto', padding: '0 24px' }}>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: '700',
+              letterSpacing: '0.15em',
+              color: '#3fae52',
+              textTransform: 'uppercase',
+              marginBottom: '16px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid rgba(63,174,82,0.2)'
+            }}>
+              Physical Standouts
+            </div>
+            <div style={{
+              padding: '20px 24px',
+              background: '#0d1a0d',
+              border: '1px solid rgba(63,174,82,0.15)',
+              borderLeft: '3px solid #3fae52',
+              borderRadius: '12px',
+            }}>
+              <p style={{
+                fontSize: '15px',
+                color: 'rgba(255,255,255,0.85)',
+                lineHeight: 1.8,
+                margin: 0,
+                fontWeight: '400'
+              }}>
+                {insights.physical_standouts}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ── SECTION 4: PER CATEGORY BREAKDOWN ── */}
         <div style={{ marginTop: '48px' }}>
           <div style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid rgba(63,174,82,0.2)', paddingBottom: '8px' }}>
@@ -1357,75 +1392,8 @@ const Report = () => {
           })}
         </div>
 
-        {/* ── SECTION 5: DEVELOPMENT REPORT ── */}
-        {insights?.physical_standouts && (
-          <div style={{ maxWidth: '900px', margin: '0 auto 40px auto', padding: '0 24px' }}>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              letterSpacing: '0.15em',
-              color: '#3fae52',
-              textTransform: 'uppercase',
-              marginBottom: '16px',
-              paddingBottom: '8px',
-              borderBottom: '1px solid rgba(63,174,82,0.2)'
-            }}>
-              Physical Standouts
-            </div>
-            <div style={{
-              padding: '20px 24px',
-              background: '#0d1a0d',
-              border: '1px solid rgba(63,174,82,0.15)',
-              borderLeft: '3px solid #3fae52',
-              borderRadius: '12px',
-            }}>
-              <p style={{
-                fontSize: '15px',
-                color: 'rgba(255,255,255,0.85)',
-                lineHeight: 1.8,
-                margin: 0,
-                fontWeight: '400'
-              }}>
-                {insights.physical_standouts}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {insights?.what_to_watch_for && (
-          <div style={{ maxWidth: '900px', margin: '0 auto 40px auto', padding: '0 24px' }}>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              letterSpacing: '0.15em',
-              color: '#3fae52',
-              textTransform: 'uppercase',
-              marginBottom: '16px',
-              paddingBottom: '8px',
-              borderBottom: '1px solid rgba(63,174,82,0.2)'
-            }}>
-              What To Watch For
-            </div>
-            <div style={{
-              padding: '20px 24px',
-              background: '#0d1a0d',
-              border: '1px solid rgba(63,174,82,0.15)',
-              borderLeft: '3px solid rgba(255,255,255,0.2)',
-              borderRadius: '12px',
-            }}>
-              <p style={{
-                fontSize: '15px',
-                color: 'rgba(255,255,255,0.85)',
-                lineHeight: 1.8,
-                margin: 0
-              }}>
-                {insights.what_to_watch_for}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {(insights || insightsLoading) && (
+        {/* ── SECTION 5: INSIGHTS ── */}
+        {insights?.what_to_watch && (
           <div style={{ maxWidth: '900px', margin: '0 auto 48px auto', padding: '0 24px' }}>
             <div style={{
               fontSize: '11px',
@@ -1433,53 +1401,62 @@ const Report = () => {
               letterSpacing: '0.15em',
               color: '#3fae52',
               textTransform: 'uppercase',
-              marginBottom: '24px'
+              marginBottom: '16px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid rgba(63,174,82,0.2)'
             }}>
-              {profile?.full_name?.split(' ')[0]}'s Development Report
+              What To Watch
             </div>
+            <div style={{
+              padding: '24px 28px',
+              background: '#0d1a0d',
+              border: '1px solid rgba(63,174,82,0.15)',
+              borderLeft: '4px solid #3fae52',
+              borderRadius: '12px',
+            }}>
+              <p style={{
+                fontSize: '15px',
+                color: 'rgba(255,255,255,0.88)',
+                lineHeight: 1.9,
+                margin: 0,
+                fontWeight: '400'
+              }}>
+                {insights.what_to_watch}
+              </p>
+            </div>
+          </div>
+        )}
 
-            {insightsLoading && (
-              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', fontStyle: 'italic' }}>
-                Generating report...
-              </div>
-            )}
-
-            {insights && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                {[
-                  { key: 'whats_working', label: "What's Working" },
-                  { key: 'where_focused', label: "Where We're Focused" },
-                  { key: 'on_the_ice', label: `On The ${profile?.sport === 'Hockey' ? 'Ice' : 'Field'}` },
-                  { key: 'next_steps', label: 'Next Steps' }
-                ].map(({ key, label }) => insights[key] ? (
-                  <div key={key} style={{
-                    padding: '20px 24px',
-                    background: '#0d1a0d',
-                    border: '1px solid rgba(63,174,82,0.15)',
-                    borderRadius: '12px',
-                  }}>
-                    <div style={{
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      letterSpacing: '0.12em',
-                      color: '#3fae52',
-                      textTransform: 'uppercase',
-                      marginBottom: '10px'
-                    }}>
-                      {label}
-                    </div>
-                    <p style={{
-                      fontSize: '14px',
-                      color: 'rgba(255,255,255,0.8)',
-                      lineHeight: 1.8,
-                      margin: 0
-                    }}>
-                      {insights[key]}
-                    </p>
-                  </div>
-                ) : null)}
-              </div>
-            )}
+        {insights?.next_steps && (
+          <div style={{ maxWidth: '900px', margin: '0 auto 48px auto', padding: '0 24px' }}>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: '700',
+              letterSpacing: '0.15em',
+              color: '#3fae52',
+              textTransform: 'uppercase',
+              marginBottom: '16px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid rgba(63,174,82,0.2)'
+            }}>
+              Next Steps
+            </div>
+            <div style={{
+              padding: '20px 24px',
+              background: '#0d1a0d',
+              border: '1px solid rgba(63,174,82,0.15)',
+              borderLeft: '3px solid rgba(255,255,255,0.15)',
+              borderRadius: '12px',
+            }}>
+              <p style={{
+                fontSize: '14px',
+                color: 'rgba(255,255,255,0.7)',
+                lineHeight: 1.8,
+                margin: 0
+              }}>
+                {insights.next_steps}
+              </p>
+            </div>
           </div>
         )}
 
