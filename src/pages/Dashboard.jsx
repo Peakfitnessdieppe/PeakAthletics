@@ -82,11 +82,40 @@ const Dashboard = () => {
   const [historySearch, setHistorySearch] = useState('')
   const [historyCategory, setHistoryCategory] = useState('All')
   const [expandedHistoryDates, setExpandedHistoryDates] = useState({})
+  const [coachInsights, setCoachInsights] = useState(null)
+  const [coachInsightsLoading, setCoachInsightsLoading] = useState(false)
+  const [coachInsightsDate, setCoachInsightsDate] = useState(null)
 
   useEffect(() => {
     if (!profile?.id) return
     loadData()
   }, [profile?.id])
+
+  useEffect(() => {
+    if (!teams.length || !profile?.id) return
+    const teamId = teams[0]?.id
+    if (!teamId) return
+    const fetchCoachInsights = async () => {
+      setCoachInsightsLoading(true)
+      try {
+        const res = await fetch('/.netlify/functions/generate-coach-insights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ teamId }),
+        })
+        const data = await res.json()
+        if (data?.insight) {
+          setCoachInsights(data.insight)
+          setCoachInsightsDate(data.test_session_date)
+        }
+      } catch (err) {
+        console.error('Coach insights fetch error:', err)
+      } finally {
+        setCoachInsightsLoading(false)
+      }
+    }
+    fetchCoachInsights()
+  }, [teams, profile?.id])
 
   useEffect(() => {
     const fetchAthleteResults = async () => {
@@ -1153,6 +1182,65 @@ const Dashboard = () => {
                       </div>
                     </div>
                   </div>
+
+                  {(coachInsightsLoading || coachInsights) && (
+                    <div style={{ marginBottom: '24px', background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <div>
+                          <div style={{ color: '#3fae52', fontSize: '11px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px' }}>
+                            Coach Intelligence Briefing
+                          </div>
+                          {coachInsightsDate && (
+                            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>
+                              Based on test session: {new Date(coachInsightsDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>AI-assisted · confirm with your eyes</div>
+                      </div>
+
+                      {coachInsightsLoading && (
+                        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', fontStyle: 'italic' }}>Generating team briefing...</div>
+                      )}
+
+                      {coachInsights && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                          {coachInsights.team_pulse && (
+                            <div>
+                              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Team Pulse</div>
+                              <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{coachInsights.team_pulse}</p>
+                            </div>
+                          )}
+                          {coachInsights.data_flags && (
+                            <div style={{ borderLeft: '3px solid #f59e0b', paddingLeft: '14px' }}>
+                              <div style={{ color: '#f59e0b', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Data Flags — Confirm With Your Eyes</div>
+                              <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-line' }}>{coachInsights.data_flags}</p>
+                            </div>
+                          )}
+                          {coachInsights.testing_gaps && (
+                            <div style={{ borderLeft: '3px solid rgba(239,68,68,0.6)', paddingLeft: '14px' }}>
+                              <div style={{ color: '#ef4444', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Testing Gaps</div>
+                              <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{coachInsights.testing_gaps}</p>
+                            </div>
+                          )}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            {coachInsights.collective_strength && (
+                              <div style={{ background: 'rgba(63,174,82,0.06)', border: '1px solid rgba(63,174,82,0.15)', borderRadius: '8px', padding: '14px' }}>
+                                <div style={{ color: '#3fae52', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Collective Strength</div>
+                                <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', lineHeight: 1.6, margin: 0 }}>{coachInsights.collective_strength}</p>
+                              </div>
+                            )}
+                            {coachInsights.collective_gap && (
+                              <div style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '8px', padding: '14px' }}>
+                                <div style={{ color: '#ef4444', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Collective Gap</div>
+                                <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', lineHeight: 1.6, margin: 0 }}>{coachInsights.collective_gap}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {roster.length > 0 && (() => {
                     const categories = ['speed', 'strength', 'power', 'agility', 'endurance']
