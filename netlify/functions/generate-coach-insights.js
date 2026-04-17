@@ -1,12 +1,9 @@
 const { createClient } = require('@supabase/supabase-js')
-const OpenAI = require('openai')
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -166,14 +163,21 @@ Respond ONLY with a valid JSON object. No markdown, no explanation, no backticks
   "collective_gap": "The one physical quality holding this team back most, with peer context, specific numbers, and a concrete training direction."
 }`
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      max_tokens: 1000,
-      temperature: 0.4,
-      messages: [{ role: 'user', content: prompt }],
+    const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 1000,
+        temperature: 0.4,
+        messages: [{ role: 'user', content: prompt }],
+      }),
     })
-
-    const raw = completion.choices[0]?.message?.content || ''
+    const aiJson = await aiRes.json()
+    const raw = aiJson.choices?.[0]?.message?.content || ''
     let insight = null
     try {
       const clean = raw.replace(/```json|```/g, '').trim()
