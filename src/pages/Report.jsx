@@ -533,6 +533,7 @@ const Report = () => {
   const age = calcAge(profile?.date_of_birth || profile?.dob)
   const initials = (profile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
   const firstName = (profile?.full_name || 'Athlete').split(' ')[0]
+  const pronoun = profile?.gender === 'female' ? 'her' : 'his'
 
   const formatHeight = (inches) => {
     if (inches == null) return '—'
@@ -579,94 +580,65 @@ const Report = () => {
           padding: isMobile ? '24px 16px 0 16px' : '40px 24px 0 24px',
         }}
       >
-        <div
-          style={{
-            maxWidth: '1100px',
-            margin: '0 auto',
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '280px 1fr',
-            gap: '16px',
-            alignItems: 'stretch',
-            position: 'relative',
-            zIndex: 1,
-            justifyItems: isMobile ? 'center' : 'stretch',
-          }}
-        >
-          {/* Player Card */}
-          <div style={{ position: 'relative', alignSelf: isMobile ? 'start' : 'end', width: isMobile ? '100%' : 'auto' }}>
-            <div
-              style={{
-                width: '100%',
-                maxWidth: isMobile ? '100%' : '260px',
-                height: '310px',
-                background: 'linear-gradient(180deg, rgba(63,174,82,0.15), rgba(10,15,10,0.9))',
-                border: '2px solid rgba(63,174,82,0.5)',
-                boxShadow: '0 25px 60px rgba(0,0,0,0.65)',
-                clipPath: 'polygon(0 0, 100% 0, 100% 88%, 40% 100%, 0 100%)',
-                position: 'relative',
-                overflow: 'hidden',
-                transform: 'translateY(30px)',
-              }}
-            >
-              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px', background: 'linear-gradient(180deg, #3fae52, rgba(63,174,82,0.2))', boxShadow: '0 0 18px rgba(63,174,82,0.4)' }} />
-              {profile?.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={profile.full_name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'linear-gradient(180deg, rgba(63,174,82,0.25), rgba(10,15,10,0.9))',
-                    color: '#3fae52',
-                    fontSize: '48px',
-                    fontWeight: '900',
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  {initials}
-                </div>
-              )}
-              <div
+        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px 0 24px' }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: window.innerWidth < 768 ? 'column' : 'row',
+            gap: '32px',
+            alignItems: window.innerWidth < 768 ? 'flex-start' : 'center'
+          }}>
+
+            <div style={{ flexShrink: 0 }}>
+              <img
+                src={profile?.avatar_url || '/placeholder-athlete.png'}
+                alt={profile?.full_name}
                 style={{
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  width: '24%',
-                  background: 'linear-gradient(90deg, rgba(10,15,10,0) 0%, rgba(10,15,10,0.85) 100%)',
-                  pointerEvents: 'none',
+                  width: window.innerWidth < 768 ? '100%' : '280px',
+                  height: window.innerWidth < 768 ? '320px' : '320px',
+                  objectFit: 'cover',
+                  objectPosition: 'top',
+                  borderRadius: '8px',
+                  display: 'block'
                 }}
               />
             </div>
-          </div>
 
-          {/* Text + Stats */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0', justifyContent: 'flex-start', alignItems: isMobile ? 'center' : 'flex-start', textAlign: isMobile ? 'center' : 'left' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '-4px', flexWrap: isMobile ? 'wrap' : 'nowrap', maxWidth: '100%' }}>
-              <img src={PFA_LOGO} alt="PFA" style={{ width: isMobile ? '64px' : '82px', height: isMobile ? '64px' : '82px', objectFit: 'contain' }} />
-              <span style={{ fontSize: isMobile ? '11px' : '12px', color: 'rgba(255,255,255,0.7)', fontWeight: '800', letterSpacing: '0.2em', textTransform: 'uppercase', lineHeight: 1.2 }}>Performance Report</span>
-            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
 
-            <div>
-              <div
-                style={{
-                  fontSize: 'clamp(2rem, 5vw, 3.5rem)',
-                  fontWeight: 900,
-                  letterSpacing: '-0.02em',
-                  textTransform: 'uppercase',
-                  lineHeight: 1,
-                  marginBottom: '6px',
-                }}
-              >
-                {profile?.full_name || 'Athlete'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <img
+                  src={PFA_LOGO}
+                  alt="PFA"
+                  style={{
+                    height: '72px',
+                    width: 'auto',
+                    flexShrink: 0,
+                    filter: 'drop-shadow(0 0 8px rgba(63,174,82,0.4))'
+                  }}
+                />
+                <span style={{
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  letterSpacing: '0.05em',
+                  color: 'rgba(255,255,255,0.7)',
+                  lineHeight: 1.3
+                }}>
+                  PFA Performance & Development Report
+                </span>
               </div>
+
+              <h1 style={{
+                fontSize: 'clamp(2rem, 5vw, 3.5rem)',
+                fontWeight: '900',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                color: 'white',
+                margin: '0 0 12px 0',
+                lineHeight: 1.1
+              }}>
+                {profile?.full_name || 'Athlete'}
+              </h1>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 {profile?.position && (
                   <span
@@ -688,45 +660,47 @@ const Report = () => {
                   {profile?.pfa_teams?.name || profile?.team_name || '—'}
                 </span>
               </div>
-            </div>
 
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: isMobile ? 'wrap' : 'nowrap',
-                gap: '10px',
-                alignItems: 'stretch',
-              }}
-            >
-              {[
-                { label: 'HT', value: heroHeight },
-                { label: 'WT', value: heroWeight },
-                { label: 'AGE', value: age },
-                { label: 'LEVEL', value: profile?.competition_level || '—' },
-                { label: 'SPORT', value: profile?.sport || '—' },
-              ].map((item, idx, arr) => (
-                <div
-                  key={item.label}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '8px 10px',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    borderLeft: '3px solid rgba(63,174,82,0.6)',
-                    flex: isMobile ? (item.label === 'SPORT' ? '0 0 100%' : '0 0 calc(50% - 8px)') : '0 0 auto',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', letterSpacing: '0.14em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
-                  <div style={{ color: 'white', fontWeight: 800, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
-                  {idx !== arr.length - 1 && !isMobile && <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.05)' }} />}
-                </div>
-              ))}
+              <div
+                style={{
+                  display: isMobile ? 'grid' : 'flex',
+                  gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : undefined,
+                  flexWrap: isMobile ? 'wrap' : 'nowrap',
+                  gap: '10px',
+                  alignItems: 'stretch',
+                  width: '100%',
+                }}
+              >
+                {[ 
+                  { label: 'HT', value: heroHeight },
+                  { label: 'WT', value: heroWeight },
+                  { label: 'AGE', value: age },
+                  { label: 'LEVEL', value: profile?.competition_level || '—' },
+                  { label: 'SPORT', value: profile?.sport || '—' },
+                ].map((item, idx, arr) => (
+                  <div
+                    key={item.label}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 10px',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      borderLeft: '3px solid rgba(63,174,82,0.6)',
+                      flex: isMobile ? (item.label === 'SPORT' ? '0 0 100%' : '0 0 calc(50% - 8px)') : '0 0 auto',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', letterSpacing: '0.14em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                    <div style={{ color: 'white', fontWeight: 800, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
+                    {idx !== arr.length - 1 && !isMobile && <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.05)' }} />}
+                  </div>
+                ))}
+              </div>
+
             </div>
           </div>
-
         </div>
       </div>
 
@@ -750,44 +724,7 @@ const Report = () => {
 
         <div style={{ maxWidth: '960px', margin: '0 auto', padding: '0 8px 64px', width: '100%' }}>
 
-        {/* ── SECTION 2: COMPOSITE SCORES ── */}
-        <div style={{ marginTop: '40px' }}>
-          <div style={{ background: 'rgba(63,174,82,0.08)', borderBottom: '1px solid rgba(63,174,82,0.25)', padding: '12px 0', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Physical Performance Results</span>
-            <div />
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-              gap: '12px',
-              width: '100%',
-            }}
-          >
-            <div style={{ background: 'linear-gradient(135deg, rgba(63,174,82,0.18), rgba(10,15,10,0.9))', border: '1px solid rgba(63,174,82,0.45)', borderRadius: '14px', padding: '18px', textAlign: 'center', boxShadow: '0 12px 30px rgba(0,0,0,0.4)' }}>
-              <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: '10px' }}>Overall</div>
-              <div style={{ fontSize: '56px', fontWeight: '900', color: getScoreColor(displayScores.overall), lineHeight: 1 }}>{displayScores.overall ?? '—'}</div>
-              <div style={{ marginTop: '12px', height: '5px', background: 'rgba(255,255,255,0.12)', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${displayScores.overall ?? 0}%`, background: getScoreColor(displayScores.overall), borderRadius: '3px' }} />
-              </div>
-            </div>
-            {CATEGORIES.map((cat) => {
-              const score = displayScores[cat]
-              const color = getScoreColor(score)
-              return (
-                <div key={cat} style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '8px' }}>{cat}</div>
-                  <div style={{ fontSize: '36px', fontWeight: '900', color, lineHeight: 1 }}>{score ?? '—'}</div>
-                  <div style={{ marginTop: '10px', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${score ?? 0}%`, background: color, borderRadius: '2px' }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* ── SECTION 2B: ATHLETE DEVELOPMENT ── */}
+        {/* ── SECTION 2: ATHLETE DEVELOPMENT ── */}
         <div style={{ marginTop: '32px', borderTop: '2px solid #3fae52', paddingTop: '20px' }}>
           <div style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '16px' }}>
             Athlete Development
@@ -1267,7 +1204,7 @@ const Report = () => {
                           borderLeft: '3px solid rgba(255,255,255,0.15)',
                           borderRadius: '4px',
                         }}>
-                          <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
+                          <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
                             {aiInsight}
                           </span>
                         </div>
@@ -1392,7 +1329,80 @@ const Report = () => {
           })}
         </div>
 
-        {/* ── SECTION 5: INSIGHTS ── */}
+        {/* ── SECTION 5: PFA PERFORMANCE SCORES ── */}
+        <div style={{ marginTop: '48px', marginBottom: '48px' }}>
+          <div style={{ background: 'rgba(63,174,82,0.08)', borderBottom: '1px solid rgba(63,174,82,0.25)', padding: '12px 0', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>PFA Performance Scores</span>
+            <div />
+          </div>
+
+          {compScore && (
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginBottom: '24px', maxWidth: '680px' }}>
+              {`These scores reflect ${firstName}'s physical development relative to other ${profile?.gender} ${profile?.age_category} athletes tested at Peak Fitness Athletics. Each score is calculated from standardized testing and normalized against ${pronoun} peer group — a score of 50 represents the peer average. ${firstName}'s overall score of ${compScore?.overall_score} places ${pronoun} ${compScore?.overall_score > 50 ? 'above' : 'below'} the average for ${pronoun} age group and level.`}
+            </p>
+          )}
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: '12px',
+              width: '100%',
+            }}
+          >
+            <div style={{ background: 'linear-gradient(135deg, rgba(63,174,82,0.18), rgba(10,15,10,0.9))', border: '1px solid rgba(63,174,82,0.45)', borderRadius: '14px', padding: '18px', textAlign: 'center', boxShadow: '0 12px 30px rgba(0,0,0,0.4)' }}>
+              <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: '10px' }}>Overall</div>
+              <div style={{ fontSize: '56px', fontWeight: '900', color: getScoreColor(displayScores.overall), lineHeight: 1 }}>{displayScores.overall ?? '—'}</div>
+              <div style={{ marginTop: '12px', height: '5px', background: 'rgba(255,255,255,0.12)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${displayScores.overall ?? 0}%`, background: getScoreColor(displayScores.overall), borderRadius: '3px' }} />
+              </div>
+            </div>
+            {CATEGORIES.map((cat) => {
+              const score = displayScores[cat]
+              const color = getScoreColor(score)
+              return (
+                <div key={cat} style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '8px' }}>{cat}</div>
+                  <div style={{ fontSize: '36px', fontWeight: '900', color, lineHeight: 1 }}>{score ?? '—'}</div>
+                  <div style={{ marginTop: '10px', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${score ?? 0}%`, background: color, borderRadius: '2px' }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {(() => {
+            if (insights?.scores_summary) {
+              return (
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginTop: '16px', padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(63,174,82,0.3)', borderRadius: '4px' }}>
+                  {insights.scores_summary}
+                </div>
+              )
+            }
+
+            if (!compScore) return null
+            const categories = {
+              Speed: compScore.speed_score,
+              Strength: compScore.strength_score,
+              Power: compScore.power_score,
+              Agility: compScore.agility_score,
+              Endurance: compScore.endurance_score,
+            }
+            const entries = Object.entries(categories).filter(([, v]) => v != null)
+            if (!entries.length) return null
+            const sorted = entries.sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+            const top = sorted[0]
+            const bottom = sorted[sorted.length - 1]
+            return (
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginTop: '16px', padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(63,174,82,0.3)', borderRadius: '4px' }}>
+                {`${firstName}'s strongest category is ${top[0]} with a score of ${top[1]}, standing out among ${profile?.gender} ${profile?.age_category} peers. ${bottom[0]} is the current development focus with a score of ${bottom[1]} — an active priority in ${pronoun} training program.`}
+              </div>
+            )
+          })()}
+        </div>
+
+        {/* ── SECTION 6: INSIGHTS ── */}
         {insights?.what_to_watch && (
           <div style={{ maxWidth: '900px', margin: '0 auto 48px auto', padding: '0 24px' }}>
             <div style={{

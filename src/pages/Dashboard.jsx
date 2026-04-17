@@ -82,11 +82,40 @@ const Dashboard = () => {
   const [historySearch, setHistorySearch] = useState('')
   const [historyCategory, setHistoryCategory] = useState('All')
   const [expandedHistoryDates, setExpandedHistoryDates] = useState({})
+  const [coachInsights, setCoachInsights] = useState(null)
+  const [coachInsightsLoading, setCoachInsightsLoading] = useState(false)
+  const [coachInsightsDate, setCoachInsightsDate] = useState(null)
 
   useEffect(() => {
     if (!profile?.id) return
     loadData()
   }, [profile?.id])
+
+  useEffect(() => {
+    if (!teams || teams.length === 0) return
+    const teamId = teams[0]?.id
+    if (!teamId) return
+    const fetchCoachInsights = async () => {
+      setCoachInsightsLoading(true)
+      try {
+        const res = await fetch('/.netlify/functions/generate-coach-insights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ teamId }),
+        })
+        const data = await res.json()
+        if (data?.insight) {
+          setCoachInsights(data.insight)
+          setCoachInsightsDate(data.test_session_date)
+        }
+      } catch (err) {
+        console.error('Coach insights fetch error:', err)
+      } finally {
+        setCoachInsightsLoading(false)
+      }
+    }
+    fetchCoachInsights()
+  }, [teams])
 
   useEffect(() => {
     const fetchAthleteResults = async () => {
@@ -437,9 +466,12 @@ const Dashboard = () => {
 
   const trendForAthlete = (athleteId) => {
     const arr = scoreHistory[athleteId] || []
-    if (arr.length < 3) return null
-    if (arr[0] > arr[1] && arr[1] > arr[2]) return 'up'
-    if (arr[0] < arr[1] && arr[1] < arr[2]) return 'down'
+    if (arr.length < 2) return null
+    const newest = arr[0]
+    const oldest = arr[arr.length - 1]
+    const diff = newest - oldest
+    if (diff >= 3) return 'up'
+    if (diff <= -3) return 'down'
     return 'flat'
   }
 
@@ -1150,6 +1182,137 @@ const Dashboard = () => {
                       </div>
                     </div>
                   </div>
+
+                  {(coachInsightsLoading || coachInsights) && (
+                    <div style={{ marginBottom: '24px', background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ color: '#fff', fontSize: '15px', fontWeight: 700 }}>Team Intelligence Briefing</div>
+                          {coachInsightsDate && (
+                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.05)', padding: '3px 8px', borderRadius: '999px' }}>
+                              Based on testing from {new Date(coachInsightsDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'rgba(63,174,82,0.6)', letterSpacing: '0.08em' }}>AI · FOR COACH EYES</div>
+                      </div>
+
+                      {coachInsightsLoading && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
+                          <div style={{ width: '14px', height: '14px', border: '2px solid #3fae52', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                          Analyzing team data...
+                        </div>
+                      )}
+
+                      {coachInsights && !coachInsightsLoading && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                          {[
+                            { key: 'team_pulse', label: 'Team Pulse', color: '#3fae52', icon: '📊' },
+                            { key: 'collective_strength', label: 'Collective Strength', color: '#3fae52', icon: '💪' },
+                            { key: 'collective_gap', label: 'Development Priority', color: '#f59e0b', icon: '🎯' },
+                            { key: 'data_flags', label: 'Watch For', color: '#06b6d4', icon: '👁' },
+                            { key: 'testing_gaps', label: 'Testing Gaps', color: '#f59e0b', icon: '⚠️' },
+                          ].map(({ key, label, color, icon }) => {
+                            const text = coachInsights[key]
+                            if (!text) return null
+                            return (
+                              <div
+                                key={key}
+                                style={{
+                                  background: 'rgba(255,255,255,0.02)',
+                                  border: '1px solid rgba(255,255,255,0.06)',
+                                  borderLeft: `3px solid ${color}`,
+                                  borderRadius: '8px',
+                                  padding: '14px 16px',
+                                  gridColumn: key === 'team_pulse' ? '1 / -1' : undefined,
+                                }}
+                              >
+                                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color, marginBottom: '8px' }}>
+                                  {icon} {label}
+                                </div>
+                                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', lineHeight: 1.7 }}>
+                                  {text}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {roster.length > 0 && (() => {
+                    const categories = ['speed', 'strength', 'power', 'agility', 'endurance']
+                    const categoryLabels = ['Speed', 'Strength', 'Power', 'Agility', 'Endurance']
+                    const categoryColors = {
+                      speed: '#3fae52',
+                      strength: '#ef4444',
+                      power: '#f59e0b',
+                      agility: '#8b5cf6',
+                      endurance: '#06b6d4',
+                    }
+
+                    const getCellColor = (score) => {
+                      if (score == null || score === 0) return { bg: 'rgba(255,255,255,0.04)', text: 'rgba(255,255,255,0.2)', label: '—' }
+                      if (score >= 70) return { bg: 'rgba(63,174,82,0.25)', text: '#3fae52', label: score }
+                      if (score >= 50) return { bg: 'rgba(245,158,11,0.2)', text: '#f59e0b', label: score }
+                      return { bg: 'rgba(239,68,68,0.18)', text: '#ef4444', label: score }
+                    }
+
+                    return (
+                      <div style={{ marginBottom: '24px', background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.15)', borderRadius: '12px', padding: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                          <div style={{ color: '#fff', fontSize: '15px', fontWeight: 700 }}>Roster Development Grid</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '11px' }}>
+                            <span style={{ color: '#3fae52' }}>■ Strong (70+)</span>
+                            <span style={{ color: '#f59e0b' }}>■ Average (50–69)</span>
+                            <span style={{ color: '#ef4444' }}>■ Developing (&lt;50)</span>
+                            <span style={{ color: 'rgba(255,255,255,0.2)' }}>■ No data</span>
+                          </div>
+                        </div>
+
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '480px' }}>
+                            <thead>
+                              <tr>
+                                <th style={{ textAlign: 'left', padding: '6px 12px 10px 0', color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontWeight: 600, width: '140px' }}>Athlete</th>
+                                {categoryLabels.map((label, i) => (
+                                  <th key={label} style={{ textAlign: 'center', padding: '6px 4px 10px', color: categoryColors[categories[i]], fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                    {label}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredRoster.map((ath) => {
+                                const s = scores[ath.id]
+                                const firstName = (ath.full_name || '').split(' ')[0]
+                                const lastName = (ath.full_name || '').split(' ').slice(1).join(' ')
+                                return (
+                                  <tr key={ath.id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                                    <td style={{ padding: '8px 12px 8px 0', fontSize: '12px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                      {firstName} <span style={{ color: 'rgba(255,255,255,0.45)', fontWeight: 400 }}>{lastName}</span>
+                                    </td>
+                                    {categories.map((cat) => {
+                                      const score = s?.[`${cat}_score`] != null ? Math.round(s[`${cat}_score`]) : null
+                                      const cell = getCellColor(score)
+                                      return (
+                                        <td key={cat} style={{ padding: '4px', textAlign: 'center' }}>
+                                          <div style={{ background: cell.bg, color: cell.text, fontSize: '12px', fontWeight: 700, borderRadius: '6px', padding: '6px 4px', minWidth: '40px' }}>
+                                            {cell.label}
+                                          </div>
+                                        </td>
+                                      )
+                                    })}
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )
+                  })()}
 
                   {needsTesting.length > 0 && (
                     <div
