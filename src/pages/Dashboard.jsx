@@ -82,40 +82,11 @@ const Dashboard = () => {
   const [historySearch, setHistorySearch] = useState('')
   const [historyCategory, setHistoryCategory] = useState('All')
   const [expandedHistoryDates, setExpandedHistoryDates] = useState({})
-  const [coachInsights, setCoachInsights] = useState(null)
-  const [coachInsightsLoading, setCoachInsightsLoading] = useState(false)
-  const [coachInsightsDate, setCoachInsightsDate] = useState(null)
 
   useEffect(() => {
     if (!profile?.id) return
     loadData()
   }, [profile?.id])
-
-  useEffect(() => {
-    if (!teams || teams.length === 0) return
-    const teamId = teams[0]?.id
-    if (!teamId) return
-    const fetchCoachInsights = async () => {
-      setCoachInsightsLoading(true)
-      try {
-        const res = await fetch('/.netlify/functions/generate-coach-insights', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teamId }),
-        })
-        const data = await res.json()
-        if (data?.insight) {
-          setCoachInsights(data.insight)
-          setCoachInsightsDate(data.test_session_date)
-        }
-      } catch (err) {
-        console.error('Coach insights fetch error:', err)
-      } finally {
-        setCoachInsightsLoading(false)
-      }
-    }
-    fetchCoachInsights()
-  }, [teams])
 
   useEffect(() => {
     const fetchAthleteResults = async () => {
@@ -1182,64 +1153,6 @@ const Dashboard = () => {
                       </div>
                     </div>
                   </div>
-
-                  {(coachInsightsLoading || coachInsights) && (
-                    <div style={{ marginBottom: '24px', background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '24px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ color: '#fff', fontSize: '15px', fontWeight: 700 }}>Team Intelligence Briefing</div>
-                          {coachInsightsDate && (
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.05)', padding: '3px 8px', borderRadius: '999px' }}>
-                              Based on testing from {new Date(coachInsightsDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'rgba(63,174,82,0.6)', letterSpacing: '0.08em' }}>AI · FOR COACH EYES</div>
-                      </div>
-
-                      {coachInsightsLoading && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
-                          <div style={{ width: '14px', height: '14px', border: '2px solid #3fae52', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                          Analyzing team data...
-                        </div>
-                      )}
-
-                      {coachInsights && !coachInsightsLoading && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                          {[
-                            { key: 'team_pulse', label: 'Team Pulse', color: '#3fae52', icon: '📊' },
-                            { key: 'collective_strength', label: 'Collective Strength', color: '#3fae52', icon: '💪' },
-                            { key: 'collective_gap', label: 'Development Priority', color: '#f59e0b', icon: '🎯' },
-                            { key: 'data_flags', label: 'Watch For', color: '#06b6d4', icon: '👁' },
-                            { key: 'testing_gaps', label: 'Testing Gaps', color: '#f59e0b', icon: '⚠️' },
-                          ].map(({ key, label, color, icon }) => {
-                            const text = coachInsights[key]
-                            if (!text) return null
-                            return (
-                              <div
-                                key={key}
-                                style={{
-                                  background: 'rgba(255,255,255,0.02)',
-                                  border: '1px solid rgba(255,255,255,0.06)',
-                                  borderLeft: `3px solid ${color}`,
-                                  borderRadius: '8px',
-                                  padding: '14px 16px',
-                                  gridColumn: key === 'team_pulse' ? '1 / -1' : undefined,
-                                }}
-                              >
-                                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color, marginBottom: '8px' }}>
-                                  {icon} {label}
-                                </div>
-                                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', lineHeight: 1.7 }}>
-                                  {text}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   {roster.length > 0 && (() => {
                     const categories = ['speed', 'strength', 'power', 'agility', 'endurance']
