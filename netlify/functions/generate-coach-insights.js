@@ -160,7 +160,8 @@ Respond ONLY with a valid JSON object. No markdown, no explanation, no backticks
   "data_flags": "2-3 specific things the data is surfacing that the coach should watch for and confirm with their eyes on the ice or in the gym. Frame each as an observation to verify, not a conclusion. Use athlete names. Separate each flag with a line break.",
   "testing_gaps": "Which athletes have incomplete physical profiles and why closing those gaps matters for the team picture. Be specific about what categories are missing.",
   "collective_strength": "The one physical quality this team does best as a group, with peer context and specific numbers.",
-  "collective_gap": "The one physical quality holding this team back most, with peer context, specific numbers, and a concrete training direction."
+  "collective_gap": "The one physical quality holding this team back most, with peer context, specific numbers, and a concrete training direction.",
+  "heatmap_read": "2-3 sentences interpreting the team heatmap grid. Read the columns — which categories are strongest across the roster, which are most incomplete, which show the widest spread between athletes. Be specific with names and numbers. This is the so-what behind what the coach is seeing visually."
 }`
 
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {

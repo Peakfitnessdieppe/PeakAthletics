@@ -1188,7 +1188,7 @@ const Dashboard = () => {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                         <div>
                           <div style={{ color: '#3fae52', fontSize: '11px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px' }}>
-                            Coach Intelligence Briefing
+                            Physical Intelligence Briefing
                           </div>
                           {coachInsightsDate && (
                             <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>
@@ -1196,7 +1196,6 @@ const Dashboard = () => {
                             </div>
                           )}
                         </div>
-                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>AI-assisted · confirm with your eyes</div>
                       </div>
 
                       {coachInsightsLoading && (
@@ -1933,6 +1932,13 @@ const Dashboard = () => {
                         )
                       })
                     })()}
+
+                  {coachInsights?.heatmap_read && (
+                    <div style={{ marginTop: '12px', marginBottom: '24px', padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(63,174,82,0.1)', borderLeft: '3px solid rgba(63,174,82,0.4)', borderRadius: '8px' }}>
+                      <div style={{ color: 'rgba(63,174,82,0.7)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Grid Intelligence</div>
+                      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{coachInsights.heatmap_read}</p>
+                    </div>
+                  )}
                   </div>
                 </div>
               )}
