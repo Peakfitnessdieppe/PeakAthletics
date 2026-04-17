@@ -105,6 +105,7 @@ const Dashboard = () => {
         })
         const data = await res.json()
         if (data?.insight) {
+          console.log('Coach insights received:', JSON.stringify(data.insight))
           setCoachInsights(data.insight)
           setCoachInsightsDate(data.test_session_date)
         }
