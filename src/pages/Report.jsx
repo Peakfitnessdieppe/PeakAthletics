@@ -352,12 +352,7 @@ const Report = () => {
           .order('calculated_at', { ascending: true })
         setAllCompositeScores(allCompScoresData || [])
 
-        const { data: allTestsData } = await supabase
-          .from('pfa_test_results')
-          .select('*')
-          .eq('athlete_id', athleteId)
-          .order('date_tested', { ascending: true })
-        setAllTestResults(allTestsData || [])
+        setAllTestResults(data?.results || [])
 
         const { data: gsAll } = await supabase
           .from('game_stats')
@@ -440,8 +435,14 @@ const Report = () => {
   const agilitySeries = deduplicateByBestPerDay(getTestSeries('pro_agility_shuttle'), 'pro_agility_shuttle')
 
   const buildStrengthSeries = (type) => getTestSeries(type).filter((r) => r.load_value)
-  const strengthSeriesSquat = buildStrengthSeries('squat')
-  const strengthSeriesTBDL = buildStrengthSeries('trap_bar_deadlift')
+  const strengthSeriesSquat = deduplicateByBestPerDay(
+    buildStrengthSeries('squat').map((r) => ({ ...r, value: calcE1RM(r.load_value, r.reps) })),
+    'squat'
+  )
+  const strengthSeriesTBDL = deduplicateByBestPerDay(
+    buildStrengthSeries('trap_bar_deadlift').map((r) => ({ ...r, value: calcE1RM(r.load_value, r.reps) })),
+    'trap_bar_deadlift'
+  )
   const benchSeries = deduplicateByBestPerDay(
     buildStrengthSeries('bench_press').map((r) => ({ ...r, value: calcE1RM(r.load_value, r.reps) })),
     'bench_press'
@@ -747,9 +748,9 @@ const Report = () => {
               if (regressed) displayVal = `${Math.abs(diff || 0).toFixed(2)}s slower`
               const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
               const subtitle = improved
-                ? 'Acceleration improving — trending in the right direction'
+                ? 'Sprint speed improving — trending in the right direction'
                 : regressed
-                  ? 'Acceleration has slowed since last test — flagged for attention'
+                  ? 'Sprint speed has slowed since last test — flagged for attention'
                   : 'Current acceleration benchmark'
               return (
                 <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
@@ -853,14 +854,27 @@ const Report = () => {
                 const first = series[0]
                 const last = series[series.length - 1]
                 const improvement = Number(first.value) - Number(last.value)
+                const improved = improvement > 0
+                const regressed = improvement < 0
+                const displayVal = improved
+                  ? `${Math.abs(improvement).toFixed(2)}s faster`
+                  : regressed
+                    ? `${Math.abs(improvement).toFixed(2)}s slower`
+                    : 'No change'
+                const numberColor = regressed ? '#f59e0b' : improved ? '#3fae52' : 'white'
+                const subtitle = improved
+                  ? 'Change of direction improving'
+                  : regressed
+                    ? 'Agility has declined since last test — flagged for attention'
+                    : 'No change since last test'
                 return (
                   <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                    <div style={{ color: '#3fae52', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                      {`${improvement.toFixed(2)}s faster`}
+                    <div style={{ color: numberColor, fontSize: 'clamp(1.2rem, 3.5vw, 2rem)', fontWeight: 900, lineHeight: 1 }}>
+                      {displayVal}
                     </div>
                     <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>AGILITY</div>
-                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                      Change of direction improving
+                    <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                      {subtitle}
                     </div>
                   </div>
                 )
@@ -893,8 +907,8 @@ const Report = () => {
                       {`${diff >= 0 ? '+' : ''}${Math.round(diff)} lbs`}
                     </div>
                     <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BENCH PRESS</div>
-                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                      Upper body strength improving
+                    <div style={{ color: diff < 0 ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                      {diff > 0 ? 'Upper body strength improving' : diff < 0 ? 'Bench press declined since last test — flagged for attention' : 'No change since last test'}
                     </div>
                   </div>
                 )
@@ -927,8 +941,8 @@ const Report = () => {
                       {`${diff >= 0 ? '+' : ''}${Math.round(diff)} lbs`}
                     </div>
                     <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>TRAP BAR DL</div>
-                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                      Posterior chain strength improving
+                    <div style={{ color: diff < 0 ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                      {diff > 0 ? 'Posterior chain strength improving' : diff < 0 ? 'Trap bar declined since last test — flagged for attention' : 'No change since last test'}
                     </div>
                   </div>
                 )
@@ -955,14 +969,27 @@ const Report = () => {
                 const first = series[0]
                 const last = series[series.length - 1]
                 const diff = Number(last.value) - Number(first.value)
+                const improved = diff > 0
+                const regressed = diff < 0
+                const displayVal = improved
+                  ? `+${Math.round(diff)} cm`
+                  : regressed
+                    ? `${Math.round(diff)} cm`
+                    : 'No change'
+                const numberColor = regressed ? '#f59e0b' : improved ? '#3fae52' : 'white'
+                const subtitle = improved
+                  ? 'Explosive power trending up'
+                  : regressed
+                    ? 'Power output declined since last test — flagged for attention'
+                    : 'No change since last test'
                 return (
                   <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                    <div style={{ color: '#3fae52', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                      {`${diff >= 0 ? '+' : ''}${Math.round(diff)} cm`}
+                    <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                      {displayVal}
                     </div>
                     <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>VERTICAL JUMP</div>
-                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                      Explosive power improving
+                    <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                      {subtitle}
                     </div>
                   </div>
                 )
@@ -989,14 +1016,27 @@ const Report = () => {
                 const first = series[0]
                 const last = series[series.length - 1]
                 const diff = Number(last.value) - Number(first.value)
+                const improved = diff > 0
+                const regressed = diff < 0
+                const displayVal = improved
+                  ? `+${diff.toFixed(1)} levels`
+                  : regressed
+                    ? `${diff.toFixed(1)} levels`
+                    : 'No change'
+                const numberColor = regressed ? '#f59e0b' : improved ? '#3fae52' : 'white'
+                const subtitle = improved
+                  ? 'Aerobic capacity improving'
+                  : regressed
+                    ? 'Endurance declined since last test — flagged for attention'
+                    : 'No change since last test'
                 return (
                   <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                    <div style={{ color: '#3fae52', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                      {`${diff >= 0 ? '+' : ''}${diff.toFixed(1)} levels`}
+                    <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                      {displayVal}
                     </div>
                     <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BEEP TEST</div>
-                    <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                      Aerobic capacity improving
+                    <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                      {subtitle}
                     </div>
                   </div>
                 )
