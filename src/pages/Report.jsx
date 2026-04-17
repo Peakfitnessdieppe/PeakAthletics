@@ -590,8 +590,9 @@ const Report = () => {
           }}>
 
             <div style={{ flexShrink: 0 }}>
+              {profile?.avatar_url ? (
               <img
-                src={profile?.avatar_url || '/placeholder-athlete.png'}
+                src={profile.avatar_url}
                 alt={profile?.full_name}
                 style={{
                   width: window.innerWidth < 768 ? '100%' : '280px',
@@ -602,6 +603,36 @@ const Report = () => {
                   display: 'block'
                 }}
               />
+            ) : (
+              <div style={{
+                width: window.innerWidth < 768 ? '100%' : '280px',
+                height: window.innerWidth < 768 ? '180px' : '320px',
+                borderRadius: '8px',
+                background: 'rgba(63,174,82,0.08)',
+                border: '1px solid rgba(63,174,82,0.15)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+              }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '50%',
+                  background: 'rgba(63,174,82,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '28px',
+                  fontWeight: 800,
+                  color: '#3fae52',
+                }}>
+                  {(profile?.full_name || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>No photo uploaded</div>
+              </div>
+            )}
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -657,9 +688,11 @@ const Report = () => {
                     {profile.position}
                   </span>
                 )}
-                <span style={{ color: '#9ce6a8', fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  {profile?.pfa_teams?.name || profile?.team_name || '—'}
-                </span>
+                {(profile?.pfa_teams?.name || profile?.team_name) && (
+                  <span style={{ color: '#9ce6a8', fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    {profile?.pfa_teams?.name || profile?.team_name}
+                  </span>
+                )}
               </div>
 
               <div
