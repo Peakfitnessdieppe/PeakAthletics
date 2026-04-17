@@ -1934,13 +1934,14 @@ const Dashboard = () => {
                       })
                     })()}
 
-                  {coachInsights?.heatmap_read && (
-                    <div style={{ marginTop: '12px', marginBottom: '24px', padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(63,174,82,0.1)', borderLeft: '3px solid rgba(63,174,82,0.4)', borderRadius: '8px' }}>
-                      <div style={{ color: 'rgba(63,174,82,0.7)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Grid Intelligence</div>
-                      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{coachInsights.heatmap_read}</p>
-                    </div>
-                  )}
                   </div>
+                </div>
+              )}
+
+              {coachInsights?.heatmap_read && (
+                <div style={{ marginTop: '12px', marginBottom: '24px', padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(63,174,82,0.1)', borderLeft: '3px solid rgba(63,174,82,0.4)', borderRadius: '8px' }}>
+                  <div style={{ color: 'rgba(63,174,82,0.7)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Grid Intelligence</div>
+                  <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{coachInsights.heatmap_read}</p>
                 </div>
               )}
 
