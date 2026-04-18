@@ -62,6 +62,7 @@ exports.handler = async (event) => {
       .select('id')
       .eq('gender', profile.gender)
       .eq('age_category', profile.age_category)
+      .eq('sport', profile.sport)
       .eq('role', 'athlete')
       .neq('id', athleteId)
 
@@ -71,11 +72,13 @@ exports.handler = async (event) => {
       .from('pfa_composite_scores')
       .select('speed_score, strength_score, power_score, agility_score, endurance_score')
       .in('athlete_id', peerIds)
+      .eq('sport', profile.sport)
 
     const { data: peerTestResults } = await supabase
       .from('pfa_test_results')
       .select('athlete_id, test_type, value, load_value, reps')
       .in('athlete_id', peerIds)
+      .eq('sport', profile.sport)
 
     const avg = (arr, key) => arr.length ? (arr.reduce((s, r) => s + (r[key] || 0), 0) / arr.length).toFixed(1) : 'N/A'
     const peerAvg = {
@@ -266,16 +269,10 @@ Generate a JSON object with EXACTLY these keys. No markdown, no backticks, no ex
   "mb_chest_pass_insight": "One sentence about MB chest pass and rank. Only if data exists.",
   "agility_insight": "One sentence about agility. Reference shuttle time and rank. Position-relevant for ${positionContext}.",
   "endurance_insight": "One sentence about endurance. Reference beep test level and rank.",
-
   "physical_standouts": "2-3 sentences highlighting most impressive rankings and absolute numbers with peer context. Use actual rank numbers — '${firstName} ranks X of Y for [test] among [gender] [age_category] athletes tested.' This is factual and confirmed. Make every word earn its place.",
-
   "scores_summary": "2-3 sentences contextualizing composite scores for a parent. Frame what the overall score means. Call out 1-2 highest scoring categories with peer context. End with positive forward-looking sentence about development areas.",
-
-  "what_to_watch": "3-4 sentences for a parent, coach, or scout watching ${profile.sport}. STRICT DATA INTEGRITY: Only reference what our testing measured. Never confirm in-game performance — only suggest what test results imply. Format: 'Watch for [${firstName}]'s [observable on-${sportCtx.surface} moment] — ${pronoun} [specific test result with number] suggests [what it implies, not confirms].' Use ranking data confidently since it is factual. Second sentence gives position-specific physical insight for a ${positionContext}. Third sentence forward-looking only if 2+ test sessions exist. Never use 'remarkable', 'dominates', or confirmed game performance language.",
-
-  "next_steps": "1-2 sentences about what Peak Fitness is targeting in the next testing session. Only reference metrics we actually test. Format: 'In ${firstName}'s next testing session, we will be focused on [specific test or category] — targeting [specific measurable improvement].' If a category is below peer average, mention it as priority. Never promise game outcomes or reference things we do not test.",
-
-  "next_steps": "1-2 sentences about what Peak Fitness is targeting next. Only reference metrics we actually test. Never promise game outcomes."
+  "what_to_watch": "3-4 sentences for a parent, coach, or scout watching ${profile.sport}. STRICT DATA INTEGRITY: Only reference what our testing measured. Never confirm in-game performance — only suggest what test results imply. Format: 'Watch for [${firstName}]'s [observable on-${sportCtx.surface} moment] — ${pronoun} [specific test result with number] suggests [what it implies, not confirms].' Use ranking data confidently since it is factual. Second sentence gives position-specific physical insight for a ${positionContext}. Third sentence forward-looking only if 2+ test sessions exist. Never use 'remarkable', 'dominates', or confirmed game performance language. The third sentence must NOT mention future testing sessions — that belongs in next_steps only.",
+  "next_steps": "1-2 sentences about what Peak Fitness is targeting in the next testing session. Only reference metrics we actually test. Format: 'In ${firstName}'s next testing session, we will be focused on [specific test or category] — targeting [specific measurable improvement].' If a category is below peer average, mention it as priority. Never promise game outcomes or reference things we do not test. Do not end with any reference to in-game performance or on-ice/on-pitch outcomes — end at the specific measurable test target."
 }
 
 Every value must be a single string. No nested objects. No arrays. No line breaks within values. Omit conditional keys entirely if test data does not exist.`
