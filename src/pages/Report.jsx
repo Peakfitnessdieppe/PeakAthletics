@@ -310,6 +310,56 @@ const Report = () => {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false)
   const [insights, setInsights] = useState(null)
   const [insightsLoading, setInsightsLoading] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const uploadPhoto = async (file) => {
+    if (!file || !profile?.id) return
+    setUploading(true)
+    try {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', profile.id)
+        .single()
+      const currentUrl = existingProfile?.avatar_url
+      if (currentUrl) {
+        try {
+          const url = new URL(currentUrl)
+          const segments = url.pathname.split('/')
+          const bucketIndex = segments.findIndex((p) => decodeURIComponent(p) === 'Athlete Photos')
+          if (bucketIndex >= 0) {
+            const oldPath = decodeURIComponent(segments.slice(bucketIndex + 1).join('/'))
+            await supabase.storage.from('Athlete Photos').remove([oldPath])
+          }
+        } catch (err) {
+          console.error('Parse old avatar URL failed', err)
+        }
+      }
+      const ext = file.name.split('.').pop()
+      const path = `${profile.id}_${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('Athlete Photos')
+        .upload(path, file, { upsert: true })
+      if (uploadError) throw uploadError
+      const { data: urlData } = supabase.storage.from('Athlete Photos').getPublicUrl(path)
+      const newUrl = `${urlData.publicUrl}?t=${Date.now()}`
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: urlData.publicUrl, updated_at: new Date().toISOString() })
+        .eq('id', profile.id)
+      setAvatarUrl(newUrl)
+    } catch (err) {
+      console.error('Upload failed', err)
+    }
+    setUploading(false)
+  }
+
+  const onFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) uploadPhoto(file)
+  }
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 640)
@@ -410,6 +460,10 @@ const Report = () => {
     }
     fetchInsights()
   }, [athleteId])
+
+  useEffect(() => {
+    if (reportData?.profile?.avatar_url && !avatarUrl) setAvatarUrl(reportData.profile.avatar_url)
+  }, [reportData?.profile?.avatar_url])
 
   const peerAvg = ageGroupAvg
 
@@ -529,7 +583,6 @@ const Report = () => {
       </div>
     )
   }
-
   const { profile, benchmarks } = reportData
   const age = calcAge(profile?.date_of_birth || profile?.dob)
   const initials = (profile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
@@ -589,74 +642,153 @@ const Report = () => {
             alignItems: window.innerWidth < 768 ? 'flex-start' : 'center'
           }}>
 
-            <div style={{ flexShrink: 0 }}>
-              {profile?.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt={profile?.full_name}
-                style={{
-                  width: window.innerWidth < 768 ? '100%' : '280px',
-                  height: window.innerWidth < 768 ? '320px' : '320px',
-                  objectFit: 'cover',
-                  objectPosition: 'top',
-                  borderRadius: '8px',
-                  display: 'block'
-                }}
+            <div style={{
+              width: isMobile ? '100%' : '280px',
+              height: isMobile ? '240px' : '320px',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              flexShrink: 0,
+              position: 'relative',
+            }}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={onFileChange}
               />
-            ) : (
-              <div style={{
-                width: window.innerWidth < 768 ? '100%' : '280px',
-                height: window.innerWidth < 768 ? '180px' : '320px',
-                borderRadius: '8px',
-                background: 'rgba(63,174,82,0.08)',
-                border: '1px solid rgba(63,174,82,0.15)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-              }}>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={profile?.full_name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: 'top',
+                    display: 'block',
+                  }}
+                />
+              ) : (
                 <div style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '50%',
-                  background: 'rgba(63,174,82,0.15)',
+                  width: '100%',
+                  height: '100%',
+                  background: 'rgba(63,174,82,0.06)',
+                  border: '1px solid rgba(63,174,82,0.15)',
+                  borderRadius: '8px',
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '28px',
-                  fontWeight: 800,
-                  color: '#3fae52',
+                  gap: '12px',
                 }}>
-                  {(profile?.full_name || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  <div style={{
+                    width: '72px',
+                    height: '72px',
+                    borderRadius: '50%',
+                    border: '2px dashed rgba(63,174,82,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#3fae52',
+                    fontSize: '24px',
+                    fontWeight: 800,
+                  }}>
+                    {(profile?.full_name || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      fileInputRef.current?.click()
+                    }}
+                    style={{
+                      background: 'rgba(63,174,82,0.9)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '40px',
+                      height: '40px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                      <path d="M12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4zm7-11.2h-1.8l-1.4-2H8.2L6.8 4H5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3z" />
+                    </svg>
+                  </button>
+                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>
+                    {uploading ? 'Uploading...' : 'Tap to add photo'}
+                  </div>
                 </div>
-                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>No photo uploaded</div>
-              </div>
-            )}
+              )}
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    fileInputRef.current?.click()
+                  }}
+                  style={{
+                    position: 'absolute',
+                    bottom: '10px',
+                    right: '10px',
+                    background: 'rgba(63,174,82,0.9)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '36px',
+                    height: '36px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4zm7-11.2h-1.8l-1.4-2H8.2L6.8 4H5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3z" />
+                  </svg>
+                </button>
+              )}
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
                 <img
                   src={PFA_LOGO}
                   alt="PFA"
                   style={{
-                    height: '72px',
+                    height: isMobile ? '160px' : '220px',
                     width: 'auto',
                     flexShrink: 0,
-                    filter: 'drop-shadow(0 0 8px rgba(63,174,82,0.4))'
+                    filter: 'drop-shadow(0 0 12px rgba(63,174,82,0.5))'
                   }}
                 />
-                <span style={{
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  letterSpacing: '0.05em',
-                  color: 'rgba(255,255,255,0.7)',
-                  lineHeight: 1.3
-                }}>
-                  PFA Performance & Development Report
-                </span>
+                <div>
+                  <div style={{
+                    fontSize: isMobile ? '16px' : '22px',
+                    fontWeight: '800',
+                    letterSpacing: '0.08em',
+                    color: '#3fae52',
+                    textTransform: 'uppercase',
+                    marginBottom: '6px',
+                    lineHeight: 1.1
+                  }}>
+                    Peak Fitness Athletics
+                  </div>
+                  <div style={{
+                    fontSize: isMobile ? '12px' : '15px',
+                    fontWeight: '500',
+                    letterSpacing: '0.06em',
+                    color: 'rgba(255,255,255,0.6)',
+                    lineHeight: 1.4,
+                    textTransform: 'uppercase'
+                  }}>
+                    Performance & Development Report
+                  </div>
+                </div>
               </div>
 
               <h1 style={{
@@ -801,14 +933,13 @@ const Report = () => {
             {/* Power Callout */}
             {(() => {
               let series = powerSeriesVJ
-              let label = 'Explosive Power'
-              let subtitleImprove = 'Vertical jump improvement at Peak Fitness'
+              let label = 'Broad Jump'
+              let subtitleImprove = 'Broad jump improvement at Peak Fitness'
               let subtitlePB = 'Current power benchmark'
-              if (!series.length && powerSeriesBJ.length) {
-                series = powerSeriesBJ
-                label = 'Broad Jump'
-                subtitleImprove = 'Improvement at Peak Fitness'
-                subtitlePB = 'Current power benchmark'
+              series = powerSeriesBJ.length ? powerSeriesBJ : powerSeriesVJ
+              if (!powerSeriesBJ.length && powerSeriesVJ.length) {
+                label = 'Vertical Jump'
+                subtitleImprove = 'Vertical jump improvement at Peak Fitness'
               }
               if (!series.length) return null
               const first = series[0]
@@ -823,7 +954,7 @@ const Report = () => {
               const subtitle = improved
                 ? 'Explosive power trending up'
                 : regressed
-                  ? 'Power output declined since last test — flagged for attention'
+                  ? `${label} declined since last test — flagged for attention`
                   : subtitlePB
               return (
                 <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
@@ -1013,7 +1144,7 @@ const Report = () => {
                 const subtitle = improved
                   ? 'Explosive power trending up'
                   : regressed
-                    ? 'Power output declined since last test — flagged for attention'
+                    ? 'Vertical jump declined since last test — flagged for attention'
                     : 'No change since last test'
                 return (
                   <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
@@ -1161,36 +1292,18 @@ const Report = () => {
         </div>
 
         {insights?.physical_standouts && (
-          <div style={{ maxWidth: '900px', margin: '40px auto 40px auto', padding: '0 24px' }}>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              letterSpacing: '0.15em',
-              color: '#3fae52',
-              textTransform: 'uppercase',
-              marginBottom: '16px',
-              paddingBottom: '8px',
-              borderBottom: '1px solid rgba(63,174,82,0.2)'
-            }}>
-              Physical Standouts
-            </div>
-            <div style={{
-              padding: '20px 24px',
-              background: '#0d1a0d',
-              border: '1px solid rgba(63,174,82,0.15)',
-              borderLeft: '3px solid #3fae52',
-              borderRadius: '12px',
-            }}>
-              <p style={{
-                fontSize: '15px',
-                color: 'rgba(255,255,255,0.85)',
-                lineHeight: 1.8,
-                margin: 0,
-                fontWeight: '400'
-              }}>
-                {insights.physical_standouts}
-              </p>
-            </div>
+          <div style={{
+            maxWidth: '1100px',
+            margin: '32px auto 40px auto',
+            padding: isMobile ? '0 16px' : '0 24px',
+            fontSize: '1.05rem',
+            color: 'rgba(255,255,255,0.8)',
+            fontStyle: 'italic',
+            lineHeight: 1.7,
+            borderLeft: '3px solid #3fae52',
+            paddingLeft: '16px'
+          }}>
+            {insights.physical_standouts}
           </div>
         )}
 
@@ -1477,69 +1590,34 @@ const Report = () => {
 
         {/* ── SECTION 6: INSIGHTS ── */}
         {insights?.what_to_watch && (
-          <div style={{ maxWidth: '900px', margin: '0 auto 48px auto', padding: '0 24px' }}>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              letterSpacing: '0.15em',
-              color: '#3fae52',
-              textTransform: 'uppercase',
-              marginBottom: '16px',
-              paddingBottom: '8px',
-              borderBottom: '1px solid rgba(63,174,82,0.2)'
-            }}>
-              What To Watch
-            </div>
-            <div style={{
-              padding: '24px 28px',
-              background: '#0d1a0d',
-              border: '1px solid rgba(63,174,82,0.15)',
-              borderLeft: '4px solid #3fae52',
-              borderRadius: '12px',
-            }}>
-              <p style={{
-                fontSize: '15px',
-                color: 'rgba(255,255,255,0.88)',
-                lineHeight: 1.9,
-                margin: 0,
-                fontWeight: '400'
-              }}>
-                {insights.what_to_watch}
-              </p>
-            </div>
+          <div style={{
+            maxWidth: '1100px',
+            margin: '32px auto 40px auto',
+            padding: isMobile ? '0 16px' : '0 24px',
+            fontSize: '1.05rem',
+            color: 'rgba(255,255,255,0.8)',
+            fontStyle: 'italic',
+            lineHeight: 1.7,
+            borderLeft: '3px solid #3fae52',
+            paddingLeft: '16px'
+          }}>
+            {insights.what_to_watch}
           </div>
         )}
 
         {insights?.next_steps && (
-          <div style={{ maxWidth: '900px', margin: '0 auto 48px auto', padding: '0 24px' }}>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              letterSpacing: '0.15em',
-              color: '#3fae52',
-              textTransform: 'uppercase',
-              marginBottom: '16px',
-              paddingBottom: '8px',
-              borderBottom: '1px solid rgba(63,174,82,0.2)'
-            }}>
-              Next Steps
-            </div>
-            <div style={{
-              padding: '20px 24px',
-              background: '#0d1a0d',
-              border: '1px solid rgba(63,174,82,0.15)',
-              borderLeft: '3px solid rgba(255,255,255,0.15)',
-              borderRadius: '12px',
-            }}>
-              <p style={{
-                fontSize: '14px',
-                color: 'rgba(255,255,255,0.7)',
-                lineHeight: 1.8,
-                margin: 0
-              }}>
-                {insights.next_steps}
-              </p>
-            </div>
+          <div style={{
+            maxWidth: '1100px',
+            margin: '32px auto 40px auto',
+            padding: isMobile ? '0 16px' : '0 24px',
+            fontSize: '1.05rem',
+            color: 'rgba(255,255,255,0.8)',
+            fontStyle: 'italic',
+            lineHeight: 1.7,
+            borderLeft: '3px solid #3fae52',
+            paddingLeft: '16px'
+          }}>
+            {insights.next_steps}
           </div>
         )}
 
