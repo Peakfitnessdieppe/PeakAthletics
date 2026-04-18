@@ -191,6 +191,8 @@ exports.handler = async (event) => {
       return line
     }).join('\n')
 
+    console.log('[Analytics] Ranking summary:\n', rankingSummary)
+
     // Build best results per test
     const strengthTests = ['squat', 'bench_press', 'trap_bar_deadlift']
     const bestResults = {}
