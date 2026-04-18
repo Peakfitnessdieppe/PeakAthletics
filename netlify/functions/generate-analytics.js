@@ -67,6 +67,7 @@ exports.handler = async (event) => {
       .neq('id', athleteId)
 
     const peerIds = (peerProfiles || []).map(p => p.id)
+    console.log('[Analytics] Peer IDs found:', peerIds.length, 'for', profile.sport, profile.gender, profile.age_category)
 
     const { data: peerScores } = await supabase
       .from('pfa_composite_scores')
@@ -79,6 +80,14 @@ exports.handler = async (event) => {
       .select('athlete_id, test_type, value, load_value, reps')
       .in('athlete_id', peerIds)
       .eq('sport', profile.sport)
+
+    const { data: records } = await supabase
+      .from('pfa_records')
+      .select('test_type, value, athlete_id')
+      .eq('gender', profile.gender)
+      .eq('age_category', profile.age_category)
+      .eq('sport', profile.sport)
+      .eq('is_current', true)
 
     const avg = (arr, key) => arr.length ? (arr.reduce((s, r) => s + (r[key] || 0), 0) / arr.length).toFixed(1) : 'N/A'
     const peerAvg = {
@@ -130,24 +139,57 @@ exports.handler = async (event) => {
       if (isBetter) athleteBestByTest[r.test_type] = val
     }
 
-    // Calculate rank for each test
+    // Calculate rank tiers for each test
     const rankings = {}
-    for (const [testType, athleteVal] of Object.entries(athleteBestByTest)) {
-      const peerVals = Object.values(peerBestByTest[testType] || {})
-      const allVals = [...peerVals, athleteVal]
-      allVals.sort((a, b) => LOWER_IS_BETTER.includes(testType) ? a - b : b - a)
-      const rank = allVals.indexOf(athleteVal) + 1
-      const total = allVals.length
-      rankings[testType] = { rank, total, value: athleteVal }
+    if (peerIds.length === 0) {
+      console.log('[Analytics] No peers found, skipping rankings')
+    } else {
+      for (const [testType, athleteVal] of Object.entries(athleteBestByTest)) {
+        const peerVals = Object.values(peerBestByTest[testType] || {})
+        if (peerVals.length === 0) continue
+        const allVals = [...peerVals, athleteVal]
+        allVals.sort((a, b) => LOWER_IS_BETTER.includes(testType) ? a - b : b - a)
+        const rank = allVals.indexOf(athleteVal) + 1
+        const total = allVals.length
+        
+        let tier
+        if (rank === 1) tier = '#1'
+        else if (rank <= Math.ceil(total * 0.1)) tier = 'Top 10%'
+        else if (total >= 5 && rank <= 3) tier = 'Top 3'
+        else if (total >= 8 && rank <= Math.ceil(total * 0.25)) tier = 'Top 25%'
+        else if (rank <= Math.ceil(total * 0.5)) tier = 'Top 50%'
+        else tier = 'Below Average'
+
+        const record = (records || []).find(r => r.test_type === testType)
+        const holdsRecord = record && record.athlete_id === athleteId
+        const recordValue = record ? record.value : null
+
+        let gapToRecord = null
+        if (recordValue && !holdsRecord) {
+          if (LOWER_IS_BETTER.includes(testType)) {
+            gapToRecord = athleteVal - recordValue
+          } else {
+            gapToRecord = recordValue - athleteVal
+          }
+        }
+
+        rankings[testType] = { rank, total, value: athleteVal, tier, holdsRecord, recordValue, gapToRecord }
+      }
     }
 
     // Build ranking summary string for prompt
-    const rankingSummary = Object.entries(rankings)
-      .map(([test, r]) => {
-        const label = test.replaceAll('_', ' ')
-        return `${label}: ranks ${r.rank} of ${r.total} (value: ${r.value})` 
-      })
-      .join('\n')
+    const rankingSummary = Object.entries(rankings).map(([test, r]) => {
+      const label = test.replaceAll('_', ' ')
+      let line = `${label}: ${r.tier} (value: ${r.value})`
+      if (r.holdsRecord) line += ' — CURRENT RECORD HOLDER'
+      if (r.gapToRecord !== null && r.gapToRecord > 0) {
+        const gapFormatted = LOWER_IS_BETTER.includes(test)
+          ? `${r.gapToRecord.toFixed(3)}s behind record of ${r.recordValue}`
+          : `${Math.round(r.gapToRecord)} ${test.includes('jump') || test.includes('broad') ? 'cm' : 'lbs'} behind record of ${r.recordValue}`
+        line += ` — ${gapFormatted}`
+      }
+      return line
+    }).join('\n')
 
     // Build best results per test
     const strengthTests = ['squat', 'bench_press', 'trap_bar_deadlift']
@@ -215,7 +257,7 @@ IMPORTANT RULES:
 - Write for PARENTS first — warm, clear, proud, plain English. No jargon.
 - Use the athlete's first name (${firstName}) throughout. Pronouns: ${pronoun} / ${pronounCap}.
 - DATA INTEGRITY RULE — CRITICAL: Never make claims about in-game performance that our testing cannot confirm. We test in a controlled setting — we do not observe games. Do NOT say things like "Marc dominates board battles" or "his acceleration is remarkable on the ice" — we have not seen this. Instead say "Marc's 10m sprint of 1.833s suggests his first-step acceleration off a stop should be noticeable" or "at 2.33x bodyweight in relative strength, Marc has the physical profile to win contact situations." Always frame game observations as what the data SUGGESTS, not what we have confirmed.
-- RANKING RULE: You MAY use ranking data confidently because it is factual. "Marc ranks 2nd of 10 for squat strength among male U18 athletes tested" is confirmed data — use it proudly.
+- RANKING RULE: Use tier language not raw numbers. Say 'Top 3', 'Top 25%', '#1' etc. If athlete holds a record say 'holds the [gender] [age_category] [sport] record'. If athlete is chasing a record and the gap is small (within 15% of record value), mention they are chasing it. Never say 'ranks X of Y'.
 - Frame development areas as training priorities, not weaknesses.
 
 ATHLETE: ${profile.full_name}
@@ -271,7 +313,7 @@ Generate a JSON object with EXACTLY these keys. No markdown, no backticks, no ex
   "endurance_insight": "One sentence about endurance. Reference beep test level and rank.",
   "physical_standouts": "2-3 sentences highlighting most impressive rankings and absolute numbers with peer context. Use actual rank numbers — '${firstName} ranks X of Y for [test] among [gender] [age_category] athletes tested.' This is factual and confirmed. Make every word earn its place.",
   "scores_summary": "2-3 sentences contextualizing composite scores for a parent. Frame what the overall score means. Call out 1-2 highest scoring categories with peer context. End with positive forward-looking sentence about development areas.",
-  "what_to_watch": "3-4 sentences for a parent, coach, or scout watching ${profile.sport}. STRICT DATA INTEGRITY: Only reference what our testing measured. Never confirm in-game performance — only suggest what test results imply. Format: 'Watch for [${firstName}]'s [observable on-${sportCtx.surface} moment] — ${pronoun} [specific test result with number] suggests [what it implies, not confirms].' Use ranking data confidently since it is factual. Second sentence gives position-specific physical insight for a ${positionContext}. Third sentence forward-looking only if 2+ test sessions exist. Never use 'remarkable', 'dominates', or confirmed game performance language. The third sentence must NOT mention future testing sessions — that belongs in next_steps only.",
+  "what_to_watch": "2-3 sentences for a parent, coach, or scout. STRICT: Only reference what testing measured. Use 'suggests' not 'is'. Lead with the most impressive ranking or record. If athlete holds a record mention it. If chasing a record mention the gap. Connect to a specific observable on-${sportCtx.surface} moment using 'suggests' language. Never confirm game performance. Third sentence only if meaningful — omit filler.",
   "next_steps": "1-2 sentences about what Peak Fitness is targeting in the next testing session. Only reference metrics we actually test. Format: 'In ${firstName}'s next testing session, we will be focused on [specific test or category] — targeting [specific measurable improvement].' If a category is below peer average, mention it as priority. Never promise game outcomes or reference things we do not test. Do not end with any reference to in-game performance or on-ice/on-pitch outcomes — end at the specific measurable test target."
 }
 
