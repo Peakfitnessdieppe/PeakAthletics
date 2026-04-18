@@ -68,18 +68,19 @@ exports.handler = async (event) => {
 
     const peerIds = (peerProfiles || []).map(p => p.id)
     console.log('[Analytics] Peer IDs found:', peerIds.length, 'for', profile.sport, profile.gender, profile.age_category)
+    console.log('[Analytics] First 3 peer IDs:', peerIds.slice(0, 3))
 
-    const { data: peerScores } = await supabase
+    const { data: peerScores, error: psError } = await supabase
       .from('pfa_composite_scores')
       .select('speed_score, strength_score, power_score, agility_score, endurance_score')
       .in('athlete_id', peerIds)
-      .eq('sport', profile.sport)
+    console.log('[Analytics] Peer scores fetch:', peerScores?.length || 0, 'error:', psError?.message || 'none')
 
-    const { data: peerTestResults } = await supabase
+    const { data: peerTestResults, error: ptrError } = await supabase
       .from('pfa_test_results')
       .select('athlete_id, test_type, value, load_value, reps')
       .in('athlete_id', peerIds)
-      .eq('sport', profile.sport)
+    console.log('[Analytics] Peer test results fetch:', peerTestResults?.length || 0, 'error:', ptrError?.message || 'none')
 
     const { data: records } = await supabase
       .from('pfa_records')
