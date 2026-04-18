@@ -139,6 +139,10 @@ exports.handler = async (event) => {
       if (isBetter) athleteBestByTest[r.test_type] = val
     }
 
+    console.log('[Analytics] Athlete best by test:', JSON.stringify(athleteBestByTest))
+    console.log('[Analytics] Peer test types found:', Object.keys(peerBestByTest))
+    console.log('[Analytics] Records fetched:', records?.length || 0)
+
     // Calculate rank tiers for each test
     const rankings = {}
     if (peerIds.length === 0) {
