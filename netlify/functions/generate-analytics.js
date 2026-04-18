@@ -68,19 +68,16 @@ exports.handler = async (event) => {
 
     const peerIds = (peerProfiles || []).map(p => p.id)
     console.log('[Analytics] Peer IDs found:', peerIds.length, 'for', profile.sport, profile.gender, profile.age_category)
-    console.log('[Analytics] First 3 peer IDs:', peerIds.slice(0, 3))
 
     const { data: peerScores, error: psError } = await supabase
       .from('pfa_composite_scores')
       .select('speed_score, strength_score, power_score, agility_score, endurance_score')
       .in('athlete_id', peerIds)
-    console.log('[Analytics] Peer scores fetch:', peerScores?.length || 0, 'error:', psError?.message || 'none')
 
     const { data: peerTestResults, error: ptrError } = await supabase
       .from('pfa_test_results')
       .select('athlete_id, test_type, value, load_value, reps')
       .in('athlete_id', peerIds)
-    console.log('[Analytics] Peer test results fetch:', peerTestResults?.length || 0, 'error:', ptrError?.message || 'none')
 
     const { data: records } = await supabase
       .from('pfa_records')
@@ -140,10 +137,6 @@ exports.handler = async (event) => {
       if (isBetter) athleteBestByTest[r.test_type] = val
     }
 
-    console.log('[Analytics] Athlete best by test:', JSON.stringify(athleteBestByTest))
-    console.log('[Analytics] Peer test types found:', Object.keys(peerBestByTest))
-    console.log('[Analytics] Records fetched:', records?.length || 0)
-
     // Calculate rank tiers for each test
     const rankings = {}
     if (peerIds.length === 0) {
@@ -195,8 +188,6 @@ exports.handler = async (event) => {
       }
       return line
     }).join('\n')
-
-    console.log('[Analytics] Ranking summary:\n', rankingSummary)
 
     // Build best results per test
     const strengthTests = ['squat', 'bench_press', 'trap_bar_deadlift']
