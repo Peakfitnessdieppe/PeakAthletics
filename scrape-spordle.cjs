@@ -20,14 +20,14 @@ const GRAYJAY_SITES = [
     name: 'nbu15aaa',
     url: 'https://www.nbu15aaa.ca/stats/',
     league: 'NBU15AAAHL',
-    seasons: ['2025-2026', '2024-2025', '2023-2024'],
+    seasons: ['2025-2026', '2024-2025'],
     gameTypes: ['Regular Season', 'Playoffs'],
   },
   {
     name: 'nbpeimu18hl',
     url: 'https://nbpeimu18hl.ca/stats/',
     league: 'NBPEIMU18HL',
-    seasons: ['2025-2026', '2024-2025', '2023-2024', '2022-2023', '2021-2022'],
+    seasons: ['2025-2026', '2024-2025'],
     gameTypes: ['Regular Season', 'Playoffs', 'Exhibition'],
   },
 ];
@@ -49,6 +49,7 @@ const ATHLETE_EP_URLS = [
 
 // key = athleteId|season|league|gameType — keeps highest GP per combination
 const allStats = {};
+let loggedSelectDiagnostics = false;
 
 function upsertStat(athleteId, record) {
   const key = `${athleteId}|${record.season}|${record.league}|${record.game_type}`;
@@ -60,30 +61,56 @@ function upsertStat(athleteId, record) {
   return false;
 }
 
-async function selectSeasonAndType(page, season, gameType) {
-  // Select season from dropdown
+async function selectSeasonAndType(page, siteUrl, seasonText, gameType) {
+  await page.goto(siteUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+  await new Promise(r => setTimeout(r, 3000));
+
+  // Find the season_filter select and get the option value matching seasonText
+  const seasonValue = await page.evaluate((text) => {
+    const sel = document.getElementById('season_filter');
+    if (!sel) return null;
+    const opt = Array.from(sel.options).find(o => o.text.trim() === text);
+    return opt ? opt.value : null;
+  }, seasonText);
+
+  if (!seasonValue) {
+    console.log(`    Season "${seasonText}" not found in dropdown — skipping`);
+    return false;
+  }
+
+  // Select the season by numeric value
+  await page.select('#season_filter', seasonValue);
+  await new Promise(r => setTimeout(r, 2500));
+
+  // Now find the subseason (game type) option value
+  const subseasonValue = await page.evaluate((text) => {
+    const sel = document.getElementById('subseason_filter');
+    if (!sel) return null;
+    // Get the FIRST option matching this game type text (belongs to selected season)
+    const opt = Array.from(sel.options).find(o => o.text.trim() === text);
+    return opt ? opt.value : null;
+  }, gameType);
+
+  if (!subseasonValue) {
+    console.log(`    Game type "${gameType}" not found — skipping`);
+    return false;
+  }
+
+  // Select the subseason
+  await page.select('#subseason_filter', subseasonValue);
+  await new Promise(r => setTimeout(r, 2500));
+
+  // Submit/apply the filter — look for a filter button or form submit
   try {
-    const selects = await page.$$('select');
-    if (selects.length > 0) {
-      await selects[0].select(season);
-      await new Promise(r => setTimeout(r, 1500));
-    }
+    await page.evaluate(() => {
+      const btn = Array.from(document.querySelectorAll('button, input[type=submit]'))
+        .find(el => /filter|search|go|apply/i.test(el.innerText || el.value));
+      if (btn) btn.click();
+    });
+    await new Promise(r => setTimeout(r, 2000));
   } catch(e) {}
 
-  // Click the game type tab
-  try {
-    const buttons = await page.$$('a, button');
-    for (const btn of buttons) {
-      const text = await page.evaluate(el => el.innerText.trim(), btn);
-      if (text === gameType) {
-        await btn.click();
-        await new Promise(r => setTimeout(r, 2000));
-        break;
-      }
-    }
-  } catch(e) {}
-
-  await new Promise(r => setTimeout(r, 1500));
+  return true;
 }
 
 async function scrapeCurrentTable(page, season, league, gameType) {
@@ -239,13 +266,11 @@ async function main() {
   console.log('\n=== PHASE 1: GrayJay all seasons ===');
   for (const site of GRAYJAY_SITES) {
     console.log(`\nSite: ${site.league}`);
-    await page.goto(site.url, { waitUntil: 'networkidle2', timeout: 60000 });
-    await new Promise(r => setTimeout(r, 3000));
-
     for (const season of site.seasons) {
       for (const gameType of site.gameTypes) {
         console.log(`  ${season} — ${gameType}`);
-        await selectSeasonAndType(page, season, gameType);
+        const success = await selectSeasonAndType(page, site.url, season, gameType);
+        if (!success) continue;
         const rows = await scrapeCurrentTable(page, season, site.league, gameType);
         let matched = 0;
         for (const row of rows) {
@@ -307,9 +332,10 @@ async function main() {
       sport: 'Hockey',
       season: r.season,
       team_name: r.teamName,
-      league: r.league,
+      league: r.league || '',
       age_category: null,
       position: r.position || null,
+      game_type: r.game_type || 'Regular Season',
       games_played: r.games_played,
       goals: r.goals,
       assists: r.assists,
@@ -322,7 +348,10 @@ async function main() {
       scraped_at: new Date().toISOString(),
     }));
 
-    const { error } = await supabase.from('game_stats').insert(batch);
+    const { error } = await supabase.from('game_stats').upsert(batch, {
+      onConflict: 'athlete_id,league,season,game_type',
+      ignoreDuplicates: false
+    });
     if (error) console.log(`Batch error:`, error.message);
     else console.log(`Inserted batch ${Math.floor(i/50)+1} (${batch.length} records)`);
   }
