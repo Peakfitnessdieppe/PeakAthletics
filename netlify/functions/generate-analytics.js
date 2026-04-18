@@ -72,6 +72,11 @@ exports.handler = async (event) => {
       .select('speed_score, strength_score, power_score, agility_score, endurance_score')
       .in('athlete_id', peerIds)
 
+    const { data: peerTestResults } = await supabase
+      .from('pfa_test_results')
+      .select('athlete_id, test_type, value, load_value, reps')
+      .in('athlete_id', peerIds)
+
     const avg = (arr, key) => arr.length ? (arr.reduce((s, r) => s + (r[key] || 0), 0) / arr.length).toFixed(1) : 'N/A'
     const peerAvg = {
       speed: avg(peerScores || [], 'speed_score'),
@@ -89,9 +94,60 @@ exports.handler = async (event) => {
       .eq('sport', profile.sport)
       .order('season', { ascending: false })
 
+    const calcE1RM = (load, reps) => (!load || !reps || reps === 1) ? load : Math.round(load * (1 + reps / 30))
+    const LOWER_IS_BETTER = ['10m_sprint', 'pro_agility_shuttle']
+    const STRENGTH_TESTS = ['squat', 'bench_press', 'trap_bar_deadlift']
+
+    // Get best value per athlete per test from peer results
+    const peerBestByTest = {}
+    for (const r of (peerTestResults || [])) {
+      const val = STRENGTH_TESTS.includes(r.test_type) 
+        ? calcE1RM(r.load_value, r.reps) 
+        : r.value
+      if (!val) continue
+      if (!peerBestByTest[r.test_type]) peerBestByTest[r.test_type] = {}
+      const current = peerBestByTest[r.test_type][r.athlete_id]
+      const isBetter = LOWER_IS_BETTER.includes(r.test_type) 
+        ? (!current || val < current) 
+        : (!current || val > current)
+      if (isBetter) peerBestByTest[r.test_type][r.athlete_id] = val
+    }
+
+    // Get athlete's best per test
+    const athleteBestByTest = {}
+    for (const r of (results || [])) {
+      const val = STRENGTH_TESTS.includes(r.test_type)
+        ? calcE1RM(r.load_value, r.reps)
+        : r.value
+      if (!val) continue
+      const current = athleteBestByTest[r.test_type]
+      const isBetter = LOWER_IS_BETTER.includes(r.test_type)
+        ? (!current || val < current)
+        : (!current || val > current)
+      if (isBetter) athleteBestByTest[r.test_type] = val
+    }
+
+    // Calculate rank for each test
+    const rankings = {}
+    for (const [testType, athleteVal] of Object.entries(athleteBestByTest)) {
+      const peerVals = Object.values(peerBestByTest[testType] || {})
+      const allVals = [...peerVals, athleteVal]
+      allVals.sort((a, b) => LOWER_IS_BETTER.includes(testType) ? a - b : b - a)
+      const rank = allVals.indexOf(athleteVal) + 1
+      const total = allVals.length
+      rankings[testType] = { rank, total, value: athleteVal }
+    }
+
+    // Build ranking summary string for prompt
+    const rankingSummary = Object.entries(rankings)
+      .map(([test, r]) => {
+        const label = test.replaceAll('_', ' ')
+        return `${label}: ranks ${r.rank} of ${r.total} (value: ${r.value})` 
+      })
+      .join('\n')
+
     // Build best results per test
     const strengthTests = ['squat', 'bench_press', 'trap_bar_deadlift']
-    const calcE1RM = (load, reps) => (!load || !reps || reps === 1) ? load : Math.round(load * (1 + reps / 30))
     const bestResults = {}
     for (const r of results || []) {
       if (!bestResults[r.test_type]) bestResults[r.test_type] = r
@@ -121,16 +177,43 @@ exports.handler = async (event) => {
     const pronoun = profile.gender === 'female' ? 'her' : 'his'
     const pronounCap = profile.gender === 'female' ? 'Her' : 'His'
 
-    const prompt = `You are PeakIQ, the performance intelligence system for Peak Fitness Athletics in Dieppe, NB, Canada. You specialize in youth athlete development for hockey and other sports.
+    const sportContext = {
+      Hockey: { surface: 'ice', venue: 'rink', action: 'skating', object: 'puck' },
+      Soccer: { surface: 'pitch', venue: 'field', action: 'running', object: 'ball' },
+      Ringette: { surface: 'ice', venue: 'rink', action: 'skating', object: 'ring' },
+      Volleyball: { surface: 'court', venue: 'gym', action: 'moving', object: 'ball' },
+      Basketball: { surface: 'court', venue: 'gym', action: 'moving', object: 'ball' },
+    }
+    const sportCtx = sportContext[profile.sport] || { surface: 'field', venue: 'venue', action: 'moving', object: 'ball' }
+
+    const positionContext = (() => {
+      const pos = (profile.position || '').toUpperCase()
+      const sport = profile.sport
+      if (sport === 'Hockey') {
+        if (pos === 'G') return 'goaltender — prioritize lateral quickness, explosive power, and lower body strength'
+        if (pos === 'D' || pos === 'D/F') return 'defenseman — prioritize strength, physicality, and agility for gap control'
+        return 'forward — prioritize acceleration, explosive power, and agility for puck pursuit and zone entry'
+      }
+      if (sport === 'Soccer') {
+        if (pos === 'GK') return 'goalkeeper — prioritize explosive power, lateral agility, and upper body strength'
+        if (['CB','LB','RB','D'].includes(pos)) return 'defender — prioritize strength, agility, and acceleration for defensive recovery'
+        if (['CM','DM','MF'].includes(pos)) return 'midfielder — prioritize endurance, agility, and speed for box-to-box play'
+        return 'forward — prioritize acceleration, explosive power, and speed for finishing and pressing'
+      }
+      return profile.position || 'athlete'
+    })()
+
+    const prompt = `You are PeakIQ, the performance intelligence system for Peak Fitness Athletics in Dieppe, NB, Canada.
 
 IMPORTANT RULES:
 - All strength values are in POUNDS (lbs). Never convert or change units.
+- Sport: ${profile.sport}. Surface: ${sportCtx.surface}. Always use sport-specific language. Never reference another sport's terminology.
+- Position: ${positionContext}. Tailor all insights to what matters physically for this position.
 - Write for PARENTS first — warm, clear, proud, plain English. No jargon.
-- Use the athlete's first name (${firstName}) throughout.
-- Use pronouns: ${pronoun} / ${pronounCap}
-- Be specific — reference actual numbers and test results.
+- Use the athlete's first name (${firstName}) throughout. Pronouns: ${pronoun} / ${pronounCap}.
+- DATA INTEGRITY RULE — CRITICAL: Never make claims about in-game performance that our testing cannot confirm. We test in a controlled setting — we do not observe games. Do NOT say things like "Marc dominates board battles" or "his acceleration is remarkable on the ice" — we have not seen this. Instead say "Marc's 10m sprint of 1.833s suggests his first-step acceleration off a stop should be noticeable" or "at 2.33x bodyweight in relative strength, Marc has the physical profile to win contact situations." Always frame game observations as what the data SUGGESTS, not what we have confirmed.
+- RANKING RULE: You MAY use ranking data confidently because it is factual. "Marc ranks 2nd of 10 for squat strength among male U18 athletes tested" is confirmed data — use it proudly.
 - Frame development areas as training priorities, not weaknesses.
-- Connect physical results to sport performance (${profile.sport}).
 
 ATHLETE: ${profile.full_name}
 Sport: ${profile.sport} | Position: ${profile.position || 'N/A'} | Age Group: ${profile.age_category} | Level: ${profile.competition_level || 'N/A'} | Gender: ${profile.gender}
@@ -144,12 +227,14 @@ Agility: ${compScore?.agility_score || 'N/A'} (peer avg: ${peerAvg.agility})
 Endurance: ${compScore?.endurance_score || 'N/A'} (peer avg: ${peerAvg.endurance})
 
 IMPORTANT CONTEXT FOR FRAMING:
-For each category, compare the athlete score to the peer average provided. If the athlete score is HIGHER than the peer average, frame the insight as above average or strong. If LOWER, frame as a development area. Never say a score is below average when the athlete score exceeds the peer average.
 Speed score ${compScore?.speed_score} vs peer avg ${peerAvg.speed}: ${(compScore?.speed_score || 0) > parseFloat(peerAvg.speed) ? 'ABOVE average — frame positively' : 'BELOW average — frame as development area'}
 Strength score ${compScore?.strength_score} vs peer avg ${peerAvg.strength}: ${(compScore?.strength_score || 0) > parseFloat(peerAvg.strength) ? 'ABOVE average — frame positively' : 'BELOW average — frame as development area'}
 Power score ${compScore?.power_score} vs peer avg ${peerAvg.power}: ${(compScore?.power_score || 0) > parseFloat(peerAvg.power) ? 'ABOVE average — frame positively' : 'BELOW average — frame as development area'}
 Agility score ${compScore?.agility_score} vs peer avg ${peerAvg.agility}: ${(compScore?.agility_score || 0) > parseFloat(peerAvg.agility) ? 'ABOVE average — frame positively' : 'BELOW average — frame as development area'}
 Endurance score ${compScore?.endurance_score} vs peer avg ${peerAvg.endurance}: ${(compScore?.endurance_score || 0) > parseFloat(peerAvg.endurance) ? 'ABOVE average — frame positively' : 'BELOW average — frame as development area'}
+
+TEST RANKINGS (among ${profile.gender} ${profile.age_category} athletes tested at Peak Fitness):
+${rankingSummary}
 
 TEST RESULTS (personal bests):
 ${resultsSummary}
@@ -160,38 +245,40 @@ ${gameContext}
 REQUIRED KEYS — these must always appear in the response regardless of data availability:
 this_season, speed_insight, strength_insight, power_insight, agility_insight, endurance_insight, physical_standouts, scores_summary, what_to_watch, next_steps
 
-CONDITIONAL KEYS — only include if the relevant test data exists in the results:
-squat_insight (if squat data exists), bench_press_insight (if bench press data exists), trap_bar_insight (if trap bar data exists), pull_ups_insight (if pull ups data exists), push_ups_insight (if push ups data exists), vertical_jump_insight (if vertical jump data exists), broad_jump_insight (if broad jump data exists), mb_chest_pass_insight (if mb chest pass data exists)
+CONDITIONAL KEYS — only include if the relevant test data exists:
+squat_insight, bench_press_insight, trap_bar_insight, pull_ups_insight, push_ups_insight, vertical_jump_insight, broad_jump_insight, mb_chest_pass_insight
 
 Generate a JSON object with EXACTLY these keys. No markdown, no backticks, no extra text — just raw JSON:
 
 {
-  "this_season": "2-3 sentences that tell the story of this athlete's development season. Lead with their most impressive physical gains using real numbers. If game stats exist, weave them in as proof the physical development is translating. If no game stats exist, focus purely on the physical trajectory and what the numbers mean. Warm, proud, narrative tone — this is the first thing a parent reads.",
+  "this_season": "2-3 sentences telling the story of ${firstName}'s development season. Lead with most impressive physical gains using real numbers and rankings where available. If game stats exist, weave them in as proof. Warm, proud, narrative tone.",
 
-  "speed_insight": "One sentence about speed for parents. Reference actual sprint time. Connect to sport if above average.",
-  "strength_insight": "One sentence about overall strength for parents. Reference the standout lift.",
-  "squat_insight": "Required if athlete has squat data. One sentence on their squat strength relative to their body weight and what it means for their sport. Parent-friendly tone.",
-  "bench_press_insight": "Required if athlete has bench press data. One sentence on their upper body pressing strength and what it means for physical development.",
-  "trap_bar_insight": "Required if athlete has trap bar deadlift data. One sentence on their posterior chain strength and relative strength ratio.",
-  "pull_ups_insight": "Include only if athlete has pull-up data. One sentence on their relative upper body pulling strength.",
-  "push_ups_insight": "Include only if athlete has push-up data. One sentence on their muscular endurance.",
-  "power_insight": "One sentence about overall explosive power for parents.",
-  "vertical_jump_insight": "Required if athlete has vertical jump data. One sentence on their explosive power and what it means for their athletic profile.",
-  "broad_jump_insight": "Required if athlete has broad jump data. One sentence on their horizontal power and what it means for their sport.",
-  "mb_chest_pass_insight": "Include only if athlete has MB chest pass data. One sentence on their upper body power output.",
-  "agility_insight": "One sentence about agility for parents. Reference shuttle time.",
-  "endurance_insight": "One sentence about endurance for parents. Reference beep test level.",
+  "speed_insight": "One sentence about speed. Reference actual sprint time and rank if available. Frame as suggestion for ${sportCtx.surface} performance, not confirmed observation. Above/below average per framing context.",
+  "strength_insight": "One sentence about overall strength. Reference standout lift and rank. Position-relevant framing for ${positionContext}.",
+  "squat_insight": "One sentence about squat. Reference e1RM, relative strength, and rank if available. Only if squat data exists.",
+  "bench_press_insight": "One sentence about bench press. Reference e1RM and rank. Only if bench press data exists.",
+  "trap_bar_insight": "One sentence about trap bar deadlift. Reference e1RM, relative strength, and rank. Only if trap bar data exists.",
+  "pull_ups_insight": "One sentence about pull ups and rank if data exists. Otherwise omit.",
+  "push_ups_insight": "One sentence about push ups and rank if data exists. Otherwise omit.",
+  "power_insight": "One sentence about explosive power. Reference jump numbers and rank. Position-relevant for ${positionContext}.",
+  "vertical_jump_insight": "One sentence about vertical jump and rank. Only if data exists.",
+  "broad_jump_insight": "One sentence about broad jump and rank. Only if data exists.",
+  "mb_chest_pass_insight": "One sentence about MB chest pass and rank. Only if data exists.",
+  "agility_insight": "One sentence about agility. Reference shuttle time and rank. Position-relevant for ${positionContext}.",
+  "endurance_insight": "One sentence about endurance. Reference beep test level and rank.",
 
-  "physical_standouts": "2-3 sentences highlighting the athlete's most impressive absolute numbers with peer context. Be specific — name the exact numbers and what they mean relative to other athletes tested. This is what parents screenshot and share. Make every word earn its place.",
+  "physical_standouts": "2-3 sentences highlighting most impressive rankings and absolute numbers with peer context. Use actual rank numbers — '${firstName} ranks X of Y for [test] among [gender] [age_category] athletes tested.' This is factual and confirmed. Make every word earn its place.",
 
-  "scores_summary": "2-3 sentences that contextualize the composite scores for a parent. Start by framing what the overall score of [X] means relative to peers. Then call out the 1-2 highest scoring categories with specific peer context — name the score and what it means. End with a positive forward-looking sentence about the development areas. Write warmly and confidently — this is the paragraph that gives parents the full picture in plain English.",
+  "scores_summary": "2-3 sentences contextualizing composite scores for a parent. Frame what the overall score means. Call out 1-2 highest scoring categories with peer context. End with positive forward-looking sentence about development areas.",
 
-  "what_to_watch": "3-4 sentences written for someone who knows hockey — a parent who watches every game, a coach evaluating a player, or a scout seeing him for the first time. Do NOT start with 'At the next game' or 'Keep an eye on'. Lead with a specific, confident, data-anchored observation that reframes how the reader sees this athlete. Name the exact metric and connect it to a specific on-ice situation — not generic 'puck battles' but the exact moment: a board battle in the corner, a faceoff acceleration, a back-check recovery, a shot off the rush. The second sentence should give a scout-level insight that most casual observers would miss. Third sentence connects his physical trajectory to what is coming — what will be even more visible next season as the training compounds. Make it feel like insider knowledge, not a parent guide.",
+  "what_to_watch": "3-4 sentences for a parent, coach, or scout watching ${profile.sport}. STRICT DATA INTEGRITY: Only reference what our testing measured. Never confirm in-game performance — only suggest what test results imply. Format: 'Watch for [${firstName}]'s [observable on-${sportCtx.surface} moment] — ${pronoun} [specific test result with number] suggests [what it implies, not confirms].' Use ranking data confidently since it is factual. Second sentence gives position-specific physical insight for a ${positionContext}. Third sentence forward-looking only if 2+ test sessions exist. Never use 'remarkable', 'dominates', or confirmed game performance language.",
 
-  "next_steps": "1-2 sentences about what we are building toward and what improvement we are targeting in the next testing session."
+  "next_steps": "1-2 sentences about what Peak Fitness is targeting in the next testing session. Only reference metrics we actually test. Format: 'In ${firstName}'s next testing session, we will be focused on [specific test or category] — targeting [specific measurable improvement].' If a category is below peer average, mention it as priority. Never promise game outcomes or reference things we do not test.",
+
+  "next_steps": "1-2 sentences about what Peak Fitness is targeting next. Only reference metrics we actually test. Never promise game outcomes."
 }
 
-Every value must be a single string. No nested objects. No arrays. No line breaks within values. If a test result does not exist for a specific insight key, omit that key entirely from the JSON rather than returning an empty string or placeholder.`
+Every value must be a single string. No nested objects. No arrays. No line breaks within values. Omit conditional keys entirely if test data does not exist.`
 
     console.log('Calling OpenAI for athlete:', athleteId)
 

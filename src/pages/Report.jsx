@@ -1590,35 +1590,63 @@ const Report = () => {
 
         {/* ── SECTION 6: INSIGHTS ── */}
         {insights?.what_to_watch && (
-          <div style={{
-            maxWidth: '1100px',
-            margin: '32px auto 40px auto',
-            padding: isMobile ? '0 16px' : '0 24px',
-            fontSize: '1.05rem',
-            color: 'rgba(255,255,255,0.8)',
-            fontStyle: 'italic',
-            lineHeight: 1.7,
-            borderLeft: '3px solid #3fae52',
-            paddingLeft: '16px'
-          }}>
-            {insights.what_to_watch}
-          </div>
+          <>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: '700',
+              letterSpacing: '0.15em',
+              color: '#3fae52',
+              textTransform: 'uppercase',
+              marginBottom: '16px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid rgba(63,174,82,0.2)'
+            }}>
+              What To Watch
+            </div>
+            <div style={{
+              maxWidth: '1100px',
+              margin: '32px auto 40px auto',
+              padding: isMobile ? '0 16px' : '0 24px',
+              fontSize: '1.05rem',
+              color: 'rgba(255,255,255,0.8)',
+              fontStyle: 'italic',
+              lineHeight: 1.7,
+              borderLeft: '3px solid #3fae52',
+              paddingLeft: '16px'
+            }}>
+              {insights.what_to_watch}
+            </div>
+          </>
         )}
 
         {insights?.next_steps && (
-          <div style={{
-            maxWidth: '1100px',
-            margin: '32px auto 40px auto',
-            padding: isMobile ? '0 16px' : '0 24px',
-            fontSize: '1.05rem',
-            color: 'rgba(255,255,255,0.8)',
-            fontStyle: 'italic',
-            lineHeight: 1.7,
-            borderLeft: '3px solid #3fae52',
-            paddingLeft: '16px'
-          }}>
-            {insights.next_steps}
-          </div>
+          <>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: '700',
+              letterSpacing: '0.15em',
+              color: '#3fae52',
+              textTransform: 'uppercase',
+              marginBottom: '16px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid rgba(63,174,82,0.2)'
+            }}>
+              Next Steps
+            </div>
+            <div style={{
+              maxWidth: '1100px',
+              margin: '32px auto 40px auto',
+              padding: isMobile ? '0 16px' : '0 24px',
+              fontSize: '1.05rem',
+              color: 'rgba(255,255,255,0.8)',
+              fontStyle: 'italic',
+              lineHeight: 1.7,
+              borderLeft: '3px solid #3fae52',
+              paddingLeft: '16px'
+            }}>
+              {insights.next_steps}
+            </div>
+          </>
         )}
 
         {/* ── SECTION 6: FOOTER ── */}
