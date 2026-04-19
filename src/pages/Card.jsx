@@ -422,7 +422,17 @@ const Card = () => {
 
   return (
     <CardLayout>
-      <div className="card-page">
+      <div
+        className="card-page"
+        style={{
+          minHeight: '100dvh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}
+      >
         <button
           onClick={signOut}
           className="absolute top-4 right-4 text-sm text-white/70 hover:text-white bg-white/5 border border-pfa-border px-3 py-1 rounded-lg"
@@ -438,7 +448,13 @@ const Card = () => {
             className="hidden"
             onChange={onFileChange}
           />
-          <div style={{ position: 'relative', width: '340px', height: '520px' }}>
+          <div
+            style={{
+              position: 'relative',
+              width: 'min(340px, 92vw)',
+              height: 'min(520px, 85vh)',
+            }}
+          >
             {/* FRONT */}
             <div
               onClick={() => setFlipped(true)}
@@ -477,7 +493,7 @@ const Card = () => {
                 <div className="absolute" style={{ bottom: '120px', left: '-10%', width: '120%', height: '160px', background: 'rgba(63,174,82,0.08)', transform: 'rotate(-8deg)', pointerEvents: 'none', zIndex: 1 }} />
                 <div className="absolute left-0 right-0" style={{ bottom: '140px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
                   {testRankings.slice(0, 4).length === 0 ? (
-                    <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', textAlign: 'center', padding: '16px' }}>
+                    <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 'clamp(9px, 2.4vw, 12px)', textAlign: 'center', padding: '16px' }}>
                       Complete your first test to unlock your stats.
                     </div>
                   ) : (
@@ -501,24 +517,24 @@ const Card = () => {
                             className="py-2"
                             style={idx < arr.length - 1 ? { borderRight: '1px solid rgba(63,174,82,0.3)' } : { textAlign: 'center' }}
                           >
-                            <div className="text-[8px] uppercase tracking-wide text-white/60 font-bold" style={{ marginBottom: '2px', textAlign: 'center' }}>
+                            <div className="text-[8px] uppercase tracking-wide text-white/60 font-bold" style={{ marginBottom: '2px', textAlign: 'center', fontSize: 'clamp(8px, 1.8vw, 10px)' }}>
                               {formatted.label}
                             </div>
-                            <div className="text-[15px] font-semibold" style={{ textAlign: 'center', color: '#fff' }}>
+                            <div className="text-[15px] font-semibold" style={{ textAlign: 'center', color: '#fff', fontSize: 'clamp(12px, 3.4vw, 15px)' }}>
                               {formatted.value}
-                              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginLeft: '2px' }}>{formatted.unit}</span>
+                              <span style={{ fontSize: 'clamp(8px, 2vw, 10px)', color: 'rgba(255,255,255,0.6)', marginLeft: '2px' }}>{formatted.unit}</span>
                             </div>
                             <div
                               style={{
                                 color: '#fff',
                                 fontWeight: 700,
-                                fontSize: '14px',
+                                fontSize: 'clamp(11px, 3vw, 14px)',
                                 opacity: ranking.hasAnyData ? 1 : 0.35,
                               }}
                             >
                               {ranking.season2025?.main || ranking.season2025}
                               {['squat', 'bench_press', 'trap_bar_deadlift'].includes(ranking.testType) && ranking.season2025?.load && ranking.season2025?.reps && (
-                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '7px', marginTop: '2px' }}>
+                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 'clamp(6px, 1.6vw, 8px)', marginTop: '2px' }}>
                                   {ranking.season2025.load} × {ranking.season2025.reps}
                                 </div>
                               )}
@@ -527,7 +543,7 @@ const Card = () => {
                               <div
                                 style={{
                                   marginTop: '3px',
-                                  fontSize: '8px',
+                                  fontSize: 'clamp(7px, 1.8vw, 9px)',
                                   fontWeight: '800',
                                   letterSpacing: '0.1em',
                                   textTransform: 'uppercase',
@@ -569,8 +585,8 @@ const Card = () => {
                   </div>
                 )}
                 <div className="absolute left-0 right-0 text-white" style={{ bottom: '0', background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0) 100%)', padding: '60px 16px 16px', textTransform: 'uppercase' }}>
-                  <div className="text-[28px] font-extrabold tracking-[0.1em] leading-tight">{(profile?.full_name || 'Athlete').toUpperCase()}</div>
-                  <div className="text-[11px]" style={{ color: '#3fae52' }}>{profile?.sport || 'Sport'}{profile?.position ? ` · ${profile.position}` : ''}</div>
+                  <div className="text-[28px] font-extrabold tracking-[0.1em] leading-tight" style={{ fontSize: 'clamp(14px, 4vw, 20px)' }}>{(profile?.full_name || 'Athlete').toUpperCase()}</div>
+                  <div className="text-[11px]" style={{ color: '#3fae52', fontSize: 'clamp(9px, 2.4vw, 12px)' }}>{profile?.sport || 'Sport'}{profile?.position ? ` · ${profile.position}` : ''}</div>
                 </div>
               </div>
             </div>
@@ -639,15 +655,15 @@ const Card = () => {
                         <div
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: '1fr 80px 80px',
+                            gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
                             padding: '6px 0',
                             borderBottom: '1px solid rgba(63,174,82,0.3)',
                             marginBottom: '4px',
                           }}
                         >
-                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>STANDARDIZED SCORES</div>
-                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
-                          <div style={{ color: '#3fae52', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>STANDARDIZED SCORES</div>
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
+                          <div style={{ color: '#3fae52', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
                         </div>
 
                         {[
@@ -680,19 +696,19 @@ const Card = () => {
                               key={row.key}
                               style={{
                                 display: 'grid',
-                                gridTemplateColumns: '1fr 80px 80px',
+                                gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
                                 padding: '5px 0',
                                 borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                               }}
                             >
-                              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: '600' }}>{row.label}</div>
-                              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>
+                              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{row.label}</div>
+                              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>
                                 {score2025 !== null && compScore?.[row.key] != null ? score2025 : '—'}
                               </div>
                               <div
                                 style={{
                                   color: score2026 !== null ? '#ffffff' : 'rgba(255,255,255,0.25)',
-                                  fontSize: '10px',
+                                  fontSize: 'clamp(9px, 2vw, 11px)',
                                   fontWeight: score2026 !== null ? '700' : '400',
                                   textAlign: 'center',
                                 }}
@@ -705,36 +721,36 @@ const Card = () => {
                         <div style={{ borderBottom: '1px solid rgba(63,174,82,0.2)', margin: '8px 0' }} />
                       </div>
 
-                      <div style={{ padding: '12px 16px 0' }}>
+                      <div style={{ padding: 'clamp(8px, 2vw, 12px) clamp(10px, 3vw, 16px) 0' }}>
                         <div
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: '1fr 80px 80px',
+                            gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
                             padding: '6px 0',
                             borderBottom: '1px solid rgba(63,174,82,0.3)',
                             marginBottom: '4px',
                           }}
                         >
-                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>MEASUREMENTS</div>
-                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
-                          <div style={{ color: '#3fae52', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>MEASUREMENTS</div>
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
+                          <div style={{ color: '#3fae52', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
                         </div>
                         {measurementRows.map((row, i) => (
                           <div
                             key={row.label}
                             style={{
                               display: 'grid',
-                              gridTemplateColumns: '1fr 80px 80px',
+                              gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
                               padding: '5px 0',
                               borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                             }}
                           >
-                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: '600' }}>{row.label}</div>
-                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>{row.season2025}</div>
+                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{row.label}</div>
+                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>{row.season2025}</div>
                             <div
                               style={{
                                 color: row.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)',
-                                fontSize: '10px',
+                                fontSize: 'clamp(9px, 2vw, 11px)',
                                 fontWeight: row.season2026 !== '—' ? '700' : '400',
                                 textAlign: 'center',
                               }}
@@ -746,19 +762,19 @@ const Card = () => {
                         <div style={{ borderBottom: '1px solid rgba(63,174,82,0.2)', margin: '8px 0' }} />
                       </div>
 
-                      <div style={{ padding: '0 16px 16px' }}>
+                      <div style={{ padding: '0 clamp(10px, 3vw, 16px) clamp(8px, 2vw, 16px)' }}>
                         <div
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: '1fr 80px 80px',
+                            gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
                             padding: '6px 0',
                             borderBottom: '1px solid rgba(63,174,82,0.3)',
                             marginBottom: '4px',
                           }}
                         >
-                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>TEST</div>
-                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
-                          <div style={{ color: '#3fae52', fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>TEST</div>
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
+                          <div style={{ color: '#3fae52', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
                         </div>
 
                         {seasonStats.map((stat, i) => (
@@ -766,17 +782,17 @@ const Card = () => {
                             key={stat.testType}
                             style={{
                               display: 'grid',
-                              gridTemplateColumns: '1fr 80px 80px',
+                              gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
                               padding: '5px 0',
                               borderBottom: i < seasonStats.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                               opacity: stat.hasAnyData ? 1 : 0.35,
                             }}
                           >
-                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: '600' }}>{stat.label}</div>
-                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textAlign: 'center' }}>
+                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{stat.label}</div>
+                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>
                               <div>{stat.season2025}</div>
                               {STRENGTH_LOAD_TESTS.includes(stat.testType) && stat.load2025 && stat.reps2025 && (
-                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '7px', marginTop: '1px' }}>
+                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 'clamp(6px, 1.6vw, 8px)', marginTop: '1px' }}>
                                   {stat.load2025} × {stat.reps2025}
                                 </div>
                               )}
@@ -784,14 +800,14 @@ const Card = () => {
                             <div
                               style={{
                                 color: stat.season2026 && stat.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)',
-                                fontSize: '10px',
+                                fontSize: 'clamp(9px, 2vw, 11px)',
                                 fontWeight: stat.season2026 && stat.season2026 !== '—' ? '700' : '400',
                                 textAlign: 'center',
                               }}
                             >
                               <div>{stat.season2026}</div>
                               {STRENGTH_LOAD_TESTS.includes(stat.testType) && stat.load2026 && stat.reps2026 && (
-                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '7px', marginTop: '1px' }}>
+                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 'clamp(6px, 1.6vw, 8px)', marginTop: '1px' }}>
                                   {stat.load2026} × {stat.reps2026}
                                 </div>
                               )}

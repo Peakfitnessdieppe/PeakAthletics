@@ -2146,7 +2146,7 @@ const Admin = () => {
     const handleRecalcAll = async () => {
       setRecalcStatus('Recalculating scores for all athletes...')
       try {
-        const res = await fetch('/.netlify/functions/recalculate-scores', { method: 'POST' })
+        const res = await fetch('/.netlify/functions/calculate-scores', { method: 'POST' })
         if (!res.ok) throw new Error('Failed to recalculate')
         
         setRecalcStatus('✓ Scores recalculated — generating insights...')
