@@ -2265,7 +2265,7 @@ const Admin = () => {
                               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
                                 {(athleteTeams[a.id] || []).map(team => (
                                   <div key={team.team_id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: '#3fae52' }}>
-                                    {team.team_name || team.team_id}
+                                    {team.pfa_teams?.name || team.pfa_teams?.id || team.team_id}
                                     <button onClick={() => handleRemoveFromTeam(a.id, team.team_id)}
                                       style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '0', fontSize: '12px', lineHeight: 1 }}>✕</button>
                                   </div>
@@ -2279,7 +2279,9 @@ const Admin = () => {
                                   value={selectedTeamForAthlete?.[a.id] || ''}
                                   onChange={e => setAthleteTeamSelect(prev => ({ ...prev, [a.id]: e.target.value }))}>
                                   <option value="">Add to team...</option>
-                                  {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                  {teams
+                                    .filter(t => !(athleteTeams[a.id] || []).some(at => at.team_id === t.id))
+                                    .map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                 </select>
                                 <button onClick={() => handleAddToTeam(a.id)}
                                   style={{ background: 'rgba(63,174,82,0.15)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '6px', color: '#3fae52', padding: '6px 14px', fontSize: '12px', cursor: 'pointer' }}>
@@ -2662,6 +2664,23 @@ const Admin = () => {
           updated_at: new Date().toISOString()
         }).eq('is_default', true)
 
+        // Deactivate tests that were removed from the UI
+        const { data: existingDefaultTests } = await supabase
+          .from('pfa_test_weights')
+          .select('id, category, test_type')
+          .eq('sport', 'default')
+          .eq('age_category', 'default')
+          .eq('is_active', true)
+
+        for (const existing of (existingDefaultTests || [])) {
+          const stillPresent = defaultTestWeights[existing.category]?.[existing.test_type]
+          if (!stillPresent) {
+            await supabase.from('pfa_test_weights')
+              .update({ is_active: false, updated_at: new Date().toISOString() })
+              .eq('id', existing.id)
+          }
+        }
+
         for (const [category, tests] of Object.entries(defaultTestWeights)) {
           for (const [testType, data] of Object.entries(tests)) {
             await supabase.from('pfa_test_weights').upsert({
@@ -2680,18 +2699,23 @@ const Admin = () => {
       if (!newCustom.sport || !newCustom.age_category || !newCustom.gender) return
       if (newCustomTotal !== 100) return
       try {
-        const { data } = await supabase.from('pfa_score_weights').insert({
-          sport: newCustom.sport, age_category: newCustom.age_category, gender: newCustom.gender,
-          speed_weight: newCustom.speed / 100, strength_weight: newCustom.strength / 100,
-          power_weight: newCustom.power / 100, agility_weight: newCustom.agility / 100,
-          endurance_weight: newCustom.endurance / 100, is_default: false,
+        const { data, error } = await supabase.from('pfa_score_weights').insert({
+          sport: newCustom.sport,
+          age_category: newCustom.age_category,
+          gender: newCustom.gender,
+          speed_weight: newCustom.speed / 100,
+          strength_weight: newCustom.strength / 100,
+          power_weight: newCustom.power / 100,
+          agility_weight: newCustom.agility / 100,
+          endurance_weight: newCustom.endurance / 100,
+          is_default: false,
           created_by: user?.id
         }).select().single()
         if (data) setCustomWeightSets((prev) => [...prev, data])
         setNewCustom({ sport: '', age_category: '', gender: '', speed: 25, strength: 25, power: 25, agility: 15, endurance: 10 })
         setWeightsSaved('custom')
         setTimeout(() => setWeightsSaved(''), 3000)
-      } catch (err) { console.error('Add custom error:', err) }
+      } catch (err) { console.error('Save custom error:', err) }
     }
 
     const handleEditWeightSet = async (row) => {
@@ -2752,6 +2776,24 @@ const Admin = () => {
         endurance_weight: editingWeightSet.endurance / 100,
         updated_at: new Date().toISOString()
       }).eq('id', editingWeightSet.id)
+
+      // Deactivate tests that were removed from the UI
+      const { data: existingTests } = await supabase
+        .from('pfa_test_weights')
+        .select('id, category, test_type')
+        .eq('sport', sport)
+        .eq('age_category', age_category)
+        .eq('gender', gender)
+        .eq('is_active', true)
+
+      for (const existing of (existingTests || [])) {
+        const stillPresent = editingWeightSetTests[existing.category]?.[existing.test_type]
+        if (!stillPresent) {
+          await supabase.from('pfa_test_weights')
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq('id', existing.id)
+        }
+      }
 
       for (const [category, tests] of Object.entries(editingWeightSetTests)) {
         for (const [testType, data] of Object.entries(tests)) {

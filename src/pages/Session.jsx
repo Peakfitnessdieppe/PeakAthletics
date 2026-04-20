@@ -62,6 +62,8 @@ const CATEGORY_COLORS = {
   ANTHROPOMETRICS: '#ec4899',
 }
 
+const LOWER_IS_BETTER = ['10m_sprint', '30m_sprint', 'pro_agility_shuttle']
+
 const Session = () => {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -92,6 +94,14 @@ const Session = () => {
   const [loadValue, setLoadValue] = useState('')
   const [repsValue, setRepsValue] = useState('')
   const [latestBodyweight, setLatestBodyweight] = useState(null)
+  const [trialValues, setTrialValues] = useState(['', '', ''])
+  const [trialLoads, setTrialLoads] = useState(['', '', ''])
+  const [trialReps, setTrialReps] = useState(['', '', ''])
+  const [selectedTrial, setSelectedTrial] = useState(0)
+  const [activeTab, setActiveTab] = useState('session')
+  const [saveConfirm, setSaveConfirm] = useState('')
+  const [athleteMode, setAthleteMode] = useState('team')
+  const [athleteSearch, setAthleteSearch] = useState('')
   const inputRef = useRef(null)
 
   const currentAthlete = participants[currentIndex] || null
@@ -310,54 +320,117 @@ const Session = () => {
           height: parseFloat(anthropoForm.height) || null,
         })
         setAnthropoForm({ weight: '', bodyFat: '', height: '' })
-      } else {
-        if (!currentTest) return
-        if (STRENGTH_LOAD_TESTS.includes(selectedTestId)) {
-          const e1rm = calcE1RM(parseFloat(loadValue), parseInt(repsValue))
-          if (!e1rm || Number.isNaN(e1rm)) return
-          const relStr = calcRelativeStrength(e1rm, latestBodyweight)
-          const { data: saved, error } = await supabase
-            .from('pfa_test_results')
-            .insert({
-              athlete_id: currentAthlete.id,
-              session_id: sessionId,
-              category: selectedCategory,
-              test_type: selectedTestId,
-              value: e1rm,
-              unit: currentTest.unit,
-              higher_is_better: currentTest.higherIsBetter,
-              flagged,
-              load_value: parseFloat(loadValue),
-              reps: parseInt(repsValue),
-              relative_strength: relStr,
-              date_tested: new Date().toISOString(),
-            })
-            .select('*')
-            .single()
-          if (error) throw error
-          setResults((prev) => [...prev, saved])
-          setLoadValue('')
-          setRepsValue('')
-        } else {
-          const numericValue = parseFloat(inputValue)
-          if (Number.isNaN(numericValue)) return
-          const saved = await saveTestResult({
-            athlete_id: currentAthlete.id,
-            session_id: sessionId,
-            category: selectedCategory,
-            test_type: selectedTestId,
-            value: numericValue,
-            unit: currentTest.unit,
-            higher_is_better: currentTest.higherIsBetter,
-            flagged,
-            date_tested: new Date().toISOString(),
-          })
-          setResults((prev) => [...prev, saved])
-          setInputValue('')
-        }
-        loadHistory()
+        setSaveConfirm('✓ Measurements saved')
+        setTimeout(() => { setSaveConfirm(''); setCurrentIndex(idx => Math.min(idx + 1, participants.length)) }, 1500)
+        return
       }
-      setCurrentIndex((idx) => Math.min(idx + 1, participants.length))
+
+      if (!currentTest) return
+
+      const isLoadBased = STRENGTH_LOAD_TESTS.includes(selectedTestId)
+      const isLower = LOWER_IS_BETTER.includes(selectedTestId)
+
+      // Build trial data
+      let trials = []
+      if (isLoadBased) {
+        for (let i = 0; i < 3; i++) {
+          const load = parseFloat(trialLoads[i])
+          const reps = parseInt(trialReps[i])
+          if (load && reps) {
+            const e1rm = calcE1RM(load, reps)
+            trials.push({ index: i, load, reps, e1rm, value: e1rm })
+          }
+        }
+      } else {
+        for (let i = 0; i < 3; i++) {
+          const val = parseFloat(trialValues[i])
+          if (!isNaN(val) && trialValues[i] !== '') {
+            trials.push({ index: i, value: val })
+          }
+        }
+      }
+
+      if (trials.length === 0) return
+
+      // Find best trial
+      const bestTrial = trials.reduce((best, t) => {
+        if (!best) return t
+        if (isLower) return t.value < best.value ? t : best
+        return t.value > best.value ? t : best
+      }, null)
+
+      // Use selectedTrial override if manually selected
+      const finalTrial = trials[selectedTrial] || bestTrial
+
+      // Save to session_results first
+      const { data: stationData } = await supabase
+        .from('session_stations')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('test_type', selectedTestId)
+        .limit(1)
+        .single()
+
+      await supabase.from('session_results').insert({
+        session_id: sessionId,
+        station_id: stationData?.id || null,
+        athlete_id: currentAthlete.id,
+        test_type: selectedTestId,
+        test_category: selectedCategory,
+        trial_1: isLoadBased ? (trialLoads[0] && trialReps[0] ? calcE1RM(parseFloat(trialLoads[0]), parseInt(trialReps[0])) : null) : parseFloat(trialValues[0]) || null,
+        trial_2: isLoadBased ? (trialLoads[1] && trialReps[1] ? calcE1RM(parseFloat(trialLoads[1]), parseInt(trialReps[1])) : null) : parseFloat(trialValues[1]) || null,
+        trial_3: isLoadBased ? (trialLoads[2] && trialReps[2] ? calcE1RM(parseFloat(trialLoads[2]), parseInt(trialReps[2])) : null) : parseFloat(trialValues[2]) || null,
+        best_value: finalTrial.value,
+        load_value: finalTrial.load || null,
+        reps: finalTrial.reps || null,
+        e1rm: isLoadBased ? finalTrial.value : null,
+        relative_strength: isLoadBased ? calcRelativeStrength(finalTrial.value, latestBodyweight) : null,
+        unit: currentTest.unit,
+        flagged,
+        saved_to_results: true,
+      })
+
+      // Save best to pfa_test_results
+      const relStr = isLoadBased ? calcRelativeStrength(finalTrial.value, latestBodyweight) : null
+      const { data: saved, error } = await supabase.from('pfa_test_results').insert({
+        athlete_id: currentAthlete.id,
+        session_id: sessionId,
+        category: selectedCategory,
+        test_type: selectedTestId,
+        value: finalTrial.value,
+        unit: currentTest.unit,
+        higher_is_better: !isLower,
+        flagged,
+        load_value: finalTrial.load || null,
+        reps: finalTrial.reps || null,
+        relative_strength: relStr,
+        date_tested: new Date().toISOString(),
+      }).select('*').single()
+
+      if (error) throw error
+      setResults(prev => [...prev, saved])
+
+      // Confirmation flash then advance
+      const confirmMsg = isLoadBased
+        ? `✓ ${finalTrial.value} lbs · e1RM · ${finalTrial.load}×${finalTrial.reps} saved` 
+        : `✓ ${finalTrial.value} ${currentTest.unit || ''} saved` 
+      setSaveConfirm(confirmMsg)
+
+      // Reset trial state
+      setTrialValues(['', '', ''])
+      setTrialLoads(['', '', ''])
+      setTrialReps(['', '', ''])
+      setSelectedTrial(0)
+      setInputValue('')
+      setLoadValue('')
+      setRepsValue('')
+
+      setTimeout(() => {
+        setSaveConfirm('')
+        setCurrentIndex(idx => Math.min(idx + 1, participants.length))
+        loadHistory()
+      }, 1500)
+
     } catch (err) {
       console.error('Save failed', err)
     }
@@ -401,603 +474,417 @@ const Session = () => {
 
   const { last, baseline } = getLastAndBaseline()
 
-  const renderSetup = () => (
-    <div className="min-h-screen bg-[#0a0f0a] text-white px-6 py-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="text-3xl font-extrabold tracking-[0.2em] text-pfa-green">TEST SESSION</div>
+  const getTrialBestIndex = () => {
+    const isLoadBased = STRENGTH_LOAD_TESTS.includes(selectedTestId)
+    const isLower = LOWER_IS_BETTER.includes(selectedTestId)
+    let bestIdx = -1
+    let bestVal = null
+    for (let i = 0; i < 3; i++) {
+      const val = isLoadBased
+        ? (trialLoads[i] && trialReps[i] ? calcE1RM(parseFloat(trialLoads[i]), parseInt(trialReps[i])) : null)
+        : (trialValues[i] !== '' ? parseFloat(trialValues[i]) : null)
+      if (val === null || isNaN(val)) continue
+      if (bestVal === null || (isLower ? val < bestVal : val > bestVal)) {
+        bestVal = val
+        bestIdx = i
+      }
+    }
+    return bestIdx
+  }
+
+  const hasAnyTrial = () => {
+    const isLoadBased = STRENGTH_LOAD_TESTS.includes(selectedTestId)
+    if (isLoadBased) return trialLoads.some(v => v !== '') || trialReps.some(v => v !== '')
+    return trialValues.some(v => v !== '')
+  }
+
+  const trialCount = () => {
+    const isLoadBased = STRENGTH_LOAD_TESTS.includes(selectedTestId)
+    if (isLoadBased) return trialLoads.filter((v, i) => v !== '' && trialReps[i] !== '').length
+    return trialValues.filter(v => v !== '').length
+  }
+
+  const renderSetup = () => {
+    const filteredAthletes = athletes.filter(a =>
+      a.full_name?.toLowerCase().includes(athleteSearch.toLowerCase())
+    )
+
+    return (
+      <div style={{ minHeight: '100dvh', background: '#0a0f0a', color: 'white', padding: '0 0 80px 0' }}>
+        
+        {/* Header */}
+        <div style={{ padding: '20px 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '0.15em', color: '#3fae52' }}>TEST SESSION</div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {['session', 'history'].map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', border: activeTab === tab ? '1px solid #3fae52' : '1px solid rgba(255,255,255,0.15)', background: activeTab === tab ? 'rgba(63,174,82,0.15)' : 'transparent', color: activeTab === tab ? '#3fae52' : 'rgba(255,255,255,0.6)', textTransform: 'capitalize' }}>
+                {tab}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-[#0d1a0e] border border-pfa-border rounded-2xl p-6 space-y-4">
-            <div className="text-xl font-semibold text-pfa-green">Start New Session</div>
-            <div className="space-y-3">
-              <div>
-                <div className="text-sm text-white/70 mb-1">Team/Group</div>
-                <select
-                  value={selectedTeamId}
-                  onChange={(e) => {
-                    setSelectedTeamId(e.target.value)
-                    setSelectedAthleteIds([])
-                    setStartError('')
-                  }}
-                  className="w-full bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-                >
-                  <option value="">No Team / Individual Athletes</option>
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name}
-                      {team.sport ? ` • ${team.sport}` : ''}
-                      {team.age_category ? ` • ${team.age_category}` : ''}
-                    </option>
+        {activeTab === 'history' ? renderHistory() : (
+          <div style={{ padding: '16px' }}>
+
+            {/* Active Sessions */}
+            {activeSessions.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px' }}>Active Sessions</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {activeSessions.map(s => (
+                    <button key={s.id} onClick={() => handleJoinSession(s)}
+                      style={{ width: '100%', textAlign: 'left', background: 'rgba(63,174,82,0.08)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '12px', padding: '14px 16px', cursor: 'pointer' }}>
+                      <div style={{ color: 'white', fontWeight: '600', fontSize: '14px' }}>{s.pfa_teams?.name || 'No Team'}</div>
+                      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', marginTop: '2px' }}>{s.test_type} · Started {new Date(s.created_at).toLocaleTimeString()}</div>
+                    </button>
                   ))}
-                </select>
+                </div>
+              </div>
+            )}
+
+            {/* New Session */}
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '12px' }}>New Session</div>
+
+            {/* Athlete Mode Toggle */}
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '3px', marginBottom: '16px' }}>
+              {['team', 'individual'].map(mode => (
+                <button key={mode} onClick={() => { setAthleteMode(mode); setSelectedTeamId(''); setSelectedAthleteIds([]) }}
+                  style={{ flex: 1, padding: '8px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', border: 'none', background: athleteMode === mode ? 'rgba(63,174,82,0.2)' : 'transparent', color: athleteMode === mode ? '#3fae52' : 'rgba(255,255,255,0.5)', textTransform: 'capitalize' }}>
+                  {mode}
+                </button>
+              ))}
+            </div>
+
+            {/* Team or Individual selection */}
+            {athleteMode === 'team' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                {teams.map(team => (
+                  <button key={team.id} onClick={() => setSelectedTeamId(team.id)}
+                    style={{ padding: '14px 16px', borderRadius: '12px', border: selectedTeamId === team.id ? '2px solid #3fae52' : '1px solid rgba(255,255,255,0.1)', background: selectedTeamId === team.id ? 'rgba(63,174,82,0.1)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', textAlign: 'left' }}>
+                    <div style={{ color: 'white', fontWeight: '600', fontSize: '14px' }}>{team.name}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>{[team.sport, team.age_category].filter(Boolean).join(' · ')}</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ marginBottom: '16px' }}>
+                <input value={athleteSearch} onChange={e => setAthleteSearch(e.target.value)}
+                  placeholder="Search athletes..."
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '10px 14px', color: 'white', fontSize: '14px', marginBottom: '10px', boxSizing: 'border-box' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '240px', overflowY: 'auto' }}>
+                  {filteredAthletes.map(ath => (
+                    <button key={ath.id} onClick={() => toggleAthlete(ath.id)}
+                      style={{ padding: '10px 14px', borderRadius: '10px', border: selectedAthleteIds.includes(ath.id) ? '2px solid #3fae52' : '1px solid rgba(255,255,255,0.08)', background: selectedAthleteIds.includes(ath.id) ? 'rgba(63,174,82,0.1)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ color: 'white', fontSize: '13px', fontWeight: '500' }}>{ath.full_name}</div>
+                        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>{[ath.sport, ath.position].filter(Boolean).join(' · ')}</div>
+                      </div>
+                      {selectedAthleteIds.includes(ath.id) && <div style={{ color: '#3fae52', fontSize: '16px' }}>✓</div>}
+                    </button>
+                  ))}
+                </div>
+                {selectedAthleteIds.length > 0 && (
+                  <div style={{ fontSize: '12px', color: '#3fae52', marginTop: '8px' }}>{selectedAthleteIds.length} athlete{selectedAthleteIds.length > 1 ? 's' : ''} selected</div>
+                )}
+              </div>
+            )}
+
+            {/* Category Pills */}
+            <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Category</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+              {[...TEST_CATEGORIES, { category: 'anthropometrics', label: 'Anthropometrics' }].map(cat => {
+                const color = CATEGORY_COLORS[cat.label?.toUpperCase()] || CATEGORY_COLORS[cat.category?.toUpperCase()] || '#3fae52'
+                const isSelected = selectedCategory === cat.category
+                return (
+                  <button key={cat.category} onClick={() => { setSelectedCategory(cat.category); setSelectedTestId('') }}
+                    style={{ padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', border: isSelected ? `2px solid ${color}` : '1px solid rgba(255,255,255,0.12)', background: isSelected ? `${color}20` : 'rgba(255,255,255,0.04)', color: isSelected ? color : 'rgba(255,255,255,0.6)' }}>
+                    {cat.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Test List */}
+            {selectedCategory && (
+              <>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Test</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+                  {(selectedCategory === 'anthropometrics'
+                    ? [{ id: 'inbody_scan', name: 'InBody Scan' }]
+                    : TEST_CATEGORIES.find(c => c.category === selectedCategory)?.tests || []
+                  ).map(test => (
+                    <button key={test.id} onClick={() => setSelectedTestId(test.id)}
+                      style={{ padding: '12px 16px', borderRadius: '10px', border: selectedTestId === test.id ? '2px solid #3fae52' : '1px solid rgba(255,255,255,0.08)', background: selectedTestId === test.id ? 'rgba(63,174,82,0.1)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', textAlign: 'left', color: selectedTestId === test.id ? '#3fae52' : 'rgba(255,255,255,0.8)', fontWeight: selectedTestId === test.id ? '600' : '400', fontSize: '14px' }}>
+                      {test.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Location */}
+            <input value={location} onChange={e => setLocation(e.target.value)}
+              placeholder="Location (optional)"
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '12px 14px', color: 'white', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }} />
+
+            {startError && <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '10px' }}>{startError}</div>}
+
+            {/* Start Button */}
+            <button onClick={handleStartSession} disabled={starting}
+              style={{ width: '100%', background: '#3fae52', color: 'black', fontWeight: '800', fontSize: '16px', padding: '16px', borderRadius: '14px', border: 'none', cursor: starting ? 'not-allowed' : 'pointer', opacity: starting ? 0.6 : 1, letterSpacing: '0.05em' }}>
+              {starting ? 'Starting...' : 'Start Session'}
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderLive = () => {
+    const isLoadBased = STRENGTH_LOAD_TESTS.includes(selectedTestId)
+    const isAnthro = selectedCategory === 'anthropometrics'
+    const bestIdx = getTrialBestIndex()
+    const totalAthletes = participants.length
+    const progress = totalAthletes ? (currentIndex / totalAthletes) * 100 : 0
+    const upNext = participants.slice(currentIndex + 1, currentIndex + 4)
+
+    return (
+      <div style={{ minHeight: '100dvh', background: '#0a0f0a', color: 'white', display: 'flex', flexDirection: 'column', maxWidth: '480px', margin: '0 auto' }}>
+
+        {/* Top bar */}
+        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#3fae52' }}>{TEST_LABELS[selectedTestId] || selectedTestId}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{sessionInfo?.pfa_teams?.name || 'Individual'} · {sessionInfo?.location || 'No location'}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>{currentIndex}/{totalAthletes}</div>
+            <button onClick={handleEndSession}
+              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#ef4444', padding: '5px 10px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>
+              End
+            </button>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)' }}>
+          <div style={{ height: '100%', width: `${progress}%`, background: '#3fae52', transition: 'width 0.3s' }} />
+        </div>
+
+        {/* Main content */}
+        <div style={{ flex: 1, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          {saveConfirm ? (
+            /* Confirmation flash */
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+              <div style={{ fontSize: '48px' }}>✓</div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: '#3fae52', textAlign: 'center' }}>{saveConfirm}</div>
+            </div>
+          ) : currentAthlete ? (
+            <>
+              {/* Athlete info */}
+              <div style={{ paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: '28px', fontWeight: '800', color: 'white', lineHeight: 1.1 }}>{currentAthlete.full_name}</div>
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>
+                  {[currentAthlete.sport, currentAthlete.position, currentAthlete.age_category].filter(Boolean).join(' · ')}
+                </div>
+                {last && (
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.35)' }}>
+                    Last: <span style={{ color: 'rgba(255,255,255,0.6)' }}>{last.value}{last.unit || ''}</span>
+                    {baseline && baseline.id !== last.id && <span style={{ marginLeft: '10px' }}>Baseline: <span style={{ color: 'rgba(255,255,255,0.6)' }}>{baseline.value}{baseline.unit || ''}</span></span>}
+                  </div>
+                )}
               </div>
 
-              {!selectedTeamId && (
-                <div>
-                  <div className="text-sm text-white/70 mb-2">Select Athletes</div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-52 overflow-y-auto">
-                    {athletes.map((ath) => (
-                      <label
-                        key={ath.id}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer ${
-                          selectedAthleteIds.includes(ath.id)
-                            ? 'border-pfa-green bg-pfa-green/10'
-                            : 'border-pfa-border'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedAthleteIds.includes(ath.id)}
-                          onChange={() => toggleAthlete(ath.id)}
-                          className="accent-pfa-green"
-                        />
-                        <span className="text-sm text-white/80">{ath.full_name}</span>
-                      </label>
+              {/* Input area */}
+              {isAnthro ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#ec4899', textTransform: 'uppercase', letterSpacing: '0.1em' }}>InBody Scan</div>
+                  {[
+                    { key: 'weight', label: 'Weight (lbs)', step: '0.1' },
+                    { key: 'bodyFat', label: 'Body Fat %', step: '0.1' },
+                    { key: 'height', label: 'Height (inches)', step: '0.5' },
+                  ].map(field => (
+                    <div key={field.key}>
+                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>{field.label}</div>
+                      <input type="number" step={field.step} value={anthropoForm[field.key]}
+                        onChange={e => setAnthropoForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                        style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', padding: '14px 16px', color: 'white', fontSize: '20px', boxSizing: 'border-box' }} />
+                    </div>
+                  ))}
+                  {anthropoForm.height && <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>{Math.floor(anthropoForm.height/12)}'{Math.round(anthropoForm.height % 12)}"</div>}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Trial inputs */}
+                  {[0, 1, 2].map(i => {
+                    const showTrial = i === 0 || (i === 1 && (isLoadBased ? (trialLoads[0] && trialReps[0]) : trialValues[0] !== '')) || (i === 2 && (isLoadBased ? (trialLoads[1] && trialReps[1]) : trialValues[1] !== ''))
+                    if (!showTrial) return null
+
+                    const isBest = bestIdx === i
+                    const isSelected = selectedTrial === i
+
+                    return (
+                      <div key={i} onClick={() => setSelectedTrial(i)}
+                        style={{ padding: '12px', borderRadius: '12px', border: isSelected ? '2px solid #3fae52' : isBest ? '2px solid rgba(63,174,82,0.4)' : '1px solid rgba(255,255,255,0.1)', background: isSelected ? 'rgba(63,174,82,0.08)' : 'rgba(255,255,255,0.03)', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Trial {i + 1}</div>
+                          {isBest && <div style={{ fontSize: '10px', fontWeight: '700', color: '#3fae52', background: 'rgba(63,174,82,0.15)', padding: '2px 8px', borderRadius: '10px' }}>★ BEST</div>}
+                          {isSelected && !isBest && <div style={{ fontSize: '10px', fontWeight: '700', color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '2px 8px', borderRadius: '10px' }}>SELECTED</div>}
+                        </div>
+
+                        {isLoadBased ? (
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '3px' }}>Load (lbs)</div>
+                              <input ref={i === 0 ? inputRef : null} type="number" step="2.5" placeholder="225"
+                                value={trialLoads[i]}
+                                onChange={e => { const v = [...trialLoads]; v[i] = e.target.value; setTrialLoads(v); setSelectedTrial(i) }}
+                                onClick={e => e.stopPropagation()}
+                                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: 'white', fontSize: '18px', boxSizing: 'border-box' }} />
+                            </div>
+                            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '18px', paddingTop: '18px' }}>×</div>
+                            <div style={{ width: '80px' }}>
+                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '3px' }}>Reps</div>
+                              <input type="number" step="1" min="1" max="30" placeholder="5"
+                                value={trialReps[i]}
+                                onChange={e => { const v = [...trialReps]; v[i] = e.target.value; setTrialReps(v); setSelectedTrial(i) }}
+                                onClick={e => e.stopPropagation()}
+                                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', color: 'white', fontSize: '18px', boxSizing: 'border-box' }} />
+                            </div>
+                          </div>
+                        ) : (
+                          <input ref={i === 0 ? inputRef : null} type="number" step="0.01" placeholder={currentTest?.unit || 'Value'}
+                            value={trialValues[i]}
+                            onChange={e => { const v = [...trialValues]; v[i] = e.target.value; setTrialValues(v); setSelectedTrial(i) }}
+                            onClick={e => e.stopPropagation()}
+                            style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '12px', color: 'white', fontSize: '24px', textAlign: 'center', boxSizing: 'border-box' }} />
+                        )}
+
+                        {isLoadBased && trialLoads[i] && trialReps[i] && (
+                          <div style={{ marginTop: '6px', fontSize: '12px', color: '#3fae52', fontWeight: '600' }}>
+                            e1RM: {calcE1RM(parseFloat(trialLoads[i]), parseInt(trialReps[i]))} lbs
+                            {latestBodyweight && <span style={{ color: 'rgba(255,255,255,0.4)', marginLeft: '10px' }}>
+                              {calcRelativeStrength(calcE1RM(parseFloat(trialLoads[i]), parseInt(trialReps[i])), latestBodyweight)}× BW
+                            </span>}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Save / Skip / Flag */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', paddingTop: '8px' }}>
+                <button onClick={() => handleSaveResult(false)} disabled={!hasAnyTrial() && !isAnthro}
+                  style={{ width: '100%', background: (hasAnyTrial() || isAnthro) ? '#3fae52' : 'rgba(63,174,82,0.2)', color: 'black', fontWeight: '800', fontSize: '17px', padding: '18px', borderRadius: '14px', border: 'none', cursor: (hasAnyTrial() || isAnthro) ? 'pointer' : 'not-allowed', letterSpacing: '0.03em' }}>
+                  Save Best & Next
+                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={handleSkip}
+                    style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', color: 'rgba(255,255,255,0.7)', padding: '14px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
+                    Skip
+                  </button>
+                  <button onClick={() => handleSaveResult(true)} disabled={!hasAnyTrial()}
+                    style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '12px', color: '#ef4444', padding: '14px 16px', fontSize: '14px', cursor: 'pointer' }}>
+                    🚩
+                  </button>
+                </div>
+              </div>
+
+              {/* Up next queue */}
+              {upNext.length > 0 && (
+                <div style={{ paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Up Next</div>
+                  <div style={{ display: 'flex', gap: '8px', overflowX: 'auto' }}>
+                    {upNext.map((ath, i) => (
+                      <div key={ath.id} style={{ flexShrink: 0, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '8px 12px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
+                        {ath.full_name.split(' ')[0]}
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <div className="text-sm text-white/70 mb-1">Test Category</div>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => {
-                      setSelectedCategory(e.target.value)
-                      setSelectedTestId('')
-                      setStartError('')
-                    }}
-                    className="w-full bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-                  >
-                    <option value="">Select category</option>
-                    {[...TEST_CATEGORIES, { category: 'anthropometrics', label: 'Anthropometrics', tests: [] }].map((cat) => (
-                      <option key={cat.category} value={cat.category}>
-                        {cat.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <div className="text-sm text-white/70 mb-1">Test</div>
-                  <select
-                    value={selectedTestId}
-                    onChange={(e) => setSelectedTestId(e.target.value)}
-                    className="w-full bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-                    disabled={!selectedCategory}
-                  >
-                    <option value="">Select test</option>
-                    {selectedCategory === 'anthropometrics'
-                      ? [{ id: 'inbody_scan', name: 'InBody Scan' }].map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name}
-                          </option>
-                        ))
-                      : TEST_CATEGORIES.find((c) => c.category === selectedCategory)?.tests.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name}
-                          </option>
-                        ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <div className="text-sm text-white/70 mb-1">Location (optional)</div>
-                <input
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="w-full bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-                  placeholder="Gym, Field, etc."
-                />
-              </div>
-
-              {startError && <div className="text-red-400 text-sm">{startError}</div>}
-
-              <button
-                onClick={handleStartSession}
-                disabled={starting}
-                className="w-full bg-pfa-green text-black font-bold py-3 rounded-lg hover:brightness-110 transition disabled:opacity-60"
-              >
-                {starting ? 'Starting...' : 'Start Session'}
+            </>
+          ) : (
+            /* All done */
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '48px' }}>🏁</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: 'white' }}>All Done!</div>
+              <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)' }}>{completedCount} results recorded</div>
+              <button onClick={handleEndSession}
+                style={{ background: 'rgba(63,174,82,0.15)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '12px', color: '#3fae52', padding: '14px 32px', fontSize: '15px', fontWeight: '700', cursor: 'pointer' }}>
+                End Session
               </button>
             </div>
-          </div>
-
-          <div className="bg-[#0d1a0e] border border-pfa-border rounded-2xl p-6 space-y-4">
-            <div className="text-xl font-semibold text-pfa-green">Join Active Session</div>
-            {activeSessions.length === 0 ? (
-              <div className="text-white/60">No in-progress sessions today.</div>
-            ) : (
-              <div className="space-y-3">
-                {activeSessions.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => handleJoinSession(s)}
-                    className="w-full text-left bg-white/5 border border-pfa-border hover:border-pfa-green rounded-lg px-4 py-3"
-                  >
-                    <div className="text-white font-semibold">{s.pfa_teams?.name || 'No Team'}</div>
-                    <div className="text-white/60 text-sm">{s.test_type}</div>
-                    <div className="text-white/40 text-xs">Started: {new Date(s.created_at).toLocaleTimeString()}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
-    </div>
-  )
-
-  const renderLive = () => (
-    <div className="min-h-screen bg-[#0a0f0a] text-white px-4 md:px-8 py-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <div className="text-lg font-semibold text-pfa-green">{sessionInfo?.pfa_teams?.name || 'Individual Session'}</div>
-            <div className="text-sm text-white/70">
-              {currentTest?.name || 'Test'} · {sessionInfo?.session_date || new Date().toISOString().slice(0, 10)}
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-white/70">{completedCount} / {participants.length}</div>
-            <button
-              onClick={handleEndSession}
-              className="px-4 py-2 rounded-lg border border-red-500 text-red-400 hover:bg-red-500/10"
-            >
-              End Session
-            </button>
-          </div>
-        </div>
-        <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-pfa-green"
-            style={{ width: participants.length ? `${(completedCount / participants.length) * 100}%` : '0%' }}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-          <div className="xl:col-span-3 bg-[#0d1a0e] border border-pfa-border rounded-2xl p-6 flex flex-col gap-4">
-            {currentAthlete ? (
-              <>
-                <div>
-                  <div className="text-3xl font-bold">{currentAthlete.full_name}</div>
-                  <div className="text-pfa-green text-sm">{currentAthlete.sport || 'Sport'} {currentAthlete.position ? `· ${currentAthlete.position}` : ''}</div>
-                </div>
-                <div className="text-white/60 text-sm flex gap-4">
-                  <span>Last: {last ? `${last.value}${last.unit ? last.unit : ''}` : '—'}</span>
-                  <span>Baseline: {baseline ? `${baseline.value}${baseline.unit ? baseline.unit : ''}` : '—'}</span>
-                </div>
-
-                <div>
-                  {selectedCategory === 'anthropometrics' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em' }}>INBODY SCAN</div>
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="Weight (lbs)"
-                        value={anthropoForm.weight}
-                        onChange={(e) => setAnthropoForm({ ...anthropoForm, weight: e.target.value })}
-                        style={inputStyle}
-                      />
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="Body Fat %"
-                        value={anthropoForm.bodyFat}
-                        onChange={(e) => setAnthropoForm({ ...anthropoForm, bodyFat: e.target.value })}
-                        style={inputStyle}
-                      />
-                      <input
-                        type="number"
-                        step="0.5"
-                        placeholder="Height (inches)"
-                        value={anthropoForm.height}
-                        onChange={(e) => setAnthropoForm({ ...anthropoForm, height: e.target.value })}
-                        style={inputStyle}
-                      />
-                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>
-                        {anthropoForm.height ? `${Math.floor(anthropoForm.height / 12)}'${Math.round(anthropoForm.height % 12)}` : ''}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      {STRENGTH_LOAD_TESTS.includes(selectedTestId) ? (
-                        <div>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-                            <div style={{ flex: 1 }}>
-                              <div
-                                style={{
-                                  color: 'rgba(255,255,255,0.5)',
-                                  fontSize: '10px',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.08em',
-                                  marginBottom: '6px',
-                                }}
-                              >
-                                Load (lbs)
-                              </div>
-                              <input
-                                ref={inputRef}
-                                type="number"
-                                step="2.5"
-                                placeholder="135"
-                                value={loadValue}
-                                onChange={(e) => setLoadValue(e.target.value)}
-                                style={inputStyle}
-                                onKeyDown={handleKeyDown}
-                              />
-                            </div>
-                            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '20px', fontWeight: '200', paddingBottom: '10px' }}>×</div>
-                            <div style={{ width: '80px' }}>
-                              <div
-                                style={{
-                                  color: 'rgba(255,255,255,0.5)',
-                                  fontSize: '10px',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.08em',
-                                  marginBottom: '6px',
-                                }}
-                              >
-                                Reps
-                              </div>
-                              <input
-                                type="number"
-                                step="1"
-                                min="1"
-                                max="30"
-                                placeholder="5"
-                                value={repsValue}
-                                onChange={(e) => setRepsValue(e.target.value)}
-                                style={inputStyle}
-                                onKeyDown={handleKeyDown}
-                              />
-                            </div>
-                          </div>
-                          {loadValue && repsValue && (
-                            <div style={{ marginTop: '8px', display: 'flex', gap: '16px' }}>
-                              <div style={{ color: '#3fae52', fontSize: '12px', fontWeight: '700' }}>
-                                e1RM: {calcE1RM(parseFloat(loadValue), parseInt(repsValue))} lbs
-                              </div>
-                              {latestBodyweight && (
-                                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>
-                                  Relative: {calcRelativeStrength(
-                                    calcE1RM(parseFloat(loadValue), parseInt(repsValue)),
-                                    latestBodyweight
-                                  )}
-                                  × BW
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <input
-                          ref={inputRef}
-                          value={inputValue}
-                          onChange={(e) => setInputValue(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          placeholder={currentTest?.unit || ''}
-                          className="w-48 text-center text-5xl bg-[#0a0f0a] border border-pfa-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pfa-green"
-                        />
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={() => handleSaveResult(false)}
-                    className="bg-pfa-green text-black font-semibold px-4 py-3 rounded-lg hover:brightness-110"
-                  >
-                    Save & Next
-                  </button>
-                  <button
-                    onClick={handleSkip}
-                    className="border border-pfa-border text-white/80 px-4 py-3 rounded-lg hover:border-white/40"
-                  >
-                    Skip
-                  </button>
-                  <button
-                    onClick={() => handleSaveResult(true)}
-                    className="border border-red-500 text-red-400 px-4 py-3 rounded-lg hover:bg-red-500/10"
-                  >
-                    Flag
-                  </button>
-                </div>
-
-                <div className="text-white/50 text-sm mt-6 flex gap-6">
-                  <span>Enter → Save & Next</span>
-                  <span>Tab → Skip</span>
-                  <span>F → Flag</span>
-                </div>
-              </>
-            ) : (
-              <div className="text-white/80 space-y-3">
-                <div className="text-xl font-semibold">All athletes completed!</div>
-                <button
-                  onClick={handleEndSession}
-                  className="px-4 py-2 rounded-lg border border-pfa-border text-white/80 hover:border-pfa-green"
-                >
-                  End Session
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="hidden xl:block bg-[#0d1a0e] border border-pfa-border rounded-2xl p-4">
-            <div className="text-sm text-white/70 mb-3">Queue</div>
-            <div className="space-y-2 max-h-[70vh] overflow-y-auto">
-              {participants.map((ath, idx) => {
-                const res = results.find((r) => r.athlete_id === ath.id && r.test_type === selectedTestId)
-                const isCurrent = idx === currentIndex
-                return (
-                  <div
-                    key={ath.id}
-                    className={`px-3 py-2 rounded-lg border ${isCurrent ? 'border-pfa-green bg-pfa-green/5' : 'border-pfa-border'}`}
-                  >
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-white/80">{ath.full_name}</span>
-                      <span className="text-white/50 text-xs">
-                        {res ? res.value : idx < currentIndex ? '—' : ''}
-                      </span>
-                    </div>
-                    {res && <div className="text-pfa-green text-xs">✔ Completed</div>}
-                    {idx < currentIndex && !res && <div className="text-white/50 text-xs">Skipped</div>}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  )
+    )
+  }
 
   const renderHistory = () => (
-    <div className="max-w-6xl mx-auto" style={{ borderTop: '1px solid rgba(63,174,82,0.2)', marginTop: '40px', paddingTop: '32px' }}>
-      <div className="text-2xl font-bold text-white mb-4">Test History</div>
-
-      <div className="flex flex-col md:flex-row gap-3 mb-4">
-        <input
-          value={historySearch}
-          onChange={(e) => setHistorySearch(e.target.value)}
+    <div style={{ padding: '16px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+        <input value={historySearch} onChange={e => setHistorySearch(e.target.value)}
           placeholder="Search athlete..."
-          className="w-full md:w-64 bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
-        />
-        <select
-          value={historyCategory}
-          onChange={(e) => setHistoryCategory(e.target.value)}
-          className="w-full md:w-48 bg-[#0d1a0e] border border-pfa-border rounded-lg px-3 py-2 text-sm text-white"
-        >
-          {['All', 'Speed', 'Power', 'Strength', 'Agility', 'Endurance', 'Anthropometrics'].map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
+          style={{ flex: 1, minWidth: '160px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '10px 12px', color: 'white', fontSize: '13px' }} />
+        <select value={historyCategory} onChange={e => setHistoryCategory(e.target.value)}
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '10px 12px', color: 'white', fontSize: '13px' }}>
+          {['All', 'Speed', 'Power', 'Strength', 'Agility', 'Endurance', 'Anthropometrics'].map(cat => (
+            <option key={cat} value={cat}>{cat}</option>
           ))}
         </select>
       </div>
 
       {sessionHistory.length === 0 ? (
-        <div className="text-white/60">No sessions recorded yet.</div>
-      ) : (
-        <div className="space-y-2">
-          {(() => {
-            const grouped = {}
-            sessionHistory.forEach((item) => {
-              const dateOnly = new Date(item.date_tested).toISOString().split('T')[0]
-              if (!grouped[dateOnly]) grouped[dateOnly] = []
-              grouped[dateOnly].push(item)
-            })
-            const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a))
-
-            return sortedDates.map((date) => {
-              const items = grouped[date]
-              const uniqueAthletes = new Set(items.map((i) => i.athlete_id)).size
-              const uniqueCategories = Array.from(new Set(items.map((i) => (i.category || '').toUpperCase()))).filter(Boolean)
-              const totalResults = items.length
-              const resultsByCategory = {}
-              items.forEach((i) => {
-                const cat = (i.category || 'Unknown').toUpperCase()
-                if (!resultsByCategory[cat]) resultsByCategory[cat] = {}
-                if (!resultsByCategory[cat][i.test_type]) resultsByCategory[cat][i.test_type] = []
-                resultsByCategory[cat][i.test_type].push({
-                  full_name: i.profiles?.full_name,
-                  sport: i.profiles?.sport,
-                  position: i.profiles?.position,
-                  value: i.value,
-                  load_value: i.load_value,
-                  reps: i.reps,
-                  relative_strength: i.relative_strength,
-                })
-              })
-
-              const expanded = !!expandedDates[date]
-              const formattedDate = new Date(date).toLocaleDateString(undefined, {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              })
-
-              return (
-                <div key={date} className={`bg-[#0d1a0e] border-b border-[rgba(63,174,82,0.2)] ${expanded ? 'border-l-4 border-l-pfa-green' : ''}`}>
-                  <div
-                    className="flex items-center justify-between gap-3 cursor-pointer hover:brightness-110"
-                    style={{ padding: '14px 16px' }}
-                    onClick={() => setExpandedDates((prev) => ({ ...prev, [date]: !prev[date] }))}
-                  >
-                    <div className="text-white font-semibold">{formattedDate}</div>
-                    <div className="flex items-center gap-2 flex-wrap justify-center">
-                      {uniqueCategories.map((cat) => (
-                        <span
-                          key={cat}
-                          style={{
-                            background: `${(CATEGORY_COLORS[cat] || '#3fae52')}20`,
-                            color: CATEGORY_COLORS[cat] || '#3fae52',
-                            border: `1px solid ${(CATEGORY_COLORS[cat] || '#3fae52')}40`,
-                            padding: '4px 8px',
-                            borderRadius: '9999px',
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            letterSpacing: '0.05em',
-                          }}
-                        >
-                          {cat}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="text-white/70 text-sm flex items-center gap-2">
-                      <span>
-                        {uniqueAthletes} athletes · {totalResults} results
-                      </span>
-                      <span className="text-pfa-green">{expanded ? '▲' : '▼'}</span>
-                    </div>
-                  </div>
-
-                  {expanded && (
-                    <div style={{ padding: '0 16px 16px' }}>
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                          gap: '12px',
-                          paddingTop: '12px',
-                        }}
-                      >
-                        {Object.entries(resultsByCategory)
-                          .filter(([cat]) => historyCategory === 'All' || cat === historyCategory.toUpperCase())
-                          .map(([cat, tests]) => {
-                            const testEntries = Object.entries(tests)
-                            const totalTests = testEntries.length
-                            const athleteIds = new Set()
-                            testEntries.forEach(([, list]) => list.forEach((ath) => athleteIds.add(ath.full_name)))
-                            const matchSearch = (name) => {
-                              if (!historySearch) return true
-                              return name?.toLowerCase().includes(historySearch.toLowerCase())
-                            }
-
-                            return (
-                              <div
-                                key={cat}
-                                style={{
-                                  background: '#0a0f0a',
-                                  border: '1px solid rgba(63,174,82,0.15)',
-                                  borderRadius: '10px',
-                                  padding: '12px',
-                                }}
-                              >
-                                <div className="flex items-center justify-between mb-2">
-                                  <div
-                                    style={{
-                                      color: CATEGORY_COLORS[cat] || '#3fae52',
-                                      fontWeight: 800,
-                                      letterSpacing: '0.08em',
-                                    }}
-                                  >
-                                    {cat}
-                                  </div>
-                                  <div
-                                    style={{
-                                      fontSize: '11px',
-                                      color: 'rgba(255,255,255,0.6)',
-                                      background: 'rgba(255,255,255,0.05)',
-                                      padding: '4px 8px',
-                                      borderRadius: '9999px',
-                                    }}
-                                  >
-                                    {totalTests} tests · {athleteIds.size} athletes
-                                  </div>
-                                </div>
-                                <div className="space-y-3">
-                                  {testEntries.map(([testType, athleteList]) => {
-                                    const label = TEST_LABELS[testType] || testType
-                                    const unit = TEST_UNITS[testType] || ''
-                                    return (
-                                      <div key={testType}>
-                                        <div className="text-white/80 text-sm font-semibold mb-1">{label}</div>
-                                        <div className="space-y-1">
-                                          {athleteList.map((ath, idx) => {
-                                            const matches = matchSearch(ath.full_name)
-                                            const shouldDim = historySearch && !matches
-                                            return (
-                                              <div
-                                                key={`${testType}-${idx}-${ath.full_name}`}
-                                                style={{
-                                                  background: matches ? 'rgba(63,174,82,0.1)' : 'transparent',
-                                                  opacity: shouldDim ? 0.3 : 1,
-                                                  padding: '6px 8px',
-                                                  borderRadius: '8px',
-                                                  border: '1px solid rgba(255,255,255,0.04)',
-                                                }}
-                                              >
-                                                <div className="text-sm font-semibold text-white">{ath.full_name || 'Unknown'}</div>
-                                                <div className="text-xs text-white/60">
-                                                  {ath.sport || 'Sport'} {ath.position ? `· ${ath.position}` : ''}
-                                                </div>
-                                                {STRENGTH_LOAD_TESTS.includes(testType) ? (
-                                                  <div style={{ textAlign: 'right' }}>
-                                                    <div style={{ color: '#3fae52', fontSize: '13px', fontWeight: '700' }}>
-                                                      {Math.round(ath.value)} lbs
-                                                    </div>
-                                                    {ath.load_value && ath.reps && (
-                                                      <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px', marginTop: '2px' }}>
-                                                        {ath.load_value} × {ath.reps} reps
-                                                      </div>
-                                                    )}
-                                                    {ath.relative_strength && (
-                                                      <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px', marginTop: '1px' }}>
-                                                        {ath.relative_strength}× BW
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                ) : (
-                                                  <div className="text-xs text-pfa-green font-semibold">{ath.value}{unit}</div>
-                                                )}
-                                              </div>
-                                            )
-                                          })}
-                                        </div>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            )
-                          })}
-                      </div>
-                    </div>
-                  )}
+        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', textAlign: 'center', paddingTop: '40px' }}>No history yet.</div>
+      ) : (() => {
+        const grouped = {}
+        sessionHistory.forEach(item => {
+          const dateOnly = new Date(item.date_tested).toISOString().split('T')[0]
+          if (!grouped[dateOnly]) grouped[dateOnly] = []
+          grouped[dateOnly].push(item)
+        })
+        return Object.keys(grouped).sort((a,b) => new Date(b)-new Date(a)).map(date => {
+          const items = grouped[date]
+          const expanded = !!expandedDates[date]
+          return (
+            <div key={date} style={{ marginBottom: '8px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', overflow: 'hidden' }}>
+              <div onClick={() => setExpandedDates(prev => ({ ...prev, [date]: !prev[date] }))}
+                style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ fontWeight: '600', color: 'white', fontSize: '14px' }}>{new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>{items.length} results</div>
+                  <div style={{ color: '#3fae52', fontSize: '12px' }}>{expanded ? '▲' : '▼'}</div>
                 </div>
-              )
-            })
-          })()}
-        </div>
-      )}
+              </div>
+              {expanded && (
+                <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {items
+                    .filter(i => historyCategory === 'All' || (i.category || '').toLowerCase() === historyCategory.toLowerCase())
+                    .filter(i => !historySearch || i.profiles?.full_name?.toLowerCase().includes(historySearch.toLowerCase()))
+                    .map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <div>
+                          <div style={{ fontSize: '13px', color: 'white', fontWeight: '500' }}>{item.profiles?.full_name}</div>
+                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{TEST_LABELS[item.test_type] || item.test_type}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '14px', fontWeight: '700', color: '#3fae52' }}>{item.value}{item.unit || ''}</div>
+                          {item.load_value && item.reps && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{item.load_value}×{item.reps}</div>}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )
+        })
+      })()}
     </div>
   )
 
@@ -1011,10 +898,7 @@ const Session = () => {
 
   return (
     <DashboardLayout>
-      <>
-        {sessionId ? renderLive() : renderSetup()}
-        {renderHistory()}
-      </>
+      {sessionId ? renderLive() : renderSetup()}
     </DashboardLayout>
   )
 }
