@@ -860,7 +860,22 @@ const Admin = () => {
       .from('profiles')
       .select('*, pfa_teams(name)')
       .order('created_at', { ascending: false })
-    if (!error) setUsers(data || [])
+    if (!error) {
+      setUsers(data || [])
+
+      // preload teams for users (athletes) to show in table
+      const teamsByUser = {}
+      await Promise.all((data || []).map(async (u) => {
+        if (u.role !== 'athlete') return
+        try {
+          const teams = await getAthleteTeams(u.id)
+          teamsByUser[u.id] = teams || []
+        } catch (err) {
+          console.error('User teams preload error', err)
+        }
+      }))
+      setAthleteTeamsMap((prev) => ({ ...prev, ...teamsByUser }))
+    }
     setUsersLoading(false)
   }
 
@@ -915,6 +930,18 @@ const Admin = () => {
     try {
       const data = await getAllAthletes()
       setAthletes(data || [])
+
+      // preload team memberships for table display
+      const teamsByAthlete = {}
+      await Promise.all((data || []).map(async (ath) => {
+        try {
+          const teams = await getAthleteTeams(ath.id)
+          teamsByAthlete[ath.id] = teams || []
+        } catch (err) {
+          console.error('Athlete teams preload error', err)
+        }
+      }))
+      setAthleteTeamsMap(teamsByAthlete)
     } catch (err) {
       console.error('Athletes load error', err)
     }
@@ -1434,7 +1461,12 @@ const Admin = () => {
                   <td className="py-3 px-3">{u.email}</td>
                   <td className="py-3 px-3">{formatRole(u.role)}</td>
                   <td className="py-3 px-3">{u.sport || '-'}</td>
-                  <td className="py-3 px-3">{u.pfa_teams?.name || '-'}</td>
+                  <td className="py-3 px-3">
+                    {athleteTeamsMap[u.id]?.[0]?.pfa_teams?.name
+                      || teams.find(t => t.coach_id === u.id)?.name
+                      || u.pfa_teams?.name
+                      || '-'}
+                  </td>
                   <td className="py-3 px-3 text-white/60">{u.created_at?.slice(0, 10) || '-'}</td>
                   <td className="py-3 px-3 space-x-2">
                     <button
@@ -2105,7 +2137,9 @@ const Admin = () => {
                     <td className="py-3 px-3">{a.full_name}</td>
                     <td className="py-3 px-3">{a.sport}</td>
                     <td className="py-3 px-3">{a.position || '-'}</td>
-                    <td className="py-3 px-3">{a.pfa_teams?.name || '-'}</td>
+                    <td className="py-3 px-3">
+                      {athleteTeams[a.id]?.[0]?.pfa_teams?.name || a.pfa_teams?.name || '-'}
+                    </td>
                     <td className="py-3 px-3">{a.age_category || '-'}</td>
                     <td className="py-3 px-3">{a.competition_level || '-'}</td>
                     <td className="py-3 px-3">{a.date_of_birth?.slice(0, 10) || '-'}</td>
