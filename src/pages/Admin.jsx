@@ -236,6 +236,9 @@ const Admin = () => {
   const [editingTest, setEditingTest] = useState(null)
   const [newTest, setNewTest] = useState({ test_type: '', display_name: '', category: 'strength', unit: 'lbs', lower_is_better: false, is_load_based: false, is_active: true })
   const [testsSaved, setTestsSaved] = useState('')
+  const [editingWeightSet, setEditingWeightSet] = useState(null)
+  const [editingWeightSetTests, setEditingWeightSetTests] = useState({})
+  const [expandedWeightSet, setExpandedWeightSet] = useState(null)
 
   const filteredUsers = useMemo(() => {
     const term = userSearch.toLowerCase()
@@ -963,6 +966,106 @@ const Admin = () => {
       } finally {
         setWeightsLoading(false)
       }
+    }
+
+    const handleEditWeightSet = async (row) => {
+      const isDefault = row.is_default
+      const editState = {
+        id: row.id,
+        is_default: isDefault,
+        sport: row.sport,
+        age_category: row.age_category,
+        gender: row.gender,
+        speed: Math.round((row.speed_weight || 0.25) * 100),
+        strength: Math.round((row.strength_weight || 0.25) * 100),
+        power: Math.round((row.power_weight || 0.25) * 100),
+        agility: Math.round((row.agility_weight || 0.15) * 100),
+        endurance: Math.round((row.endurance_weight || 0.1) * 100),
+      }
+      setEditingWeightSet(editState)
+
+      const sport = isDefault ? 'default' : row.sport
+      const age_category = isDefault ? 'default' : row.age_category
+      const gender = isDefault ? 'all' : row.gender
+      const { data: testW } = await supabase
+        .from('pfa_test_weights')
+        .select('*')
+        .eq('sport', sport)
+        .eq('age_category', age_category)
+        .eq('gender', gender)
+        .eq('is_active', true)
+
+      const grouped = {}
+      for (const r of (testW || [])) {
+        if (!grouped[r.category]) grouped[r.category] = {}
+        grouped[r.category][r.test_type] = { weight: Math.round(r.weight * 100), id: r.id }
+      }
+      for (const cat of ['strength', 'power']) {
+        if (!grouped[cat]) grouped[cat] = {}
+        for (const testType of Object.keys(defaultTestWeights[cat] || {})) {
+          if (!grouped[cat][testType]) {
+            grouped[cat][testType] = { weight: 0, id: null }
+          }
+        }
+      }
+      setEditingWeightSetTests(grouped)
+    }
+
+    const handleSaveWeightSet = async () => {
+      if (!editingWeightSet) return
+      const isDefault = editingWeightSet.is_default
+      const sport = isDefault ? 'default' : editingWeightSet.sport
+      const age_category = isDefault ? 'default' : editingWeightSet.age_category
+      const gender = isDefault ? 'all' : editingWeightSet.gender
+
+      await supabase.from('pfa_score_weights').update({
+        speed_weight: editingWeightSet.speed / 100,
+        strength_weight: editingWeightSet.strength / 100,
+        power_weight: editingWeightSet.power / 100,
+        agility_weight: editingWeightSet.agility / 100,
+        endurance_weight: editingWeightSet.endurance / 100,
+        updated_at: new Date().toISOString()
+      }).eq('id', editingWeightSet.id)
+
+      for (const [category, tests] of Object.entries(editingWeightSetTests)) {
+        for (const [testType, data] of Object.entries(tests)) {
+          await supabase.from('pfa_test_weights').upsert({
+            category,
+            test_type: testType,
+            weight: data.weight / 100,
+            is_active: true,
+            sport,
+            age_category,
+            gender,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'category,test_type,sport,age_category' })
+        }
+      }
+
+      if (isDefault) {
+        setDefaultCatWeights({
+          speed: editingWeightSet.speed,
+          strength: editingWeightSet.strength,
+          power: editingWeightSet.power,
+          agility: editingWeightSet.agility,
+          endurance: editingWeightSet.endurance,
+        })
+        setDefaultTestWeights(editingWeightSetTests)
+      } else {
+        setCustomWeightSets((prev) => prev.map((r) => r.id === editingWeightSet.id ? {
+          ...r,
+          speed_weight: editingWeightSet.speed / 100,
+          strength_weight: editingWeightSet.strength / 100,
+          power_weight: editingWeightSet.power / 100,
+          agility_weight: editingWeightSet.agility / 100,
+          endurance_weight: editingWeightSet.endurance / 100,
+        } : r))
+      }
+
+      setEditingWeightSet(null)
+      setEditingWeightSetTests({})
+      setWeightsSaved('edited')
+      setTimeout(() => setWeightsSaved(''), 3000)
     }
     loadWeights()
   }, [activeSection])
@@ -2591,51 +2694,159 @@ const Admin = () => {
           {/* ACTIVE WEIGHTINGS TABLE */}
           <div style={{ marginBottom: '32px' }}>
             {sectionHeader('Active Weight Sets')}
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(63,174,82,0.2)' }}>
-                    {['Applies To', 'Speed', 'Strength', 'Power', 'Agility', 'Endurance', ''].map((h) => (
-                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontWeight: '600', letterSpacing: '0.08em', fontSize: '11px', textTransform: 'uppercase' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(63,174,82,0.05)' }}>
-                    <td style={{ padding: '10px', color: '#3fae52', fontWeight: '600' }}>Default (All Athletes)</td>
+            {weightsSaved === 'edited' && <div style={{ color: '#3fae52', fontSize: '13px', marginBottom: '12px' }}>✓ Weight set updated</div>}
+
+            {[{ ...{ id: 'default-display', is_default: true, sport: 'default', age_category: 'default', gender: 'all', speed_weight: defaultCatWeights.speed / 100, strength_weight: defaultCatWeights.strength / 100, power_weight: defaultCatWeights.power / 100, agility_weight: defaultCatWeights.agility / 100, endurance_weight: defaultCatWeights.endurance / 100 } }, ...customWeightSets].map((row) => {
+              const isDefault = row.is_default
+              const isExpanded = expandedWeightSet === row.id
+              const isEditing = editingWeightSet?.id === row.id || (isDefault && editingWeightSet?.is_default)
+              const editTotal = editingWeightSet ? ['speed', 'strength', 'power', 'agility', 'endurance'].reduce((s, k) => s + Number(editingWeightSet[k] || 0), 0) : 0
+
+              return (
+                <div key={row.id} style={{ border: `1px solid ${isDefault ? 'rgba(63,174,82,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
+                  
+                  {/* Header row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: isDefault ? 'rgba(63,174,82,0.06)' : 'rgba(255,255,255,0.02)', cursor: 'pointer' }}
+                    onClick={() => setExpandedWeightSet(isExpanded ? null : row.id)}>
+                    <div style={{ flex: 1, fontWeight: '600', fontSize: '13px', color: isDefault ? '#3fae52' : 'white' }}>
+                      {isDefault ? 'Default — All Athletes' : `${row.sport} · ${row.age_category} · ${row.gender}`}
+                    </div>
                     {['speed', 'strength', 'power', 'agility', 'endurance'].map((cat) => (
-                      <td key={cat} style={{ padding: '10px', color: 'rgba(255,255,255,0.7)' }}>{defaultCatWeights[cat]}%</td>
-                    ))}
-                    <td style={{ padding: '10px' }}></td>
-                  </tr>
-                  {customWeightSets.map((row) => (
-                    <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '10px', color: 'white' }}>
-                        {row.sport} · {row.age_category} · {row.gender}
-                      </td>
-                      {['speed', 'strength', 'power', 'agility', 'endurance'].map((cat) => (
-                        <td key={cat} style={{ padding: '10px', color: 'rgba(255,255,255,0.7)' }}>
+                      <div key={cat} style={{ textAlign: 'center', minWidth: '56px' }}>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{cat}</div>
+                        <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', fontWeight: '600' }}>
                           {Math.round((row[`${cat}_weight`] || 0) * 100)}%
-                        </td>
-                      ))}
-                      <td style={{ padding: '10px' }}>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => {
+                        const rowForEdit = isDefault
+                          ? { id: 'default-edit', is_default: true, sport: 'default', age_category: 'default', gender: 'all', speed_weight: defaultCatWeights.speed / 100, strength_weight: defaultCatWeights.strength / 100, power_weight: defaultCatWeights.power / 100, agility_weight: defaultCatWeights.agility / 100, endurance_weight: defaultCatWeights.endurance / 100 }
+                          : row
+                        handleEditWeightSet(rowForEdit)
+                        setExpandedWeightSet(row.id)
+                      }}
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'rgba(255,255,255,0.6)', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>
+                        Edit
+                      </button>
+                      {!isDefault && (
                         <button onClick={() => handleDeleteCustom(row.id)}
-                          style={{ background: 'rgba(224,92,42,0.15)', border: '1px solid rgba(224,92,42,0.3)', borderRadius: '4px', color: '#e05c2a', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
+                          style={{ background: 'rgba(224,92,42,0.12)', border: '1px solid rgba(224,92,42,0.25)', borderRadius: '4px', color: '#e05c2a', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>
                           Delete
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {customWeightSets.length === 0 && (
-                    <tr>
-                      <td colSpan="7" style={{ padding: '16px 10px', color: 'rgba(255,255,255,0.3)', fontSize: '12px', fontStyle: 'italic' }}>
-                        No custom weight sets configured.
-                      </td>
-                    </tr>
+                      )}
+                    </div>
+                    <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>{isExpanded ? '▲' : '▼'}</div>
+                  </div>
+
+                  {/* Expanded detail / edit */}
+                  {isExpanded && (
+                    <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' }}>
+                      {isEditing ? (
+                        <>
+                          {/* Edit mode — category weights */}
+                          <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Category Weights</div>
+                          <div style={{ fontSize: '12px', color: editTotal === 100 ? '#3fae52' : '#e05c2a', marginBottom: '10px', fontWeight: '600' }}>
+                            Total: {editTotal}% {editTotal !== 100 ? '— must equal 100%' : '✓'}
+                          </div>
+                          {['speed', 'strength', 'power', 'agility', 'endurance'].map((cat) => (
+                            <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                              <div style={{ width: '90px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{CATEGORY_LABELS[cat]}</div>
+                              <input type="number" min="0" max="100" value={editingWeightSet[cat]}
+                                onChange={(e) => setEditingWeightSet((prev) => ({ ...prev, [cat]: Number(e.target.value) }))}
+                                style={{ width: '56px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '6px', color: 'white', padding: '4px 8px', fontSize: '12px', textAlign: 'center' }} />
+                              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>%</span>
+                              <div style={{ flex: 1, height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px' }}>
+                                <div style={{ width: `${Math.min(editingWeightSet[cat], 100)}%`, height: '100%', background: '#3fae52', borderRadius: '2px' }} />
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Edit mode — test weights for multi-test categories */}
+                          {['strength', 'power'].map((category) => {
+                            const tests = editingWeightSetTests[category] || {}
+                            const testTotal = Object.values(tests).reduce((s, d) => s + Number(d.weight), 0)
+                            const unusedTests = (AVAILABLE_TESTS[category] || []).filter((t) => !tests[t])
+                            return (
+                              <div key={category} style={{ marginTop: '14px', padding: '12px', background: 'rgba(63,174,82,0.04)', border: '1px solid rgba(63,174,82,0.12)', borderRadius: '8px' }}>
+                                <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                                  {CATEGORY_LABELS[category]} — Test Weights
+                                </div>
+                                <div style={{ fontSize: '12px', color: testTotal === 100 ? '#3fae52' : '#f5a623', marginBottom: '8px' }}>
+                                  Total: {testTotal}% {testTotal !== 100 ? '— should equal 100%' : '✓'}
+                                </div>
+                                {Object.entries(tests).map(([testType, data]) => (
+                                  <div key={testType} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                    <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || testType}</div>
+                                    <input type="number" min="0" max="100" value={data.weight}
+                                      onChange={(e) => setEditingWeightSetTests((prev) => ({ ...prev, [category]: { ...prev[category], [testType]: { ...data, weight: Number(e.target.value) } } }))}
+                                      style={{ width: '54px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '6px', color: 'white', padding: '4px 8px', fontSize: '12px', textAlign: 'center' }} />
+                                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>%</span>
+                                    <button onClick={() => setEditingWeightSetTests((prev) => { const u = { ...prev[category] }; delete u[testType]; return { ...prev, [category]: u } })}
+                                      style={{ background: 'rgba(224,92,42,0.1)', border: '1px solid rgba(224,92,42,0.25)', borderRadius: '4px', color: '#e05c2a', padding: '2px 7px', fontSize: '11px', cursor: 'pointer' }}>
+                                      ✕
+                                    </button>
+                                  </div>
+                                ))}
+                                {unusedTests.length > 0 && (
+                                  <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>Add:</span>
+                                    {unusedTests.map((t) => (
+                                      <button key={t} onClick={() => setEditingWeightSetTests((prev) => ({ ...prev, [category]: { ...prev[category], [t]: { weight: 0, id: null } } }))}
+                                        style={{ background: 'rgba(63,174,82,0.08)', border: '1px solid rgba(63,174,82,0.25)', borderRadius: '4px', color: '#3fae52', padding: '2px 7px', fontSize: '11px', cursor: 'pointer' }}>
+                                        + {TEST_LABELS[t]}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+
+                          <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+                            <button onClick={handleSaveWeightSet} disabled={editTotal !== 100}
+                              style={{ background: editTotal === 100 ? 'rgba(63,174,82,0.2)' : 'rgba(255,255,255,0.05)', border: `1px solid ${editTotal === 100 ? 'rgba(63,174,82,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '7px', color: editTotal === 100 ? '#3fae52' : 'rgba(255,255,255,0.3)', padding: '8px 20px', fontSize: '13px', fontWeight: '600', cursor: editTotal === 100 ? 'pointer' : 'not-allowed' }}>
+                              Save Changes
+                            </button>
+                            <button onClick={() => { setEditingWeightSet(null); setEditingWeightSetTests({}) }}
+                              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', color: 'rgba(255,255,255,0.5)', padding: '8px 16px', fontSize: '13px', cursor: 'pointer' }}>
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        /* Read-only expanded view */
+                        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                          {['speed', 'strength', 'power', 'agility', 'endurance'].map((cat) => {
+                            const catPct = Math.round((row[`${cat}_weight`] || 0) * 100)
+                            const catTests = defaultTestWeights[cat] || {}
+                            const hasTests = ['strength', 'power'].includes(cat) && Object.keys(catTests).length > 0
+                            return (
+                              <div key={cat} style={{ minWidth: '120px' }}>
+                                <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>{CATEGORY_LABELS[cat]}</div>
+                                <div style={{ fontSize: '16px', color: 'white', fontWeight: '700', marginBottom: hasTests ? '6px' : '0' }}>{catPct}%</div>
+                                {hasTests && Object.entries(catTests).map(([testType, data]) => (
+                                  <div key={testType} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginBottom: '2px' }}>
+                                    {TEST_LABELS[testType] || testType}: {data.weight}%
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
                   )}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              )
+            })}
+
+            {customWeightSets.length === 0 && (
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', padding: '8px 0' }}>
+                No custom weight sets configured yet.
+              </div>
+            )}
           </div>
 
           {/* RECALCULATE */}
