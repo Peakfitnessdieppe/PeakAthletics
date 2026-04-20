@@ -207,6 +207,12 @@ const Admin = () => {
   const [athleteTeamsMap, setAthleteTeamsMap] = useState({})
   const [athleteTeamSelect, setAthleteTeamSelect] = useState({})
   const [athleteResultsMap, setAthleteResultsMap] = useState({})
+  const [editingAthleteId, setEditingAthleteId] = useState(null)
+  const [editingAthleteData, setEditingAthleteData] = useState({})
+  const [editingResultId, setEditingResultId] = useState(null)
+  const [editingResultData, setEditingResultData] = useState({})
+  const [athleteSaveStatus, setAthleteSaveStatus] = useState('')
+  const [showAllResults, setShowAllResults] = useState({})
 
   const [measurementSearch, setMeasurementSearch] = useState('')
   const [selectedMeasurementAthlete, setSelectedMeasurementAthlete] = useState(null)
@@ -343,6 +349,52 @@ const Admin = () => {
       loadRecentBodyMeasurements(selectedMeasurementAthlete.id)
     } catch (err) {
       setMeasurementMessage(err.message || 'Failed to save measurement')
+    }
+  }
+
+  const handleSaveAthlete = async (athleteId) => {
+    const d = editingAthleteData
+    const { error } = await supabase.from('profiles').update({
+      full_name: d.full_name,
+      email: d.email,
+      phone: d.phone,
+      sport: d.sport,
+      position: d.position,
+      gender: d.gender,
+      age_category: d.age_category,
+      competition_level: d.competition_level,
+      date_of_birth: d.date_of_birth,
+      parent_name: d.parent_name,
+      parent_email: d.parent_email,
+      parent_phone: d.parent_phone,
+      updated_at: new Date().toISOString()
+    }).eq('id', athleteId)
+    if (!error) {
+      setAthletes((prev) => prev.map((a) => a.id === athleteId ? { ...a, ...d } : a))
+      setEditingAthleteId(null)
+      setAthleteSaveStatus('saved')
+      setTimeout(() => setAthleteSaveStatus(''), 3000)
+    }
+  }
+
+  const handleSaveResult = async () => {
+    const { error } = await supabase.from('pfa_test_results').update({
+      value: parseFloat(editingResultData.value),
+      load_value: editingResultData.load_value ? parseFloat(editingResultData.load_value) : null,
+      reps: editingResultData.reps ? parseInt(editingResultData.reps) : null,
+      date_tested: editingResultData.date_tested,
+      unit: editingResultData.unit,
+      updated_at: new Date().toISOString()
+    }).eq('id', editingResultId)
+    if (!error) {
+      setAthleteResultsMap((prev) => ({
+        ...prev,
+        [editingResultData.athlete_id]: (prev[editingResultData.athlete_id] || []).map((r) =>
+          r.id === editingResultId ? { ...r, ...editingResultData } : r
+        )
+      }))
+      setEditingResultId(null)
+      setEditingResultData({})
     }
   }
 
@@ -1959,7 +2011,27 @@ const Admin = () => {
     </div>
   )
 
-  const renderAthletes = () => (
+  const renderAthletes = () => {
+    const athleteResults = athleteResultsMap
+    const athleteTeams = athleteTeamsMap
+    const selectedTeamForAthlete = athleteTeamSelect
+
+    const handleRemoveFromTeam = async (athleteId, teamId) => {
+      await removeAthleteFromTeam(teamId, athleteId)
+      const updated = await getAthleteTeams(athleteId)
+      setAthleteTeamsMap((prev) => ({ ...prev, [athleteId]: updated || [] }))
+    }
+
+    const handleAddToTeam = async (athleteId) => {
+      const teamId = selectedTeamForAthlete?.[athleteId]
+      if (!teamId) return
+      await addAthleteToTeam(athleteId, teamId)
+      const updated = await getAthleteTeams(athleteId)
+      setAthleteTeamsMap((prev) => ({ ...prev, [athleteId]: updated || [] }))
+      setAthleteTeamSelect((prev) => ({ ...prev, [athleteId]: '' }))
+    }
+
+    return (
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex gap-3">
@@ -2038,109 +2110,282 @@ const Admin = () => {
                     <td className="py-3 px-3">{a.competition_level || '-'}</td>
                     <td className="py-3 px-3">{a.date_of_birth?.slice(0, 10) || '-'}</td>
                   </tr>
-                  {expandedAthleteId === a.id && (
-                    <tr className="bg-white/5">
-                      <td colSpan={7} className="py-3 px-3 text-sm text-white/80">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div>Gender: {a.gender || '-'}</div>
-                          <div>Linked Family: {a.linked_family_id || '-'}</div>
-                          <div>Linked Athlete: {a.linked_athlete_id || '-'}</div>
-                          <div>Updated: {a.updated_at?.slice(0, 10) || '-'}</div>
-                          <div>Created: {a.created_at?.slice(0, 10) || '-'}</div>
-                          <div>Position: {a.position || '-'}</div>
-                        </div>
-                        <div className="mt-4 space-y-2">
-                          <div className="text-white font-semibold">Teams & Groups</div>
-                          <div className="flex flex-wrap gap-2">
-                            {(athleteTeamsMap[a.id] || []).map((t) => (
-                              <div
-                                key={t.id || t.team_id}
-                                className="flex items-center gap-2 bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2"
-                              >
-                                <div className="text-sm text-white/80">
-                                  {t.pfa_teams?.name || t.name}
-                                  {t.pfa_teams?.sport ? ` • ${t.pfa_teams.sport}` : ''}
-                                  {t.pfa_teams?.age_category ? ` • ${t.pfa_teams.age_category}` : ''}
+                  {expandedAthleteId === a.id && (() => {
+                    const results = athleteResults[a.id] || []
+                    const isEditingThis = editingAthleteId === a.id
+                    const isUnder18 = a.date_of_birth && ((new Date() - new Date(a.date_of_birth)) / (1000 * 60 * 60 * 24 * 365)) < 18
+
+                    const fieldStyle = {
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(63,174,82,0.25)',
+                      borderRadius: '6px',
+                      color: 'white',
+                      padding: '6px 10px',
+                      fontSize: '12px',
+                      width: '100%',
+                    }
+                    const selectStyle = { ...fieldStyle }
+                    const labelStyle = { fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.08em' }
+                    const fieldGroup = (label, content) => (
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={labelStyle}>{label}</div>
+                        {content}
+                      </div>
+                    )
+
+                    const grouped = results.reduce((acc, r) => {
+                      if (!acc[r.category]) acc[r.category] = []
+                      acc[r.category].push(r)
+                      return acc
+                    }, {})
+
+                    return (
+                      <tr className="bg-white/5">
+                        <td colSpan="7" style={{ padding: '0', background: 'rgba(0,0,0,0.3)' }}>
+                          <div style={{ padding: '20px 24px' }}>
+
+                            {/* HEADER ROW */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                              <div style={{ fontSize: '15px', fontWeight: '700', color: 'white' }}>{a.full_name}</div>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                {athleteSaveStatus === 'saved' && <span style={{ color: '#3fae52', fontSize: '12px' }}>✓ Saved</span>}
+                                {isEditingThis ? (
+                                  <>
+                                    <button onClick={() => handleSaveAthlete(a.id)}
+                                      style={{ background: 'rgba(63,174,82,0.2)', border: '1px solid rgba(63,174,82,0.4)', borderRadius: '6px', color: '#3fae52', padding: '6px 16px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                                      Save
+                                    </button>
+                                    <button onClick={() => setEditingAthleteId(null)}
+                                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: 'rgba(255,255,255,0.5)', padding: '6px 12px', fontSize: '12px', cursor: 'pointer' }}>
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button onClick={() => { setEditingAthleteId(a.id); setEditingAthleteData({ ...a }) }}
+                                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: 'rgba(255,255,255,0.7)', padding: '6px 16px', fontSize: '12px', cursor: 'pointer' }}>
+                                    Edit Athlete
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* ATHLETE INFO */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                              
+                              {/* Col 1 — Identity */}
+                              <div>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>Identity</div>
+                                {fieldGroup('Full Name', isEditingThis
+                                  ? <input style={fieldStyle} value={editingAthleteData.full_name || ''} onChange={e => setEditingAthleteData(p => ({ ...p, full_name: e.target.value }))} />
+                                  : <div style={{ fontSize: '13px', color: 'white' }}>{a.full_name}</div>
+                                )}
+                                {fieldGroup('Email', isEditingThis
+                                  ? <input style={fieldStyle} value={editingAthleteData.email || ''} onChange={e => setEditingAthleteData(p => ({ ...p, email: e.target.value }))} />
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.email || '—'}</div>
+                                )}
+                                {fieldGroup('Phone', isEditingThis
+                                  ? <input style={fieldStyle} value={editingAthleteData.phone || ''} onChange={e => setEditingAthleteData(p => ({ ...p, phone: e.target.value }))} />
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.phone || '—'}</div>
+                                )}
+                                {fieldGroup('Date of Birth', isEditingThis
+                                  ? <input type="date" style={fieldStyle} value={editingAthleteData.date_of_birth || ''} onChange={e => setEditingAthleteData(p => ({ ...p, date_of_birth: e.target.value }))} />
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.date_of_birth || '—'}</div>
+                                )}
+                                {fieldGroup('Gender', isEditingThis
+                                  ? <select style={selectStyle} value={editingAthleteData.gender || ''} onChange={e => setEditingAthleteData(p => ({ ...p, gender: e.target.value }))}>
+                                      <option value="">Select</option>
+                                      <option value="male">Male</option>
+                                      <option value="female">Female</option>
+                                    </select>
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.gender || '—'}</div>
+                                )}
+                              </div>
+
+                              {/* Col 2 — Sport Profile */}
+                              <div>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>Sport Profile</div>
+                                {fieldGroup('Sport', isEditingThis
+                                  ? <select style={selectStyle} value={editingAthleteData.sport || ''} onChange={e => setEditingAthleteData(p => ({ ...p, sport: e.target.value }))}>
+                                      <option value="">Select</option>
+                                      {SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.sport || '—'}</div>
+                                )}
+                                {fieldGroup('Position', isEditingThis
+                                  ? <input style={fieldStyle} value={editingAthleteData.position || ''} onChange={e => setEditingAthleteData(p => ({ ...p, position: e.target.value }))} />
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.position || '—'}</div>
+                                )}
+                                {fieldGroup('Age Category', isEditingThis
+                                  ? <select style={selectStyle} value={editingAthleteData.age_category || ''} onChange={e => setEditingAthleteData(p => ({ ...p, age_category: e.target.value }))}>
+                                      <option value="">Select</option>
+                                      {AGE_CATEGORIES.map(aCat => <option key={aCat} value={aCat}>{aCat}</option>)}
+                                    </select>
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.age_category || '—'}</div>
+                                )}
+                                {fieldGroup('Competition Level', isEditingThis
+                                  ? <select style={selectStyle} value={editingAthleteData.competition_level || ''} onChange={e => setEditingAthleteData(p => ({ ...p, competition_level: e.target.value }))}>
+                                      <option value="">Select</option>
+                                      <option value="AAA">AAA</option>
+                                      <option value="AA">AA</option>
+                                      <option value="A">A</option>
+                                      <option value="Recreational">Recreational</option>
+                                    </select>
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.competition_level || '—'}</div>
+                                )}
+                                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '16px' }}>
+                                  Created: {a.created_at ? new Date(a.created_at).toLocaleDateString() : '—'}<br />
+                                  Updated: {a.updated_at ? new Date(a.updated_at).toLocaleDateString() : '—'}
                                 </div>
-                                <button
-                                  className="text-red-400 text-xs"
-                                  onClick={async (e) => {
-                                    e.stopPropagation()
-                                    await removeAthleteFromTeam(a.id, t.team_id || t.id)
-                                    const updated = await getAthleteTeams(a.id)
-                                    setAthleteTeamsMap((prev) => ({ ...prev, [a.id]: updated || [] }))
-                                  }}
-                                >
-                                  Remove
+                              </div>
+
+                              {/* Col 3 — Parent/Guardian (shown if under 18 or editing) */}
+                              <div>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>
+                                  Parent / Guardian
+                                  {!isUnder18 && !isEditingThis && <span style={{ color: 'rgba(255,255,255,0.25)', fontWeight: '400', marginLeft: '6px' }}>(18+)</span>}
+                                </div>
+                                {fieldGroup('Parent Name', isEditingThis
+                                  ? <input style={fieldStyle} value={editingAthleteData.parent_name || ''} onChange={e => setEditingAthleteData(p => ({ ...p, parent_name: e.target.value }))} />
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.parent_name || '—'}</div>
+                                )}
+                                {fieldGroup('Parent Email', isEditingThis
+                                  ? <input style={fieldStyle} value={editingAthleteData.parent_email || ''} onChange={e => setEditingAthleteData(p => ({ ...p, parent_email: e.target.value }))} />
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.parent_email || '—'}</div>
+                                )}
+                                {fieldGroup('Parent Phone', isEditingThis
+                                  ? <input style={fieldStyle} value={editingAthleteData.parent_phone || ''} onChange={e => setEditingAthleteData(p => ({ ...p, parent_phone: e.target.value }))} />
+                                  : <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{a.parent_phone || '—'}</div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* TEAMS */}
+                            <div style={{ marginBottom: '24px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                              <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Teams & Groups</div>
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                                {(athleteTeams[a.id] || []).map(team => (
+                                  <div key={team.team_id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: '#3fae52' }}>
+                                    {team.team_name || team.team_id}
+                                    <button onClick={() => handleRemoveFromTeam(a.id, team.team_id)}
+                                      style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '0', fontSize: '12px', lineHeight: 1 }}>✕</button>
+                                  </div>
+                                ))}
+                                {(athleteTeams[a.id] || []).length === 0 && (
+                                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>No teams assigned</div>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <select style={{ background: '#f5f5f5', border: '1px solid rgba(63,174,82,0.25)', borderRadius: '6px', color: '#0a0f0a', padding: '6px 10px', fontSize: '12px' }}
+                                  value={selectedTeamForAthlete?.[a.id] || ''}
+                                  onChange={e => setAthleteTeamSelect(prev => ({ ...prev, [a.id]: e.target.value }))}>
+                                  <option value="">Add to team...</option>
+                                  {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                </select>
+                                <button onClick={() => handleAddToTeam(a.id)}
+                                  style={{ background: 'rgba(63,174,82,0.15)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '6px', color: '#3fae52', padding: '6px 14px', fontSize: '12px', cursor: 'pointer' }}>
+                                  Add
                                 </button>
                               </div>
-                            ))}
+                            </div>
+
+                            {/* TEST RESULTS */}
+                            <div style={{ paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                              <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '14px' }}>Test Results</div>
+                              {Object.keys(grouped).length === 0 && (
+                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>No test results recorded.</div>
+                              )}
+                              {Object.entries(grouped).map(([category, catResults]) => {
+                                const sortedResults = [...catResults].sort((a, b) => new Date(b.date_tested) - new Date(a.date_tested))
+                                const showAll = showAllResults[`${a.id}-${category}`]
+                                const displayResults = showAll ? sortedResults : sortedResults.slice(0, 5)
+
+                                return (
+                                  <div key={category} style={{ marginBottom: '16px' }}>
+                                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>{category}</div>
+                                    <div style={{ border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden' }}>
+                                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                        <thead>
+                                          <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                                            {['Date', 'Test', 'Value', 'Load', 'Reps', 'Unit', ''].map(h => (
+                                              <th key={h} style={{ padding: '7px 10px', textAlign: 'left', color: 'rgba(255,255,255,0.35)', fontWeight: '600', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
+                                            ))}
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {displayResults.map(result => (
+                                            <tr key={result.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                              {editingResultId === result.id ? (
+                                                <>
+                                                  <td style={{ padding: '6px 10px' }}>
+                                                    <input type="date" value={editingResultData.date_tested?.slice(0,10) || ''} onChange={e => setEditingResultData(p => ({ ...p, date_tested: e.target.value }))}
+                                                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: 'white', padding: '3px 6px', fontSize: '11px', width: '110px' }} />
+                                                  </td>
+                                                  <td style={{ padding: '6px 10px', color: 'rgba(255,255,255,0.5)' }}>{result.test_type}</td>
+                                                  <td style={{ padding: '6px 10px' }}>
+                                                    <input type="number" step="0.01" value={editingResultData.value || ''} onChange={e => setEditingResultData(p => ({ ...p, value: e.target.value }))}
+                                                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: 'white', padding: '3px 6px', fontSize: '11px', width: '70px' }} />
+                                                  </td>
+                                                  <td style={{ padding: '6px 10px' }}>
+                                                    <input type="number" step="0.5" value={editingResultData.load_value || ''} onChange={e => setEditingResultData(p => ({ ...p, load_value: e.target.value }))}
+                                                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: 'white', padding: '3px 6px', fontSize: '11px', width: '70px' }} />
+                                                  </td>
+                                                  <td style={{ padding: '6px 10px' }}>
+                                                    <input type="number" value={editingResultData.reps || ''} onChange={e => setEditingResultData(p => ({ ...p, reps: e.target.value }))}
+                                                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: 'white', padding: '3px 6px', fontSize: '11px', width: '50px' }} />
+                                                  </td>
+                                                  <td style={{ padding: '6px 10px' }}>
+                                                    <select value={editingResultData.unit || ''} onChange={e => setEditingResultData(p => ({ ...p, unit: e.target.value }))}
+                                                      style={{ background: '#f5f5f5', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: '#0a0f0a', padding: '3px 6px', fontSize: '11px', width: '80px' }}>
+                                                      <option value="">Unit</option>
+                                                      {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                    </select>
+                                                  </td>
+                                                  <td style={{ padding: '6px 10px' }}>
+                                                    <div style={{ display: 'flex', gap: '5px' }}>
+                                                      <button onClick={handleSaveResult}
+                                                        style={{ background: 'rgba(63,174,82,0.2)', border: '1px solid rgba(63,174,82,0.4)', borderRadius: '4px', color: '#3fae52', padding: '3px 9px', fontSize: '11px', cursor: 'pointer' }}>Save</button>
+                                                      <button onClick={() => { setEditingResultId(null); setEditingResultData({}) }}
+                                                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'rgba(255,255,255,0.4)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
+                                                    </div>
+                                                  </td>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <td style={{ padding: '7px 10px', color: 'rgba(255,255,255,0.5)' }}>{result.date_tested ? new Date(result.date_tested).toLocaleDateString() : '—'}</td>
+                                                  <td style={{ padding: '7px 10px', color: 'rgba(255,255,255,0.8)' }}>{result.test_type?.replace(/_/g, ' ')}</td>
+                                                  <td style={{ padding: '7px 10px', color: 'white', fontWeight: '600' }}>{result.value ?? '—'}</td>
+                                                  <td style={{ padding: '7px 10px', color: 'rgba(255,255,255,0.6)' }}>{result.load_value ?? '—'}</td>
+                                                  <td style={{ padding: '7px 10px', color: 'rgba(255,255,255,0.6)' }}>{result.reps ?? '—'}</td>
+                                                  <td style={{ padding: '7px 10px', color: 'rgba(255,255,255,0.4)' }}>{result.unit || '—'}</td>
+                                                  <td style={{ padding: '7px 10px' }}>
+                                                    <button onClick={() => { setEditingResultId(result.id); setEditingResultData({ ...result, athlete_id: a.id }) }}
+                                                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '4px', color: 'rgba(255,255,255,0.5)', padding: '3px 9px', fontSize: '11px', cursor: 'pointer' }}>
+                                                      Edit
+                                                    </button>
+                                                  </td>
+                                                </>
+                                              )}
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                    {sortedResults.length > 5 && (
+                                      <button onClick={() => setShowAllResults(prev => ({ ...prev, [`${a.id}-${category}`]: !showAll }))}
+                                        style={{ marginTop: '6px', background: 'none', border: 'none', color: '#3fae52', fontSize: '11px', cursor: 'pointer', padding: '0' }}>
+                                        {showAll ? '▲ Show less' : `▼ Show all ${sortedResults.length} results`}
+                                      </button>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+
                           </div>
-                          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                            <select
-                              value={athleteTeamSelect[a.id] || ''}
-                              onChange={(e) =>
-                                setAthleteTeamSelect((prev) => ({ ...prev, [a.id]: e.target.value }))
-                              }
-                              className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
-                            >
-                              <option value="">Select team/group</option>
-                              {teams.map((t) => (
-                                <option key={t.id} value={t.id}>
-                                  {t.name}
-                                  {t.sport ? ` • ${t.sport}` : ''}
-                                  {t.age_category ? ` • ${t.age_category}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              className="px-3 py-2 rounded-lg bg-pfa-green text-black text-sm font-semibold"
-                              onClick={async (e) => {
-                                e.stopPropagation()
-                                const teamId = athleteTeamSelect[a.id]
-                                if (!teamId) return
-                                await addAthleteToTeam(a.id, teamId)
-                                const updated = await getAthleteTeams(a.id)
-                                setAthleteTeamsMap((prev) => ({ ...prev, [a.id]: updated || [] }))
-                                setAthleteTeamSelect((prev) => ({ ...prev, [a.id]: '' }))
-                              }}
-                            >
-                              Add to Team/Group
-                            </button>
-                          </div>
-                          <div className="mt-6 space-y-2">
-                            <div className="text-white font-semibold">Test Results</div>
-                            {(() => {
-                              const results = athleteResultsMap[a.id]
-                              const grouped = Array.isArray(results) ? groupResultsByCategory(results) : {}
-                              return Object.keys(grouped).length === 0 ? (
-                                <div className="text-white/60 text-sm">No test results yet.</div>
-                              ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                  {Object.entries(grouped)
-                                    .sort(([aCat], [bCat]) => aCat.localeCompare(bCat))
-                                    .map(([cat, rows]) => (
-                                      <div key={cat} className="bg-[#0a0f0a] border border-pfa-border rounded-lg p-3 space-y-2">
-                                        <div className="text-xs text-pfa-green font-semibold tracking-[0.1em]">{cat}</div>
-                                        {rows.slice(0, 6).map((r) => (
-                                          <div key={r.id} className="flex items-center justify-between text-sm text-white/80">
-                                            <span className="capitalize">{r.test_type.replaceAll('_', ' ')}</span>
-                                            <span className="font-semibold text-white">{`${r.value}${r.unit || ''}`}</span>
-                                          </div>
-                                        ))}
-                                        {rows.length > 6 && (
-                                          <div className="text-xs text-white/50">+{rows.length - 6} more</div>
-                                        )}
-                                      </div>
-                                    ))}
-                                </div>
-                              )
-                            })()}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
+                        </td>
+                      </tr>
+                    )
+                  })()}
                 </React.Fragment>
               ))
             )}
@@ -2149,6 +2394,7 @@ const Admin = () => {
       </div>
     </div>
   )
+  }
 
   const renderTests = () => {
     const inputStyle = {
