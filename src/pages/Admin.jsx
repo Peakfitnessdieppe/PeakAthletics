@@ -239,6 +239,7 @@ const Admin = () => {
   const [editingWeightSet, setEditingWeightSet] = useState(null)
   const [editingWeightSetTests, setEditingWeightSetTests] = useState({})
   const [expandedWeightSet, setExpandedWeightSet] = useState(null)
+  const [weightableTests, setWeightableTests] = useState({})
 
   const filteredUsers = useMemo(() => {
     const term = userSearch.toLowerCase()
@@ -961,6 +962,21 @@ const Admin = () => {
           }
           setDefaultTestWeights(grouped)
         }
+
+        const { data: allTests } = await supabase
+          .from('pfa_tests')
+          .select('test_type, category, display_name')
+          .eq('is_active', true)
+          .order('display_name')
+
+        if (allTests) {
+          const groupedTests = {}
+          for (const t of allTests) {
+            if (!groupedTests[t.category]) groupedTests[t.category] = []
+            groupedTests[t.category].push({ test_type: t.test_type, display_name: t.display_name })
+          }
+          setWeightableTests(groupedTests)
+        }
       } catch (err) {
         console.error('Error loading weights:', err)
       } finally {
@@ -968,105 +984,6 @@ const Admin = () => {
       }
     }
 
-    const handleEditWeightSet = async (row) => {
-      const isDefault = row.is_default
-      const editState = {
-        id: row.id,
-        is_default: isDefault,
-        sport: row.sport,
-        age_category: row.age_category,
-        gender: row.gender,
-        speed: Math.round((row.speed_weight || 0.25) * 100),
-        strength: Math.round((row.strength_weight || 0.25) * 100),
-        power: Math.round((row.power_weight || 0.25) * 100),
-        agility: Math.round((row.agility_weight || 0.15) * 100),
-        endurance: Math.round((row.endurance_weight || 0.1) * 100),
-      }
-      setEditingWeightSet(editState)
-
-      const sport = isDefault ? 'default' : row.sport
-      const age_category = isDefault ? 'default' : row.age_category
-      const gender = isDefault ? 'all' : row.gender
-      const { data: testW } = await supabase
-        .from('pfa_test_weights')
-        .select('*')
-        .eq('sport', sport)
-        .eq('age_category', age_category)
-        .eq('gender', gender)
-        .eq('is_active', true)
-
-      const grouped = {}
-      for (const r of (testW || [])) {
-        if (!grouped[r.category]) grouped[r.category] = {}
-        grouped[r.category][r.test_type] = { weight: Math.round(r.weight * 100), id: r.id }
-      }
-      for (const cat of ['strength', 'power']) {
-        if (!grouped[cat]) grouped[cat] = {}
-        for (const testType of Object.keys(defaultTestWeights[cat] || {})) {
-          if (!grouped[cat][testType]) {
-            grouped[cat][testType] = { weight: 0, id: null }
-          }
-        }
-      }
-      setEditingWeightSetTests(grouped)
-    }
-
-    const handleSaveWeightSet = async () => {
-      if (!editingWeightSet) return
-      const isDefault = editingWeightSet.is_default
-      const sport = isDefault ? 'default' : editingWeightSet.sport
-      const age_category = isDefault ? 'default' : editingWeightSet.age_category
-      const gender = isDefault ? 'all' : editingWeightSet.gender
-
-      await supabase.from('pfa_score_weights').update({
-        speed_weight: editingWeightSet.speed / 100,
-        strength_weight: editingWeightSet.strength / 100,
-        power_weight: editingWeightSet.power / 100,
-        agility_weight: editingWeightSet.agility / 100,
-        endurance_weight: editingWeightSet.endurance / 100,
-        updated_at: new Date().toISOString()
-      }).eq('id', editingWeightSet.id)
-
-      for (const [category, tests] of Object.entries(editingWeightSetTests)) {
-        for (const [testType, data] of Object.entries(tests)) {
-          await supabase.from('pfa_test_weights').upsert({
-            category,
-            test_type: testType,
-            weight: data.weight / 100,
-            is_active: true,
-            sport,
-            age_category,
-            gender,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'category,test_type,sport,age_category' })
-        }
-      }
-
-      if (isDefault) {
-        setDefaultCatWeights({
-          speed: editingWeightSet.speed,
-          strength: editingWeightSet.strength,
-          power: editingWeightSet.power,
-          agility: editingWeightSet.agility,
-          endurance: editingWeightSet.endurance,
-        })
-        setDefaultTestWeights(editingWeightSetTests)
-      } else {
-        setCustomWeightSets((prev) => prev.map((r) => r.id === editingWeightSet.id ? {
-          ...r,
-          speed_weight: editingWeightSet.speed / 100,
-          strength_weight: editingWeightSet.strength / 100,
-          power_weight: editingWeightSet.power / 100,
-          agility_weight: editingWeightSet.agility / 100,
-          endurance_weight: editingWeightSet.endurance / 100,
-        } : r))
-      }
-
-      setEditingWeightSet(null)
-      setEditingWeightSetTests({})
-      setWeightsSaved('edited')
-      setTimeout(() => setWeightsSaved(''), 3000)
-    }
     loadWeights()
   }, [activeSection])
 
@@ -2531,6 +2448,106 @@ const Admin = () => {
       } catch (err) { console.error('Add custom error:', err) }
     }
 
+    const handleEditWeightSet = async (row) => {
+      const isDefault = row.is_default
+      const editState = {
+        id: row.id,
+        is_default: isDefault,
+        sport: row.sport,
+        age_category: row.age_category,
+        gender: row.gender,
+        speed: Math.round((row.speed_weight || 0.25) * 100),
+        strength: Math.round((row.strength_weight || 0.25) * 100),
+        power: Math.round((row.power_weight || 0.25) * 100),
+        agility: Math.round((row.agility_weight || 0.15) * 100),
+        endurance: Math.round((row.endurance_weight || 0.1) * 100),
+      }
+      setEditingWeightSet(editState)
+
+      const sport = isDefault ? 'default' : row.sport
+      const age_category = isDefault ? 'default' : row.age_category
+      const gender = isDefault ? 'all' : row.gender
+      const { data: testW } = await supabase
+        .from('pfa_test_weights')
+        .select('*')
+        .eq('sport', sport)
+        .eq('age_category', age_category)
+        .eq('gender', gender)
+        .eq('is_active', true)
+
+      const grouped = {}
+      for (const r of (testW || [])) {
+        if (!grouped[r.category]) grouped[r.category] = {}
+        grouped[r.category][r.test_type] = { weight: Math.round(r.weight * 100), id: r.id }
+      }
+      for (const cat of ['strength', 'power']) {
+        if (!grouped[cat]) grouped[cat] = {}
+        for (const testType of Object.keys(defaultTestWeights[cat] || {})) {
+          if (!grouped[cat][testType]) {
+            grouped[cat][testType] = { weight: 0, id: null }
+          }
+        }
+      }
+      setEditingWeightSetTests(grouped)
+    }
+
+    const handleSaveWeightSet = async () => {
+      if (!editingWeightSet) return
+      const isDefault = editingWeightSet.is_default
+      const sport = isDefault ? 'default' : editingWeightSet.sport
+      const age_category = isDefault ? 'default' : editingWeightSet.age_category
+      const gender = isDefault ? 'all' : editingWeightSet.gender
+
+      await supabase.from('pfa_score_weights').update({
+        speed_weight: editingWeightSet.speed / 100,
+        strength_weight: editingWeightSet.strength / 100,
+        power_weight: editingWeightSet.power / 100,
+        agility_weight: editingWeightSet.agility / 100,
+        endurance_weight: editingWeightSet.endurance / 100,
+        updated_at: new Date().toISOString()
+      }).eq('id', editingWeightSet.id)
+
+      for (const [category, tests] of Object.entries(editingWeightSetTests)) {
+        for (const [testType, data] of Object.entries(tests)) {
+          await supabase.from('pfa_test_weights').upsert({
+            category,
+            test_type: testType,
+            weight: data.weight / 100,
+            is_active: true,
+            sport,
+            age_category,
+            gender,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'category,test_type,sport,age_category' })
+        }
+      }
+
+      if (isDefault) {
+        setDefaultCatWeights({
+          speed: editingWeightSet.speed,
+          strength: editingWeightSet.strength,
+          power: editingWeightSet.power,
+          agility: editingWeightSet.agility,
+          endurance: editingWeightSet.endurance,
+        })
+        setDefaultTestWeights(editingWeightSetTests)
+      } else {
+        setCustomWeightSets((prev) => prev.map((r) => r.id === editingWeightSet.id ? {
+          ...r,
+          speed_weight: editingWeightSet.speed / 100,
+          strength_weight: editingWeightSet.strength / 100,
+          power_weight: editingWeightSet.power / 100,
+          agility_weight: editingWeightSet.agility / 100,
+          endurance_weight: editingWeightSet.endurance / 100,
+        } : r))
+      }
+
+      setEditingWeightSet(null)
+      setEditingWeightSetTests({})
+      setWeightsSaved('edited')
+      setTimeout(() => setWeightsSaved(''), 3000)
+    }
+
     const handleDeleteCustom = async (id) => {
       await supabase.from('pfa_score_weights').delete().eq('id', id)
       setCustomWeightSets((prev) => prev.filter((r) => r.id !== id))
@@ -2609,7 +2626,7 @@ const Admin = () => {
               const tests = defaultTestWeights[category] || {}
               const activeTests = Object.entries(tests).filter(([, d]) => d.is_active)
               const testTotal = activeTests.reduce((s, [, d]) => s + Number(d.weight), 0)
-              const unusedTests = (AVAILABLE_TESTS[category] || []).filter((t) => !tests[t])
+              const unusedTests = (weightableTests[category] || []).filter((t) => !tests[t.test_type])
               return (
                 <div key={category} style={{ marginTop: '16px', padding: '14px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
                   <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
@@ -2620,7 +2637,7 @@ const Admin = () => {
                   </div>
                   {Object.entries(tests).map(([testType, data]) => (
                     <div key={testType} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                      <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || testType}</div>
+                      <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || (weightableTests[category] || []).find((t) => t.test_type === testType)?.display_name || testType}</div>
                       <input type="number" min="0" max="100" value={data.weight}
                         onChange={(e) => setDefaultTestWeights((prev) => ({ ...prev, [category]: { ...prev[category], [testType]: { ...data, weight: Number(e.target.value) } } }))}
                         style={inputStyle} />
@@ -2635,9 +2652,9 @@ const Admin = () => {
                     <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Add:</span>
                       {unusedTests.map((t) => (
-                        <button key={t} onClick={() => setDefaultTestWeights((prev) => ({ ...prev, [category]: { ...prev[category], [t]: { weight: 0, is_active: true, id: null } } }))}
+                        <button key={t.test_type} onClick={() => setDefaultTestWeights((prev) => ({ ...prev, [category]: { ...prev[category], [t.test_type]: { weight: 0, is_active: true, id: null } } }))}
                           style={{ background: 'rgba(63,174,82,0.1)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: '#3fae52', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
-                          + {TEST_LABELS[t]}
+                          + {t.display_name}
                         </button>
                       ))}
                     </div>
@@ -2767,7 +2784,7 @@ const Admin = () => {
                           {['strength', 'power'].map((category) => {
                             const tests = editingWeightSetTests[category] || {}
                             const testTotal = Object.values(tests).reduce((s, d) => s + Number(d.weight), 0)
-                            const unusedTests = (AVAILABLE_TESTS[category] || []).filter((t) => !tests[t])
+                            const unusedTests = (weightableTests[category] || []).filter((t) => !tests[t.test_type])
                             return (
                               <div key={category} style={{ marginTop: '14px', padding: '12px', background: 'rgba(63,174,82,0.04)', border: '1px solid rgba(63,174,82,0.12)', borderRadius: '8px' }}>
                                 <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
@@ -2778,7 +2795,7 @@ const Admin = () => {
                                 </div>
                                 {Object.entries(tests).map(([testType, data]) => (
                                   <div key={testType} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                    <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || testType}</div>
+                                    <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || (weightableTests[category] || []).find((t) => t.test_type === testType)?.display_name || testType}</div>
                                     <input type="number" min="0" max="100" value={data.weight}
                                       onChange={(e) => setEditingWeightSetTests((prev) => ({ ...prev, [category]: { ...prev[category], [testType]: { ...data, weight: Number(e.target.value) } } }))}
                                       style={{ width: '54px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '6px', color: 'white', padding: '4px 8px', fontSize: '12px', textAlign: 'center' }} />
@@ -2793,9 +2810,12 @@ const Admin = () => {
                                   <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                                     <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>Add:</span>
                                     {unusedTests.map((t) => (
-                                      <button key={t} onClick={() => setEditingWeightSetTests((prev) => ({ ...prev, [category]: { ...prev[category], [t]: { weight: 0, id: null } } }))}
+                                      <button key={t.test_type} onClick={() => setEditingWeightSetTests((prev) => ({
+                                        ...prev,
+                                        [category]: { ...prev[category], [t.test_type]: { weight: 0, id: null } }
+                                      }))}
                                         style={{ background: 'rgba(63,174,82,0.08)', border: '1px solid rgba(63,174,82,0.25)', borderRadius: '4px', color: '#3fae52', padding: '2px 7px', fontSize: '11px', cursor: 'pointer' }}>
-                                        + {TEST_LABELS[t]}
+                                        + {t.display_name}
                                       </button>
                                     ))}
                                   </div>
@@ -2828,7 +2848,7 @@ const Admin = () => {
                                 <div style={{ fontSize: '16px', color: 'white', fontWeight: '700', marginBottom: hasTests ? '6px' : '0' }}>{catPct}%</div>
                                 {hasTests && Object.entries(catTests).map(([testType, data]) => (
                                   <div key={testType} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginBottom: '2px' }}>
-                                    {TEST_LABELS[testType] || testType}: {data.weight}%
+                                    {TEST_LABELS[testType] || (weightableTests[category] || []).find((t) => t.test_type === testType)?.display_name || testType}: {data.weight}%
                                   </div>
                                 ))}
                               </div>
