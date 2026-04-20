@@ -12,7 +12,6 @@ import {
 } from '../services/athletes'
 import { getAllTeams, createTeam, updateTeam, getTeamRoster } from '../services/teams'
 import { createUser as createAdminUser, deleteUser as deleteAdminUser, updateUser as updateAdminUser } from '../services/adminUsers'
-import { SPORTS } from '../constants/sports'
 import { formatRole } from '../utils/formatRole'
 
 const sectionList = ['Dashboard', 'Users', 'PFA Staff', 'Teams', 'Coaches', 'Athletes', 'Settings']
@@ -32,6 +31,23 @@ const SECTION_LABELS = {
   measurements: 'Measurements',
   dashboard: 'Dashboard',
 }
+
+const SPORTS = ['Football', 'Hockey', 'Martial Arts', 'Ringette', 'Soccer', 'Track & Field']
+const AGE_CATEGORIES = ['Junior', 'Martial Arts', 'Senior', 'Track & Field', 'U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19']
+const GENDERS = ['male', 'female']
+const CATEGORY_LABELS = { speed: 'Speed', strength: 'Strength', power: 'Power', agility: 'Agility', endurance: 'Endurance' }
+const TEST_LABELS = {
+  squat: 'Squat', bench_press: 'Bench Press', trap_bar_deadlift: 'Trap Bar Deadlift',
+  pull_ups: 'Pull Ups', push_ups: 'Push Ups', vertical_jump: 'Vertical Jump',
+  broad_jump: 'Broad Jump', mb_chest_pass: 'MB Chest Pass', '10m_sprint': '10m Sprint',
+  pro_agility_shuttle: 'Pro Agility Shuttle', beep_test: 'Beep Test',
+}
+const AVAILABLE_TESTS = {
+  strength: ['squat', 'bench_press', 'trap_bar_deadlift', 'pull_ups', 'push_ups'],
+  power: ['vertical_jump', 'broad_jump', 'mb_chest_pass'],
+}
+const CATEGORIES = ['speed', 'strength', 'power', 'agility', 'endurance']
+const UNITS = ['lbs', 'kg', 'reps', 'sec', 'cm', 'm', 'level']
 
 const CARD_MODAL_LOWER_IS_BETTER = ['10m_sprint', '30m_sprint', 'pro_agility_shuttle']
 const CARD_MODAL_TEST_LABELS = {
@@ -208,19 +224,18 @@ const Admin = () => {
   const [passwordChange, setPasswordChange] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
 
-  const [weightOverrides, setWeightOverrides] = useState([])
-  const [weightForm, setWeightForm] = useState({
-    sport: '',
-    age_category: '',
-    speed_weight: 25,
-    power_weight: 25,
-    strength_weight: 25,
-    agility_weight: 15,
-    endurance_weight: 10,
-  })
-  const [weightFormError, setWeightFormError] = useState('')
-  const [weightFormSuccess, setWeightFormSuccess] = useState('')
   const [recalcStatus, setRecalcStatus] = useState('')
+  const [defaultCatWeights, setDefaultCatWeights] = useState({ speed: 25, strength: 25, power: 25, agility: 15, endurance: 10 })
+  const [defaultTestWeights, setDefaultTestWeights] = useState({})
+  const [customWeightSets, setCustomWeightSets] = useState([])
+  const [newCustom, setNewCustom] = useState({ sport: '', age_category: '', gender: '', speed: 25, strength: 25, power: 25, agility: 15, endurance: 10 })
+  const [weightsLoading, setWeightsLoading] = useState(false)
+  const [weightsSaved, setWeightsSaved] = useState('')
+  const [tests, setTests] = useState([])
+  const [testsLoading, setTestsLoading] = useState(false)
+  const [editingTest, setEditingTest] = useState(null)
+  const [newTest, setNewTest] = useState({ test_type: '', display_name: '', category: 'strength', unit: 'lbs', lower_is_better: false, is_load_based: false, is_active: true })
+  const [testsSaved, setTestsSaved] = useState('')
 
   const filteredUsers = useMemo(() => {
     const term = userSearch.toLowerCase()
@@ -912,13 +927,55 @@ const Admin = () => {
   }, [activeSection])
 
   useEffect(() => {
-    if (activeSection === 'scoreWeights') {
-      supabase
-        .from('pfa_score_weights')
-        .select('*')
-        .order('sport', { ascending: true })
-        .then(({ data }) => setWeightOverrides(data || []))
+    if (activeSection !== 'scoreWeights') return
+    const loadWeights = async () => {
+      setWeightsLoading(true)
+      try {
+        const { data: allCatW } = await supabase.from('pfa_score_weights').select('*').order('created_at', { ascending: true })
+        const defaultRow = allCatW?.find((r) => r.is_default)
+        if (defaultRow) {
+          setDefaultCatWeights({
+            speed: Math.round((defaultRow.speed_weight || 0.25) * 100),
+            strength: Math.round((defaultRow.strength_weight || 0.25) * 100),
+            power: Math.round((defaultRow.power_weight || 0.25) * 100),
+            agility: Math.round((defaultRow.agility_weight || 0.15) * 100),
+            endurance: Math.round((defaultRow.endurance_weight || 0.1) * 100),
+          })
+        }
+        setCustomWeightSets(allCatW?.filter((r) => !r.is_default) || [])
+
+        const { data: testW } = await supabase
+          .from('pfa_test_weights')
+          .select('*')
+          .eq('sport', 'default')
+          .eq('age_category', 'default')
+          .eq('is_active', true)
+        if (testW) {
+          const grouped = {}
+          for (const row of testW) {
+            if (!grouped[row.category]) grouped[row.category] = {}
+            grouped[row.category][row.test_type] = { weight: Math.round(row.weight * 100), is_active: row.is_active, id: row.id }
+          }
+          setDefaultTestWeights(grouped)
+        }
+      } catch (err) {
+        console.error('Error loading weights:', err)
+      } finally {
+        setWeightsLoading(false)
+      }
     }
+    loadWeights()
+  }, [activeSection])
+
+  useEffect(() => {
+    if (activeSection !== 'tests') return
+    const loadTests = async () => {
+      setTestsLoading(true)
+      const { data } = await supabase.from('pfa_tests').select('*').order('category').order('display_name')
+      setTests(data || [])
+      setTestsLoading(false)
+    }
+    loadTests()
   }, [activeSection])
 
   const openCreateUser = () => {
@@ -2073,74 +2130,307 @@ const Admin = () => {
     </div>
   )
 
-  const renderScoreWeights = () => {
-    const totalWeight =
-      weightForm.speed_weight +
-      weightForm.power_weight +
-      weightForm.strength_weight +
-      weightForm.agility_weight +
-      weightForm.endurance_weight
+  const renderTests = () => {
+    const inputStyle = {
+      background: 'rgba(255,255,255,0.05)',
+      border: '1px solid rgba(63,174,82,0.3)',
+      borderRadius: '6px',
+      color: 'white',
+      padding: '6px 10px',
+      fontSize: '12px',
+    }
+    const selectStyle = { ...inputStyle, color: '#0a0f0a', background: '#f5f5f5' }
+    const sectionHeader = (text) => (
+      <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.12em', color: '#3fae52', textTransform: 'uppercase', marginBottom: '14px' }}>{text}</div>
+    )
 
-    const handleSaveOverride = async () => {
-      if (totalWeight !== 100 || !weightForm.sport || !weightForm.age_category) return
-      setWeightFormError('')
-      setWeightFormSuccess('')
-      const { error } = await supabase
-        .from('pfa_score_weights')
-        .upsert(
-          {
-            sport: weightForm.sport,
-            age_category: weightForm.age_category,
-            speed_weight: weightForm.speed_weight / 100,
-            power_weight: weightForm.power_weight / 100,
-            strength_weight: weightForm.strength_weight / 100,
-            agility_weight: weightForm.agility_weight / 100,
-            endurance_weight: weightForm.endurance_weight / 100,
-            created_by: profile.id,
-          },
-          { onConflict: 'sport,age_category' }
-        )
-      if (error) {
-        setWeightFormError(error.message)
-        return
-      }
-      setWeightFormSuccess('Override saved!')
-      const { data } = await supabase.from('pfa_score_weights').select('*').order('sport')
-      setWeightOverrides(data || [])
-
-      setRecalcStatus('Recalculating scores...')
-      const { data: affected } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('sport', weightForm.sport)
-        .eq('age_category', weightForm.age_category)
-        .eq('role', 'athlete')
-      const athleteIds = (affected || []).map((a) => a.id)
-      if (athleteIds.length > 0) {
-        const fnUrl = window.location.hostname === 'localhost'
-          ? 'http://localhost:8888/.netlify/functions/calculate-scores'
-          : '/.netlify/functions/calculate-scores'
-        const res = await fetch(fnUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ athleteIds }),
-        })
-        const result = await res.json()
-        setRecalcStatus(
-          result.success
-            ? `✓ Recalculated scores for ${result.processed} athletes`
-            : `Error: ${result.error}`
-        )
-      } else {
-        setRecalcStatus('No athletes found for this sport/age combination')
+    const handleSaveTest = async (test) => {
+      const { error } = await supabase.from('pfa_tests').update({
+        display_name: test.display_name,
+        category: test.category,
+        unit: test.unit,
+        lower_is_better: test.lower_is_better,
+        is_load_based: test.is_load_based,
+        is_active: test.is_active,
+        updated_at: new Date().toISOString()
+      }).eq('id', test.id)
+      if (!error) {
+        setTests((prev) => prev.map((t) => t.id === test.id ? test : t))
+        setEditingTest(null)
+        setTestsSaved('edited')
+        setTimeout(() => setTestsSaved(''), 3000)
       }
     }
 
-    const handleDeleteOverride = async (id) => {
+    const handleAddTest = async () => {
+      if (!newTest.test_type || !newTest.display_name) return
+      const { data, error } = await supabase.from('pfa_tests').insert({
+        ...newTest,
+        test_type: newTest.test_type.toLowerCase().replace(/\s+/g, '_'),
+        updated_at: new Date().toISOString()
+      }).select().single()
+      if (!error && data) {
+        setTests((prev) => [...prev, data])
+        setNewTest({ test_type: '', display_name: '', category: 'strength', unit: 'lbs', lower_is_better: false, is_load_based: false, is_active: true })
+        setTestsSaved('added')
+        setTimeout(() => setTestsSaved(''), 3000)
+
+        if (['strength', 'power'].includes(data.category)) {
+          await supabase.from('pfa_test_weights').upsert({
+            category: data.category,
+            test_type: data.test_type,
+            weight: 0,
+            is_active: true,
+            sport: 'default',
+            age_category: 'default',
+            gender: 'all',
+          }, { onConflict: 'category,test_type,sport,age_category' })
+        }
+      }
+    }
+
+    const handleToggleActive = async (test) => {
+      const updated = { ...test, is_active: !test.is_active }
+      await supabase.from('pfa_tests').update({ is_active: updated.is_active }).eq('id', test.id)
+      setTests((prev) => prev.map((t) => t.id === test.id ? updated : t))
+    }
+
+    const handleDeleteTest = async (test) => {
+      if (!window.confirm(`Delete "${test.display_name}"? This will not delete existing test results.`)) return
+      await supabase.from('pfa_tests').delete().eq('id', test.id)
+      setTests((prev) => prev.filter((t) => t.id !== test.id))
+    }
+
+    const grouped = CATEGORIES.reduce((acc, cat) => {
+      acc[cat] = tests.filter((t) => t.category === cat)
+      return acc
+    }, {})
+
+    return (
+      <div style={{ padding: '24px', maxWidth: '800px' }}>
+        <h2 style={{ color: 'white', fontSize: '18px', fontWeight: '700', marginBottom: '4px' }}>Tests</h2>
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', marginBottom: '28px' }}>
+          Manage all available test types. Adding a new test to a multi-test category (Strength, Power) will automatically add it to the default test weights with a weight of 0% — update the weight in Score Weights after adding.
+        </p>
+
+        {testsLoading ? (
+          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>Loading tests...</div>
+        ) : (<>
+
+          {/* TESTS BY CATEGORY */}
+          {CATEGORIES.map((category) => (
+            <div key={category} style={{ marginBottom: '24px' }}>
+              {sectionHeader(category)}
+              <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
+                      {['Display Name', 'Test Type', 'Unit', 'Lower is Better', 'Load Based', 'Active', ''].map((h) => (
+                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontWeight: '600', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {grouped[category].length === 0 && (
+                      <tr>
+                        <td colSpan="7" style={{ padding: '14px 12px', color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>No tests in this category.</td>
+                      </tr>
+                    )}
+                    {grouped[category].map((test) => (
+                      <tr key={test.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: test.is_active ? 1 : 0.45 }}>
+                        {editingTest?.id === test.id ? (
+                          <>
+                            <td style={{ padding: '8px 12px' }}>
+                              <input value={editingTest.display_name} onChange={(e) => setEditingTest((prev) => ({ ...prev, display_name: e.target.value }))} style={{ ...inputStyle, width: '130px' }} />
+                            </td>
+                            <td style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.4)' }}>{test.test_type}</td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <select value={editingTest.unit} onChange={(e) => setEditingTest((prev) => ({ ...prev, unit: e.target.value }))} style={{ ...selectStyle, width: '70px' }}>
+                                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                              </select>
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <input type="checkbox" checked={editingTest.lower_is_better} onChange={(e) => setEditingTest((prev) => ({ ...prev, lower_is_better: e.target.checked }))} />
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <input type="checkbox" checked={editingTest.is_load_based} onChange={(e) => setEditingTest((prev) => ({ ...prev, is_load_based: e.target.checked }))} />
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <input type="checkbox" checked={editingTest.is_active} onChange={(e) => setEditingTest((prev) => ({ ...prev, is_active: e.target.checked }))} />
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button onClick={() => handleSaveTest(editingTest)} style={{ background: 'rgba(63,174,82,0.2)', border: '1px solid rgba(63,174,82,0.4)', borderRadius: '4px', color: '#3fae52', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>Save</button>
+                                <button onClick={() => setEditingTest(null)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'rgba(255,255,255,0.5)', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ padding: '10px 12px', color: 'white', fontWeight: '500' }}>{test.display_name}</td>
+                            <td style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{test.test_type}</td>
+                            <td style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.6)' }}>{test.unit}</td>
+                            <td style={{ padding: '10px 12px', color: test.lower_is_better ? '#3fae52' : 'rgba(255,255,255,0.25)' }}>{test.lower_is_better ? '✓' : '—'}</td>
+                            <td style={{ padding: '10px 12px', color: test.is_load_based ? '#3fae52' : 'rgba(255,255,255,0.25)' }}>{test.is_load_based ? '✓' : '—'}</td>
+                            <td style={{ padding: '10px 12px' }}>
+                              <button onClick={() => handleToggleActive(test)} style={{ background: test.is_active ? 'rgba(63,174,82,0.15)' : 'rgba(255,255,255,0.05)', border: `1px solid ${test.is_active ? 'rgba(63,174,82,0.3)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '4px', color: test.is_active ? '#3fae52' : 'rgba(255,255,255,0.3)', padding: '2px 8px', fontSize: '11px', cursor: 'pointer' }}>
+                                {test.is_active ? 'Active' : 'Inactive'}
+                              </button>
+                            </td>
+                            <td style={{ padding: '10px 12px' }}>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button onClick={() => setEditingTest({ ...test })} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: 'rgba(255,255,255,0.6)', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>Edit</button>
+                                <button onClick={() => handleDeleteTest(test)} style={{ background: 'rgba(224,92,42,0.1)', border: '1px solid rgba(224,92,42,0.25)', borderRadius: '4px', color: '#e05c2a', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>Delete</button>
+                              </div>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
+          {/* ADD NEW TEST */}
+          <div style={{ padding: '20px', background: 'rgba(63,174,82,0.05)', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', marginTop: '8px' }}>
+            {sectionHeader('Add New Test')}
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px', alignItems: 'flex-end' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Display Name</div>
+                <input value={newTest.display_name} onChange={(e) => setNewTest((prev) => ({ ...prev, display_name: e.target.value }))} placeholder="e.g. 40 Yard Dash" style={{ ...inputStyle, width: '150px' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Test Type Key</div>
+                <input value={newTest.test_type} onChange={(e) => setNewTest((prev) => ({ ...prev, test_type: e.target.value }))} placeholder="e.g. 40_yard_dash" style={{ ...inputStyle, width: '140px' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Category</div>
+                <select value={newTest.category} onChange={(e) => setNewTest((prev) => ({ ...prev, category: e.target.value }))} style={{ ...selectStyle, width: '110px' }}>
+                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Unit</div>
+                <select value={newTest.unit} onChange={(e) => setNewTest((prev) => ({ ...prev, unit: e.target.value }))} style={{ ...selectStyle, width: '80px' }}>
+                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.7)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={newTest.lower_is_better} onChange={(e) => setNewTest((prev) => ({ ...prev, lower_is_better: e.target.checked }))} />
+                  Lower is Better
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.7)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={newTest.is_load_based} onChange={(e) => setNewTest((prev) => ({ ...prev, is_load_based: e.target.checked }))} />
+                  Load Based
+                </label>
+              </div>
+            </div>
+
+            {['strength', 'power'].includes(newTest.category) && (
+              <div style={{ fontSize: '12px', color: '#f5a623', marginBottom: '12px', padding: '8px 12px', background: 'rgba(245,166,35,0.08)', borderRadius: '6px', border: '1px solid rgba(245,166,35,0.2)' }}>
+                ⚠ This test will be added to the {newTest.category} test weights with 0% — remember to update the weight distribution in Score Weights after adding.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button onClick={handleAddTest} disabled={!newTest.test_type || !newTest.display_name}
+                style={{ background: 'rgba(63,174,82,0.2)', border: '1px solid rgba(63,174,82,0.4)', borderRadius: '8px', color: '#3fae52', padding: '8px 20px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', opacity: (!newTest.test_type || !newTest.display_name) ? 0.4 : 1 }}>
+                Add Test
+              </button>
+              {testsSaved === 'added' && <span style={{ color: '#3fae52', fontSize: '13px' }}>✓ Test added</span>}
+              {testsSaved === 'edited' && <span style={{ color: '#3fae52', fontSize: '13px' }}>✓ Test updated</span>}
+            </div>
+          </div>
+
+        </>)}
+      </div>
+    )
+  }
+
+  const renderScoreWeights = () => {
+    const catTotal = Object.values(defaultCatWeights).reduce((s, v) => s + Number(v), 0)
+    const newCustomTotal = ['speed', 'strength', 'power', 'agility', 'endurance'].reduce((s, k) => s + Number(newCustom[k] || 0), 0)
+
+    const inputStyle = {
+      width: '60px', background: 'rgba(255,255,255,0.05)',
+      border: '1px solid rgba(63,174,82,0.3)', borderRadius: '6px',
+      color: 'white', padding: '5px 8px', fontSize: '12px', textAlign: 'center'
+    }
+    const selectStyle = {
+      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)',
+      borderRadius: '6px', color: 'white', padding: '6px 10px', fontSize: '12px'
+    }
+    const sectionHeader = (text) => (
+      <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.12em', color: '#3fae52', textTransform: 'uppercase', marginBottom: '14px' }}>{text}</div>
+    )
+    const totalIndicator = (total) => (
+      <div style={{ fontSize: '12px', color: total === 100 ? '#3fae52' : '#e05c2a', marginBottom: '12px', fontWeight: '600' }}>
+        Total: {total}% {total !== 100 ? '— must equal 100%' : '✓'}
+      </div>
+    )
+
+    const catWeightRows = (weights, onChange) => (
+      Object.entries(weights).filter(([k]) => ['speed', 'strength', 'power', 'agility', 'endurance'].includes(k)).map(([cat, val]) => (
+        <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+          <div style={{ width: '90px', fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>{CATEGORY_LABELS[cat]}</div>
+          <input type="number" min="0" max="100" value={val} onChange={(e) => onChange(cat, Number(e.target.value))} style={inputStyle} />
+          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>%</span>
+          <div style={{ flex: 1, height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px' }}>
+            <div style={{ width: `${Math.min(val, 100)}%`, height: '100%', background: '#3fae52', borderRadius: '2px', transition: 'width 0.2s' }} />
+          </div>
+        </div>
+      ))
+    )
+
+    const handleSaveDefault = async () => {
+      try {
+        await supabase.from('pfa_score_weights').update({
+          speed_weight: defaultCatWeights.speed / 100,
+          strength_weight: defaultCatWeights.strength / 100,
+          power_weight: defaultCatWeights.power / 100,
+          agility_weight: defaultCatWeights.agility / 100,
+          endurance_weight: defaultCatWeights.endurance / 100,
+          updated_at: new Date().toISOString()
+        }).eq('is_default', true)
+
+        for (const [category, tests] of Object.entries(defaultTestWeights)) {
+          for (const [testType, data] of Object.entries(tests)) {
+            await supabase.from('pfa_test_weights').upsert({
+              category, test_type: testType, weight: data.weight / 100,
+              is_active: data.is_active, sport: 'default', age_category: 'default', gender: 'all',
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'category,test_type,sport,age_category' })
+          }
+        }
+        setWeightsSaved('default')
+        setTimeout(() => setWeightsSaved(''), 3000)
+      } catch (err) { console.error('Save error:', err) }
+    }
+
+    const handleAddCustom = async () => {
+      if (!newCustom.sport || !newCustom.age_category || !newCustom.gender) return
+      if (newCustomTotal !== 100) return
+      try {
+        const { data } = await supabase.from('pfa_score_weights').insert({
+          sport: newCustom.sport, age_category: newCustom.age_category, gender: newCustom.gender,
+          speed_weight: newCustom.speed / 100, strength_weight: newCustom.strength / 100,
+          power_weight: newCustom.power / 100, agility_weight: newCustom.agility / 100,
+          endurance_weight: newCustom.endurance / 100, is_default: false,
+          created_by: user?.id
+        }).select().single()
+        if (data) setCustomWeightSets((prev) => [...prev, data])
+        setNewCustom({ sport: '', age_category: '', gender: '', speed: 25, strength: 25, power: 25, agility: 15, endurance: 10 })
+        setWeightsSaved('custom')
+        setTimeout(() => setWeightsSaved(''), 3000)
+      } catch (err) { console.error('Add custom error:', err) }
+    }
+
+    const handleDeleteCustom = async (id) => {
       await supabase.from('pfa_score_weights').delete().eq('id', id)
-      const { data } = await supabase.from('pfa_score_weights').select('*').order('sport')
-      setWeightOverrides(data || [])
-      setRecalcStatus('Override deleted. Athletes will now use default weights.')
+      setCustomWeightSets((prev) => prev.filter((r) => r.id !== id))
     }
 
     const handleRecalcAll = async () => {
@@ -2148,10 +2438,9 @@ const Admin = () => {
       try {
         const res = await fetch('/.netlify/functions/calculate-scores', { method: 'POST' })
         if (!res.ok) throw new Error('Failed to recalculate')
-        
+
         setRecalcStatus('✓ Scores recalculated — generating insights...')
 
-        // Fetch all athlete IDs
         const { data: athletes, error: athleteError } = await supabase
           .from('profiles')
           .select('id')
@@ -2162,7 +2451,6 @@ const Admin = () => {
           return
         }
 
-        // Generate insights for each athlete sequentially with a small delay
         let successCount = 0
         let failCount = 0
 
@@ -2179,8 +2467,7 @@ const Admin = () => {
               failCount++
             }
             setRecalcStatus(`✓ Scores recalculated — generating insights (${successCount + failCount}/${athletes.length})...`)
-            // Small delay to avoid overwhelming OpenAI rate limits
-            await new Promise(resolve => setTimeout(resolve, 500))
+            await new Promise((resolve) => setTimeout(resolve, 500))
           } catch (err) {
             console.error('Insight generation failed for athlete:', athlete.id, err)
             failCount++
@@ -2195,188 +2482,178 @@ const Admin = () => {
       }
     }
 
-    const defaultWeights = [
-      { label: 'Speed', value: 25 },
-      { label: 'Power', value: 25 },
-      { label: 'Strength', value: 25 },
-      { label: 'Agility', value: 15 },
-      { label: 'Endurance', value: 10 },
-    ]
-    const sliderFields = [
-      { label: 'Speed', key: 'speed_weight' },
-      { label: 'Power', key: 'power_weight' },
-      { label: 'Strength', key: 'strength_weight' },
-      { label: 'Agility', key: 'agility_weight' },
-      { label: 'Endurance', key: 'endurance_weight' },
-    ]
-
     return (
-      <div style={{ padding: '32px' }}>
-        <div style={{ color: 'white', fontSize: '20px', fontWeight: '700', marginBottom: '24px' }}>
-          Score Weight System
-        </div>
+      <div style={{ padding: '24px', maxWidth: '760px' }}>
+        <h2 style={{ color: 'white', fontSize: '18px', fontWeight: '700', marginBottom: '4px' }}>Score Weights</h2>
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', marginBottom: '28px' }}>
+          Configure how categories and tests contribute to composite scores. Custom weights override the default for matching athlete profiles.
+        </p>
 
-        {/* Default Weights Card */}
-        <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
-          <div style={{ color: 'white', fontWeight: '600', marginBottom: '4px' }}>Default Weights (All Sports / All Ages)</div>
-          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', marginBottom: '16px' }}>Applied to all athletes unless a custom override exists</div>
-          {defaultWeights.map((w) => (
-            <div key={w.label} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', width: '80px' }}>{w.label}</div>
-              <div style={{ flex: 1, background: 'rgba(255,255,255,0.06)', borderRadius: '4px', height: '8px' }}>
-                <div style={{ width: `${w.value}%`, background: '#3fae52', height: '8px', borderRadius: '4px' }} />
-              </div>
-              <div style={{ color: '#3fae52', fontSize: '12px', fontWeight: '700', width: '40px', textAlign: 'right' }}>{w.value}%</div>
-            </div>
-          ))}
-        </div>
+        {weightsLoading ? (
+          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>Loading weights...</div>
+        ) : (<>
 
-        {/* Custom Override Form */}
-        <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
-          <div style={{ color: 'white', fontWeight: '600', marginBottom: '16px' }}>Add Custom Weight Override</div>
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
-            <select
-              value={weightForm.sport}
-              onChange={(e) => setWeightForm({ ...weightForm, sport: e.target.value, age_category: '' })}
-              style={{ flex: 1, background: '#0a0f0a', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '8px', color: 'white', padding: '8px 12px' }}
-            >
-              <option value="">Select sport</option>
-              {(typeof SPORT_OPTIONS !== 'undefined' ? SPORT_OPTIONS : ['Hockey', 'Soccer', 'Basketball', 'Volleyball', 'Ringette', 'Track & Field']).map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <select
-              value={weightForm.age_category}
-              onChange={(e) => setWeightForm({ ...weightForm, age_category: e.target.value })}
-              style={{ flex: 1, background: '#0a0f0a', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '8px', color: 'white', padding: '8px 12px' }}
-            >
-              <option value="">Select age category</option>
-              {(typeof getAgeCategories === 'function' ? getAgeCategories(weightForm.sport) : ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'University', 'Senior']).map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-          </div>
-          {sliderFields.map((f) => (
-            <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', width: '80px' }}>{f.label}</div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value={weightForm[f.key]}
-                onChange={(e) => setWeightForm({ ...weightForm, [f.key]: parseInt(e.target.value) })}
-                style={{ flex: 1, accentColor: '#3fae52' }}
-              />
-              <div style={{ color: '#3fae52', fontSize: '13px', fontWeight: '700', width: '40px', textAlign: 'right' }}>
-                {weightForm[f.key]}%
-              </div>
-            </div>
-          ))}
-          <div style={{ color: totalWeight === 100 ? '#3fae52' : '#ef4444', fontSize: '13px', marginBottom: '12px' }}>
-            Total: {totalWeight}% {totalWeight === 100 ? '✓' : '— must equal 100%'}
-          </div>
-          {weightFormError && <div style={{ color: '#ef4444', fontSize: '12px', marginBottom: '8px' }}>{weightFormError}</div>}
-          {weightFormSuccess && <div style={{ color: '#3fae52', fontSize: '12px', marginBottom: '8px' }}>{weightFormSuccess}</div>}
-          <button
-            onClick={handleSaveOverride}
-            disabled={totalWeight !== 100 || !weightForm.sport || !weightForm.age_category}
-            style={{
-              background:
-                totalWeight === 100 && weightForm.sport && weightForm.age_category
-                  ? '#3fae52'
-                  : 'rgba(63,174,82,0.2)',
-              color:
-                totalWeight === 100 && weightForm.sport && weightForm.age_category
-                  ? 'black'
-                  : 'rgba(255,255,255,0.3)',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '10px 20px',
-              fontWeight: '700',
-              cursor: totalWeight === 100 ? 'pointer' : 'not-allowed',
-            }}
-          >
-            Save Override
-          </button>
-        </div>
+          {/* DEFAULT WEIGHTS */}
+          <div style={{ padding: '20px', background: 'rgba(63,174,82,0.05)', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', marginBottom: '28px' }}>
+            {sectionHeader('Default Weights — Applies to All Athletes')}
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '16px' }}>Used when no custom weight set matches the athlete's sport, age category, and gender.</p>
 
-        {/* Active Overrides */}
-        <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '20px' }}>
-          <div style={{ color: 'white', fontWeight: '600', marginBottom: '16px' }}>Active Overrides</div>
-          {weightOverrides.length === 0 ? (
-            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px', marginBottom: '16px' }}>
-              No custom overrides yet — all athletes use default weights
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
-              <thead>
-                <tr style={{ color: 'rgba(63,174,82,0.6)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  <th style={{ padding: '8px', textAlign: 'left' }}>Sport</th>
-                  <th style={{ padding: '8px', textAlign: 'left' }}>Age</th>
-                  <th style={{ padding: '8px', textAlign: 'center' }}>Speed</th>
-                  <th style={{ padding: '8px', textAlign: 'center' }}>Power</th>
-                  <th style={{ padding: '8px', textAlign: 'center' }}>Strength</th>
-                  <th style={{ padding: '8px', textAlign: 'center' }}>Agility</th>
-                  <th style={{ padding: '8px', textAlign: 'center' }}>Endurance</th>
-                  <th style={{ padding: '8px', textAlign: 'center' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {weightOverrides.map((o) => (
-                  <tr key={o.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <td style={{ padding: '10px 8px', color: 'white', fontSize: '13px' }}>{o.sport}</td>
-                    <td style={{ padding: '10px 8px', color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>{o.age_category}</td>
-                    <td style={{ padding: '10px 8px', color: '#3fae52', fontSize: '13px', textAlign: 'center' }}>{Math.round(o.speed_weight * 100)}%</td>
-                    <td style={{ padding: '10px 8px', color: '#3fae52', fontSize: '13px', textAlign: 'center' }}>{Math.round(o.power_weight * 100)}%</td>
-                    <td style={{ padding: '10px 8px', color: '#3fae52', fontSize: '13px', textAlign: 'center' }}>{Math.round(o.strength_weight * 100)}%</td>
-                    <td style={{ padding: '10px 8px', color: '#3fae52', fontSize: '13px', textAlign: 'center' }}>{Math.round(o.agility_weight * 100)}%</td>
-                    <td style={{ padding: '10px 8px', color: '#3fae52', fontSize: '13px', textAlign: 'center' }}>{Math.round(o.endurance_weight * 100)}%</td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                      <button
-                        onClick={() => handleDeleteOverride(o.id)}
-                        style={{
-                          background: 'rgba(239,68,68,0.1)',
-                          color: '#ef4444',
-                          border: '1px solid rgba(239,68,68,0.3)',
-                          borderRadius: '6px',
-                          padding: '4px 10px',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Delete
+            {totalIndicator(catTotal)}
+            {catWeightRows(defaultCatWeights, (cat, val) => setDefaultCatWeights((prev) => ({ ...prev, [cat]: val })))}
+
+            {/* Test weights for multi-test categories */}
+            {['strength', 'power'].map((category) => {
+              const tests = defaultTestWeights[category] || {}
+              const activeTests = Object.entries(tests).filter(([, d]) => d.is_active)
+              const testTotal = activeTests.reduce((s, [, d]) => s + Number(d.weight), 0)
+              const unusedTests = (AVAILABLE_TESTS[category] || []).filter((t) => !tests[t])
+              return (
+                <div key={category} style={{ marginTop: '16px', padding: '14px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                    {CATEGORY_LABELS[category]} — Individual Test Weights
+                  </div>
+                  <div style={{ fontSize: '12px', color: testTotal === 100 ? '#3fae52' : '#f5a623', marginBottom: '10px' }}>
+                    Total: {testTotal}% {testTotal !== 100 ? '— should equal 100%' : '✓'}
+                  </div>
+                  {Object.entries(tests).map(([testType, data]) => (
+                    <div key={testType} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                      <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || testType}</div>
+                      <input type="number" min="0" max="100" value={data.weight}
+                        onChange={(e) => setDefaultTestWeights((prev) => ({ ...prev, [category]: { ...prev[category], [testType]: { ...data, weight: Number(e.target.value) } } }))}
+                        style={inputStyle} />
+                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>%</span>
+                      <button onClick={() => setDefaultTestWeights((prev) => { const u = { ...prev[category] }; delete u[testType]; return { ...prev, [category]: u } })}
+                        style={{ background: 'rgba(224,92,42,0.15)', border: '1px solid rgba(224,92,42,0.3)', borderRadius: '4px', color: '#e05c2a', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
+                        Remove
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {recalcStatus && (
-            <div style={{ color: recalcStatus.startsWith('✓') ? '#3fae52' : '#f59e0b', fontSize: '13px', marginBottom: '12px' }}>
-              {recalcStatus}
+                    </div>
+                  ))}
+                  {unusedTests.length > 0 && (
+                    <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Add:</span>
+                      {unusedTests.map((t) => (
+                        <button key={t} onClick={() => setDefaultTestWeights((prev) => ({ ...prev, [category]: { ...prev[category], [t]: { weight: 0, is_active: true, id: null } } }))}
+                          style={{ background: 'rgba(63,174,82,0.1)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: '#3fae52', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
+                          + {TEST_LABELS[t]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
+              <button onClick={handleSaveDefault} disabled={catTotal !== 100}
+                style={{ background: catTotal === 100 ? 'rgba(63,174,82,0.2)' : 'rgba(255,255,255,0.05)', border: `1px solid ${catTotal === 100 ? 'rgba(63,174,82,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '8px', color: catTotal === 100 ? '#3fae52' : 'rgba(255,255,255,0.3)', padding: '8px 20px', fontSize: '13px', fontWeight: '600', cursor: catTotal === 100 ? 'pointer' : 'not-allowed' }}>
+                Save Default Weights
+              </button>
+              {weightsSaved === 'default' && <span style={{ color: '#3fae52', fontSize: '13px' }}>✓ Saved</span>}
             </div>
-          )}
-          <button
-            onClick={handleRecalcAll}
-            style={{
-              background: 'rgba(63,174,82,0.1)',
-              border: '1px solid rgba(63,174,82,0.3)',
-              color: '#3fae52',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '600',
-            }}
-          >
-            Recalculate All Scores
-          </button>
-        </div>
+          </div>
+
+          {/* ADD CUSTOM WEIGHT SET */}
+          <div style={{ padding: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', marginBottom: '28px' }}>
+            {sectionHeader('Add Custom Weight Set')}
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '16px' }}>Custom weights apply only to athletes matching the selected sport, age category, and gender.</p>
+
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <select value={newCustom.sport} onChange={(e) => setNewCustom((prev) => ({ ...prev, sport: e.target.value }))} style={selectStyle}>
+                <option value="">Sport</option>
+                {SPORTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select value={newCustom.age_category} onChange={(e) => setNewCustom((prev) => ({ ...prev, age_category: e.target.value }))} style={selectStyle}>
+                <option value="">Age Category</option>
+                {AGE_CATEGORIES.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <select value={newCustom.gender} onChange={(e) => setNewCustom((prev) => ({ ...prev, gender: e.target.value }))} style={selectStyle}>
+                <option value="">Gender</option>
+                {GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+
+            {totalIndicator(newCustomTotal)}
+            {catWeightRows(
+              { speed: newCustom.speed, strength: newCustom.strength, power: newCustom.power, agility: newCustom.agility, endurance: newCustom.endurance },
+              (cat, val) => setNewCustom((prev) => ({ ...prev, [cat]: val }))
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
+              <button onClick={handleAddCustom}
+                disabled={!newCustom.sport || !newCustom.age_category || !newCustom.gender || newCustomTotal !== 100}
+                style={{ background: 'rgba(63,174,82,0.15)', border: '1px solid rgba(63,174,82,0.4)', borderRadius: '8px', color: '#3fae52', padding: '8px 20px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', opacity: (!newCustom.sport || !newCustom.age_category || !newCustom.gender || newCustomTotal !== 100) ? 0.4 : 1 }}>
+                Add Custom Weight Set
+              </button>
+              {weightsSaved === 'custom' && <span style={{ color: '#3fae52', fontSize: '13px' }}>✓ Custom set added</span>}
+            </div>
+          </div>
+
+          {/* ACTIVE WEIGHTINGS TABLE */}
+          <div style={{ marginBottom: '32px' }}>
+            {sectionHeader('Active Weight Sets')}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(63,174,82,0.2)' }}>
+                    {['Applies To', 'Speed', 'Strength', 'Power', 'Agility', 'Endurance', ''].map((h) => (
+                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontWeight: '600', letterSpacing: '0.08em', fontSize: '11px', textTransform: 'uppercase' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(63,174,82,0.05)' }}>
+                    <td style={{ padding: '10px', color: '#3fae52', fontWeight: '600' }}>Default (All Athletes)</td>
+                    {['speed', 'strength', 'power', 'agility', 'endurance'].map((cat) => (
+                      <td key={cat} style={{ padding: '10px', color: 'rgba(255,255,255,0.7)' }}>{defaultCatWeights[cat]}%</td>
+                    ))}
+                    <td style={{ padding: '10px' }}></td>
+                  </tr>
+                  {customWeightSets.map((row) => (
+                    <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: '10px', color: 'white' }}>
+                        {row.sport} · {row.age_category} · {row.gender}
+                      </td>
+                      {['speed', 'strength', 'power', 'agility', 'endurance'].map((cat) => (
+                        <td key={cat} style={{ padding: '10px', color: 'rgba(255,255,255,0.7)' }}>
+                          {Math.round((row[`${cat}_weight`] || 0) * 100)}%
+                        </td>
+                      ))}
+                      <td style={{ padding: '10px' }}>
+                        <button onClick={() => handleDeleteCustom(row.id)}
+                          style={{ background: 'rgba(224,92,42,0.15)', border: '1px solid rgba(224,92,42,0.3)', borderRadius: '4px', color: '#e05c2a', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {customWeightSets.length === 0 && (
+                    <tr>
+                      <td colSpan="7" style={{ padding: '16px 10px', color: 'rgba(255,255,255,0.3)', fontSize: '12px', fontStyle: 'italic' }}>
+                        No custom weight sets configured.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* RECALCULATE */}
+          <div style={{ borderTop: '1px solid rgba(63,174,82,0.15)', paddingTop: '24px' }}>
+            {sectionHeader('Recalculate All Scores')}
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '16px' }}>
+              Applies current weights and recalculates composite scores for all athletes. AI insights will regenerate automatically.
+            </p>
+            {recalcStatus && (
+              <div style={{ color: recalcStatus.startsWith('✓') ? '#3fae52' : '#f59e0b', fontSize: '13px', marginBottom: '12px' }}>{recalcStatus}</div>
+            )}
+            <button onClick={handleRecalcAll}
+              style={{ background: 'rgba(63,174,82,0.1)', border: '1px solid rgba(63,174,82,0.3)', color: '#3fae52', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
+              Recalculate All Scores
+            </button>
+          </div>
+
+        </>)}
       </div>
     )
   }
@@ -2427,6 +2704,8 @@ const Admin = () => {
         return renderAthletes()
       case 'Settings':
         return renderSettings()
+      case 'tests':
+        return renderTests()
       default:
         return null
     }
@@ -2472,6 +2751,19 @@ const Admin = () => {
               }}
             >
               Score Weights
+            </div>
+            <div
+              onClick={() => setActiveSection('tests')}
+              style={{
+                padding: '12px 20px',
+                cursor: 'pointer',
+                color: activeSection === 'tests' ? '#3fae52' : 'rgba(255,255,255,0.7)',
+                borderLeft: activeSection === 'tests' ? '3px solid #3fae52' : '3px solid transparent',
+                background: activeSection === 'tests' ? 'rgba(63,174,82,0.08)' : 'transparent',
+                fontSize: '14px',
+              }}
+            >
+              Tests
             </div>
             <a
               href="/session"
