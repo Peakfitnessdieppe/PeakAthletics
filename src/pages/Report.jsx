@@ -322,6 +322,149 @@ const Report = () => {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
 
+  const tooltipStyle = {
+    position: 'relative',
+    display: 'inline-flex',
+  }
+  const tooltipTextStyle = {
+    visibility: 'hidden',
+    opacity: 0,
+    position: 'absolute',
+    bottom: '130%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: '#1a2e1a',
+    border: '1px solid rgba(255,255,255,0.12)',
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: '11px',
+    lineHeight: '1.5',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    whiteSpace: 'nowrap',
+    zIndex: 50,
+    pointerEvents: 'none',
+    transition: 'opacity 0.15s ease',
+  }
+
+  const CHIP_TOOLTIPS = {
+    male: {
+      '10m_sprint': {
+        'U14': 'HNB U14 Gold standard · Source: Hockey New Brunswick',
+        'U15': 'HNB U15 Gold standard · Source: Hockey New Brunswick',
+        'U16': 'HNB U16 Gold standard · Source: Hockey New Brunswick',
+        'Junior': 'Junior A target · Source: Hockey Canada',
+        'CHL': 'Canadian Hockey League standard · Source: Hockey Canada',
+        'NHL': 'NHL combine average · Source: NHL combine data',
+      },
+      'pro_agility_shuttle': {
+        'U14': 'HNB U14 Gold standard · Source: Hockey New Brunswick',
+        'U15': 'HNB U15 Gold standard · Source: Hockey New Brunswick',
+        'U16': 'HNB U16 Gold standard · Source: Hockey New Brunswick',
+        'Junior': 'Junior A target · Source: Hockey Canada',
+        'CHL': 'Canadian Hockey League standard · Source: NHL combine data',
+        'NHL': 'NHL combine average · Source: NHL combine data',
+      },
+      'vertical_jump': {
+        'U14': 'HNB U14 Gold standard · Source: Hockey New Brunswick',
+        'U15': 'HNB U15 Gold standard · Source: Hockey New Brunswick',
+        'U16': 'HNB U16 Gold standard · Source: Hockey New Brunswick',
+        'Junior': 'Junior A target · Source: Hockey Canada',
+        'CHL': 'CHL-age average · Source: Research estimate',
+        'NHL': 'NHL combine average · Source: Research estimate',
+      },
+      'broad_jump': {
+        'Junior': 'Junior A target · Source: Hockey Canada',
+        'CHL': 'CHL-age average · Source: Research estimate',
+        'NHL': 'NHL combine average · Source: Research estimate',
+      },
+      'pull_ups': {
+        'U14': 'HNB U14 Gold standard · Source: Hockey New Brunswick',
+        'U15': 'HNB U15 Gold standard · Source: Hockey New Brunswick',
+        'U16': 'HNB U16 Gold standard · Source: Hockey New Brunswick',
+        'Junior': 'Junior A target · Source: Hockey Canada',
+        'CHL': 'CHL-age average · Source: Research estimate',
+        'NHL': 'NHL combine average · Source: Research estimate',
+      },
+      'beep_test': {
+        'U14': 'HNB U14 Gold standard · Source: Hockey New Brunswick',
+        'U15': 'HNB U15 Gold standard · Source: Hockey New Brunswick',
+        'U16': 'HNB U16 Gold standard · Source: Hockey New Brunswick',
+        'Junior': 'Junior A target · Source: Hockey Canada',
+      },
+      'squat': {
+        'U15': 'Expected strength ratio for U15 athletes · Source: PFA working target',
+        'U18': 'Expected strength ratio for U18 athletes · Source: PFA working target',
+        'CHL': 'Expected strength ratio for CHL-level athletes · Source: PFA working target',
+        'Pro': 'Expected strength ratio for professional athletes · Source: Research estimate',
+      },
+      'bench_press': {
+        'U15': 'Expected strength ratio for U15 athletes · Source: PFA working target',
+        'U18': 'Expected strength ratio for U18 athletes · Source: PFA working target',
+        'CHL': 'Expected strength ratio for CHL-level athletes · Source: PFA working target',
+        'Pro': 'Expected strength ratio for professional athletes · Source: Research estimate',
+      },
+      'trap_bar_deadlift': {
+        'U14': 'Expected strength ratio for U14 athletes · Source: PFA working target',
+        'U16': 'Expected strength ratio for U16 athletes · Source: PFA working target',
+        'U18': 'Expected strength ratio for U18 athletes · Source: PFA working target',
+        'CHL': 'Expected strength ratio for CHL-level athletes · Source: PFA working target',
+        'Pro': 'Expected strength ratio for professional athletes · Source: Research estimate',
+      },
+    },
+    female: {
+      '10m_sprint': {
+        'U14': 'HNB U14 Gold standard · Source: Hockey New Brunswick',
+        'U16': 'HNB U16 Gold standard · Source: Hockey New Brunswick',
+        'Junior': 'FU18 national target · Source: Hockey Canada',
+      },
+      'pro_agility_shuttle': {
+        'U14': 'HNB U14 Gold standard · Source: Hockey New Brunswick',
+        'U16': 'HNB U16 Gold standard · Source: Hockey New Brunswick',
+        'Junior': 'FU18 national target · Source: Hockey Canada',
+      },
+      'vertical_jump': {
+        'U14': 'HNB U14 Gold standard · Source: Hockey New Brunswick',
+        'U16': 'HNB U16 Gold standard · Source: Hockey New Brunswick',
+        'Junior': 'FU18 national target · Source: Hockey Canada',
+        'IIHF': 'IIHF elite average · Source: Research estimate',
+        'Olympic': 'Olympic/PWHL average · Source: Research estimate',
+      },
+      'broad_jump': {
+        'Junior': 'FU18 national target · Source: Hockey Canada',
+        'IIHF': 'IIHF elite average · Source: Research estimate',
+        'Olympic': 'Olympic/PWHL average · Source: Research estimate',
+      },
+      'pull_ups': {
+        'U14': 'HNB U14 Gold standard · Source: Hockey New Brunswick',
+        'U16': 'HNB U16 Gold standard · Source: Hockey New Brunswick',
+        'Junior': 'FU18 national target · Source: Hockey Canada',
+      },
+      'beep_test': {
+        'U14': 'HNB U14 Gold standard · Source: Hockey New Brunswick',
+        'U16': 'HNB U16 Gold standard · Source: Hockey New Brunswick',
+        'Junior': 'FU18 national target · Source: Hockey Canada',
+      },
+      'squat': {
+        'U14': 'Expected strength ratio for U14 athletes · Source: PFA working target',
+        'U16': 'Expected strength ratio for U16 athletes · Source: PFA working target',
+        'U18': 'Expected strength ratio for U18 athletes · Source: PFA working target',
+        'Elite': 'Expected strength ratio for elite athletes · Source: Research estimate',
+      },
+      'bench_press': {
+        'U14': 'Expected strength ratio for U14 athletes · Source: PFA working target',
+        'U16': 'Expected strength ratio for U16 athletes · Source: PFA working target',
+        'U18': 'Expected strength ratio for U18 athletes · Source: PFA working target',
+        'Elite': 'Expected strength ratio for elite athletes · Source: Research estimate',
+      },
+      'trap_bar_deadlift': {
+        'U14': 'Expected strength ratio for U14 athletes · Source: PFA working target',
+        'U16': 'Expected strength ratio for U16 athletes · Source: PFA working target',
+        'U18': 'Expected strength ratio for U18 athletes · Source: PFA working target',
+        'Elite': 'Expected strength ratio for elite athletes · Source: Research estimate',
+      },
+    },
+  }
+
   const uploadPhoto = async (file) => {
     if (!file || !profile?.id) return
     setUploading(true)
@@ -1597,12 +1740,28 @@ const Report = () => {
                                         <React.Fragment key={lvl}>
                                           {i > 0 && <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>}
                                           {beats ? (
-                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>✓ {shortName}</div>
+                                            <div
+                                              style={tooltipStyle}
+                                              onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
+                                              onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
+                                              onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
+                                            >
+                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>✓ {shortName}</div>
+                                              <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName}</div>
+                                            </div>
                                           ) : isFirstUnbeaten ? (
                                             <>
                                               <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
                                               <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>
-                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>→ {shortName}</div>
+                                              <div
+                                                style={tooltipStyle}
+                                                onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
+                                                onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
+                                                onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
+                                              >
+                                                <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>→ {shortName}</div>
+                                                <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName}</div>
+                                              </div>
                                             </>
                                           ) : isYouAfterAll ? (
                                             <>
@@ -1610,7 +1769,15 @@ const Report = () => {
                                               <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
                                             </>
                                           ) : (
-                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>{shortName}</div>
+                                            <div
+                                              style={tooltipStyle}
+                                              onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
+                                              onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
+                                              onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
+                                            >
+                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>{shortName}</div>
+                                              <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName}</div>
+                                            </div>
                                           )}
                                         </React.Fragment>
                                       )
@@ -1634,11 +1801,35 @@ const Report = () => {
                                         {isHere && meets ? (
                                           <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
                                         ) : meets ? (
-                                          <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>✓ {target.label}</div>
+                                          <div
+                                            style={tooltipStyle}
+                                            onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
+                                            onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
+                                            onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
+                                          >
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>✓ {target.label}</div>
+                                            <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[target.label] || target.label}</div>
+                                          </div>
                                         ) : isNext ? (
-                                          <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>→ {target.label}</div>
+                                          <div
+                                            style={tooltipStyle}
+                                            onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
+                                            onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
+                                            onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
+                                          >
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>→ {target.label}</div>
+                                            <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[target.label] || target.label}</div>
+                                          </div>
                                         ) : (
-                                          <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>{target.label}</div>
+                                          <div
+                                            style={tooltipStyle}
+                                            onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
+                                            onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
+                                            onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
+                                          >
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>{target.label}</div>
+                                            <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[target.label] || target.label}</div>
+                                          </div>
                                         )}
                                       </React.Fragment>
                                     )
