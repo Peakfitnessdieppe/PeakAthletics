@@ -16,6 +16,7 @@ import {
 import useAuth from '../hooks/useAuth'
 import { getAthleteReport, getAgeGroupAverageResults, getPeerStats, getAthleteGameStats } from '../services/reports'
 import { supabase } from '../services/supabase'
+import { BENCHMARKS, LEVEL_LADDERS, TIER_DESCRIPTIONS, LOWER_IS_BETTER_TESTS } from '../constants/levelReadinessBenchmarks'
 
 Chart.register(
   RadarController,
@@ -32,6 +33,13 @@ Chart.register(
 
 const PFA_LOGO =
   'https://iilysafrbbnklelzzqyh.supabase.co/storage/v1/object/public/Assets/Peak%20Athletics%20Logo%202.png'
+
+const TIER_COLORS = {
+  'Elite Trajectory': '#a855f7',
+  'Advanced': '#3fae52',
+  'On Track': '#06b6d4',
+  'Developing': 'rgba(255,255,255,0.4)',
+}
 
 const STRENGTH_LOAD_TESTS = ['squat', 'bench_press', 'trap_bar_deadlift']
 const LOWER_IS_BETTER = ['10m_sprint', 'pro_agility_shuttle']
@@ -88,11 +96,11 @@ const CAT_DESCRIPTIONS = {
 const formatVal = (testType, value) => {
   if (value === null || value === undefined) return '—'
   const lbTests = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
-  if (lbTests.includes(testType)) return `${parseFloat(value).toFixed(1)} lbs`
-  if (testType === 'broad_jump') return `${(value / 100).toFixed(2)} m`
-  if (['10m_sprint', '30m_sprint', 'pro_agility_shuttle'].includes(testType)) return `${Number(value).toFixed(2)} s`
-  if (['vertical_jump', 'ncmj'].includes(testType)) return `${Math.round(value)} cm`
-  if (testType === 'beep_test') return `Level ${Number(value).toFixed(1)}`
+  if (lbTests.includes(testType)) return `${Math.round(parseFloat(value))} lbs`
+  if (testType === 'broad_jump') return `${Number(value).toFixed(2)} m`
+  if (['10m_sprint', '30m_sprint', 'pro_agility_shuttle'].includes(testType)) return `${Number(value).toFixed(3)} s`
+  if (['vertical_jump', 'ncmj'].includes(testType)) return `${Number(value).toFixed(1)} in`
+  if (testType === 'beep_test') return `Level ${Number(value).toFixed(2)}`
   if (['pull_ups', 'push_ups'].includes(testType)) return `${Math.round(value)} reps`
   if (testType === 'mb_chest_pass') return `${Number(value).toFixed(2)} m`
   return parseFloat(Number(value).toFixed(1))
@@ -634,7 +642,7 @@ const Report = () => {
           padding: isMobile ? '24px 16px 0 16px' : '40px 24px 0 24px',
         }}
       >
-        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px 0 24px' }}>
+        <div style={{ maxWidth: '100%', margin: '0 auto', padding: isMobile ? '24px 16px 0' : '40px 48px 0' }}>
           <div style={{
             display: 'flex',
             flexDirection: window.innerWidth < 768 ? 'column' : 'row',
@@ -886,9 +894,9 @@ const Report = () => {
         </div>
       )}
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 16px', width: '100%' }}>
+      <div style={{ maxWidth: '100%', margin: '0 auto', padding: isMobile ? '0 16px' : '0 48px', width: '100%' }}>
 
-        <div style={{ maxWidth: '960px', margin: '0 auto', padding: '0 8px 64px', width: '100%' }}>
+        <div style={{ maxWidth: '100%', margin: '0 auto', padding: isMobile ? '0 0 64px' : '0 0 80px', width: '100%' }}>
 
         {/* ── SECTION 2: ATHLETE DEVELOPMENT ── */}
         <div style={{ marginTop: '32px', borderTop: '2px solid #3fae52', paddingTop: '20px' }}>
@@ -1312,6 +1320,25 @@ const Report = () => {
           <div style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid rgba(63,174,82,0.2)', paddingBottom: '8px' }}>
             Development Testing
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '24px', marginTop: '8px' }}>
+            <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginRight: '4px' }}>Benchmarks:</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52' }}>✓</span>
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>cleared</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(168,85,247,0.15)', border: '1px solid #a855f7', color: '#a855f7' }}>YOU</span>
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>you are here</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(255,255,255,0.04)', border: '1px solid #3fae52', color: '#3fae52' }}>→</span>
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>next target</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)' }}>···</span>
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>future milestone</span>
+            </div>
+          </div>
           {CATEGORIES.map((cat) => {
             const results = groupedResults[cat] || []
             const catTestTypes = [...new Set(results.map((r) => r.test_type))]
@@ -1432,9 +1459,274 @@ const Report = () => {
                             trap_bar_deadlift: 'Trap Bar Deadlift *',
                           }[tt] || tt.replaceAll('_', ' ')}
                         </div>
-                        <div style={{ fontSize: '22px', fontWeight: '900', color: 'white', marginBottom: '12px' }}>
+                        <div style={{ fontSize: '22px', fontWeight: '900', color: 'white', marginBottom: '8px' }}>
                           {pb ? formatVal(tt, pb.value) : '—'}
                         </div>
+                        {(() => {
+                          const gender = profile?.gender === 'female' ? 'female' : 'male'
+                          const ageCategory = profile?.age_category || ''
+                          const ladder = LEVEL_LADDERS[gender]
+                          const athleteLadderIdx = ladder.indexOf(ageCategory)
+                          const bench = BENCHMARKS[gender]?.[tt]
+                          if (!bench || !pb) return null
+
+                          const athleteValue = (() => {
+                            if (['squat', 'bench_press', 'trap_bar_deadlift'].includes(tt)) {
+                              const r = (allTestResults || []).filter(r => r.test_type === tt).sort((a,b) => new Date(b.date_tested) - new Date(a.date_tested))[0]
+                              if (r?.load_value && r?.reps) return calcE1RM(r.load_value, r.reps)
+                            }
+                            return pb.value
+                          })()
+
+                          const bodyweightLbs = latestMeasurement?.weight || null
+                          const isLower = bench.lowerIsBetter
+                          const isRelativeOnly = bench.relativeOnly
+
+                          // Get tier
+                          const getTier = () => {
+                            if (isRelativeOnly) {
+                              if (!athleteValue || !bodyweightLbs) return null
+                              const relVal = athleteValue / bodyweightLbs
+                              const targets = bench.relativeTargets || []
+                              let bestTier = 'Developing'
+                              let bestIdx = -1
+                              targets.forEach(target => {
+                                if (relVal >= target.min) {
+                                  const targetIdx = Math.max(...target.levels.map(l => ladder.indexOf(l)).filter(i => i >= 0))
+                                  if (targetIdx > bestIdx) {
+                                    bestIdx = targetIdx
+                                    const gap = targetIdx - athleteLadderIdx
+                                    if (gap >= 2) bestTier = 'Elite Trajectory'
+                                    else if (gap >= 1) bestTier = 'Advanced'
+                                    else if (gap >= 0) bestTier = 'On Track'
+                                    else bestTier = 'Developing'
+                                  }
+                                }
+                              })
+                              return bestTier
+                            }
+                            const levels = (bench.levels || []).filter(l => l.value != null)
+                            if (levels.length === 0) return null
+                            const beats = (val, bmark) => isLower ? val <= bmark : val >= bmark
+                            const beaten = levels.filter(l => beats(athleteValue, l.value))
+                            if (beaten.length === 0) return 'Developing'
+                            const getIdx = lvl => ladder.indexOf(lvl)
+                            const highest = beaten.reduce((best, l) => getIdx(l.level) > getIdx(best.level) ? l : best, beaten[0])
+                            const gap = getIdx(highest.level) - athleteLadderIdx
+                            if (gap >= 2) return 'Elite Trajectory'
+                            if (gap >= 1) return 'Advanced'
+                            if (gap >= 0) return 'On Track'
+                            return 'Developing'
+                          }
+
+                          const tier = getTier()
+                          if (!tier) return null
+                          const tierColor = TIER_COLORS[tier]
+
+                          // Find next target
+                          const getNextTarget = () => {
+                            if (isRelativeOnly) {
+                              if (!bodyweightLbs) return null
+                              const relVal = athleteValue / bodyweightLbs
+                              return (bench.relativeTargets || []).find(t => relVal < t.min)
+                            }
+                            if (bench.tieredTargets) {
+                              const currentTierData = bench.tieredTargets.find(t => t.levels.some(l => l === ageCategory || ladder.indexOf(l) >= athleteLadderIdx))
+                              if (!currentTierData) return null
+                              const tiers = [
+                                { label: 'Bronze', val: currentTierData.bronze },
+                                { label: 'Silver', val: currentTierData.silver },
+                                { label: 'Gold', val: currentTierData.gold },
+                              ]
+                              return tiers.find(t => athleteValue < t.val)
+                            }
+                            const levels = (bench.levels || []).filter(l => l.value != null)
+                            const remaining = levels.filter(l => isLower ? athleteValue > l.value : athleteValue < l.value)
+                            if (remaining.length === 0) return null
+                            const next = isLower
+                              ? remaining.reduce((a, b) => a.value > b.value ? a : b)
+                              : remaining.reduce((a, b) => a.value < b.value ? a : b)
+                            return { level: next.level, value: next.value, confidence: next.confidence }
+                          }
+                          const nextTarget = getNextTarget()
+
+                          return (
+                            <div style={{ marginBottom: '10px' }}>
+
+                              {/* Tier badge */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: tierColor, flexShrink: 0 }} />
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: tierColor, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{tier}</div>
+                                {isRelativeOnly && bodyweightLbs && (
+                                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginLeft: 'auto' }}>
+                                    {(athleteValue / bodyweightLbs).toFixed(2)}× BW
+                                  </div>
+                                )}
+
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '16px' }}>
+                                {tier === 'Elite Trajectory' ? 'Top 10% of athletes tested at PFA' : tier === 'Advanced' ? 'Above average for age group' : tier === 'On Track' ? 'Meeting expected standards' : 'Room to grow — keep training'}
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                                <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#3fae52' }}>
+                                  {profile?.sport?.toLowerCase().includes('hockey') ? 'Hockey Development Benchmarks' : profile?.sport?.toLowerCase().includes('soccer') ? 'Soccer Development Benchmarks' : 'Hockey Development Benchmarks'}
+                                </div>
+                              </div>
+
+                              {/* Chip track — standard tests */}
+                              {!isRelativeOnly && !bench.tieredTargets && !bench.relativeTargets && (bench.levels || []).some(l => l.value != null) && (
+                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
+                                  {(() => {
+                                    const visibleLevels = ladder
+                                      .map((lvl, idx) => ({ lvl, idx, bench: (bench.levels || []).find(l => l.level === lvl) }))
+                                      .filter(({ bench: b }) => b?.value != null)
+
+                                    const beatenIdxs = visibleLevels.filter(({ bench: b }) => isLower ? athleteValue <= b.value : athleteValue >= b.value).map(({ idx }) => idx)
+                                    const highestBeatenIdx = beatenIdxs.length > 0 ? Math.max(...beatenIdxs) : -1
+                                    const youInserted = { done: false }
+
+                                    return visibleLevels.map(({ lvl, idx, bench: lvlBench }, i) => {
+                                      const shortName = lvl.replace('HC ', '').replace('/Pro', '').replace('Olympic/', '').replace('-age', '').replace('CHL-age', 'CHL')
+                                      const beats = isLower ? athleteValue <= lvlBench.value : athleteValue >= lvlBench.value
+                                      const isFirstUnbeaten = !beats && highestBeatenIdx < idx && !youInserted.done
+                                      if (isFirstUnbeaten) youInserted.done = true
+                                      const isYouAfterAll = i === visibleLevels.length - 1 && !youInserted.done && highestBeatenIdx === -1
+
+                                      return (
+                                        <React.Fragment key={lvl}>
+                                          {i > 0 && <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>}
+                                          {beats ? (
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>✓ {shortName}</div>
+                                          ) : isFirstUnbeaten ? (
+                                            <>
+                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
+                                              <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>
+                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>→ {shortName}</div>
+                                            </>
+                                          ) : isYouAfterAll ? (
+                                            <>
+                                              <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>
+                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
+                                            </>
+                                          ) : (
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>{shortName}</div>
+                                          )}
+                                        </React.Fragment>
+                                      )
+                                    })
+                                  })()}
+                                </div>
+                              )}
+
+                              {/* Chip track — relative targets */}
+                              {(isRelativeOnly || (bench.relativeTargets && bodyweightLbs)) && !bench.tieredTargets && (
+                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
+                                  {(bench.relativeTargets || []).map((target, idx) => {
+                                    const relVal = bodyweightLbs ? athleteValue / bodyweightLbs : 0
+                                    const meets = relVal >= target.min
+                                    const clearedCount = (bench.relativeTargets || []).filter(t => relVal >= t.min).length
+                                    const isHere = meets && idx === clearedCount - 1
+                                    const isNext = idx === clearedCount && !meets
+                                    return (
+                                      <React.Fragment key={idx}>
+                                        {idx > 0 && <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>}
+                                        {isHere && meets ? (
+                                          <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
+                                        ) : meets ? (
+                                          <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>✓ {target.label}</div>
+                                        ) : isNext ? (
+                                          <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>→ {target.label}</div>
+                                        ) : (
+                                          <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>{target.label}</div>
+                                        )}
+                                      </React.Fragment>
+                                    )
+                                  })}
+                                </div>
+                              )}
+
+                              {/* Chip track — tiered targets (push-ups etc) */}
+                              {bench.tieredTargets && (
+                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
+                                  {(() => {
+                                    const currentTierData = bench.tieredTargets.find(t => t.levels.some(l => l === ageCategory || ladder.indexOf(l) >= athleteLadderIdx))
+                                    if (!currentTierData) return null
+                                    const tiers = [
+                                      { label: 'Bronze', val: currentTierData.bronze, color: '#cd7f32' },
+                                      { label: 'Silver', val: currentTierData.silver, color: '#9ca3af' },
+                                      { label: 'Gold', val: currentTierData.gold, color: '#f59e0b' },
+                                    ]
+                                    const clearedCount = tiers.filter(t => athleteValue >= t.val).length
+                                    return tiers.map((t, idx) => {
+                                      const meets = athleteValue >= t.val
+                                      const isHere = idx === clearedCount - 1 && meets
+                                      const isNext = idx === clearedCount && !meets
+                                      return (
+                                        <React.Fragment key={t.label}>
+                                          {idx > 0 && <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>}
+                                          {isHere ? (
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${t.color}22`, border: `1.5px solid ${t.color}`, color: t.color, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
+                                          ) : meets ? (
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${t.color}18`, border: `1px solid ${t.color}44`, color: t.color, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>✓ {t.label}</div>
+                                          ) : isNext ? (
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>→ {t.label}</div>
+                                          ) : (
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>{t.label}</div>
+                                          )}
+                                        </React.Fragment>
+                                      )
+                                    })
+                                  })()}
+                                </div>
+                              )}
+
+                              {/* Comparison card — next target */}
+                              {nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
+                                <div style={{ background: 'rgba(255,255,255,0.02)', borderLeft: '2px solid rgba(255,255,255,0.08)', borderRadius: '0 6px 6px 0', padding: '10px 12px', fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.7', marginBottom: '12px' }}>
+                                  {(() => {
+                                    const clearedLevels = (bench.levels || []).filter(l => l.value != null && (isLower ? athleteValue <= l.value : athleteValue >= l.value))
+                                    const clearedNames = clearedLevels.map(l => l.level.replace('HC ', '').replace('/Pro','').replace('Olympic/','').replace('-age','').replace('CHL-age','CHL'))
+                                    const nextName = nextTarget.level.replace('HC ', '').replace('/Pro','').replace('Olympic/','').replace('-age','').replace('CHL-age','CHL')
+                                    const gapFormatted = isLower
+                                      ? `${(athleteValue - nextTarget.value).toFixed(3)}s`
+                                      : formatVal(tt, Math.abs(nextTarget.value - athleteValue))
+                                    if (clearedLevels.length > 0) {
+                                      return (
+                                        <span>
+                                          {profile?.full_name?.split(' ')[0]} has already cleared the <strong style={{ color: 'white' }}>{clearedNames.join(', ')}</strong> benchmark{clearedLevels.length > 1 ? 's' : ''}. The next target is the <strong style={{ color: 'white' }}>{nextName} standard</strong> — just <strong style={{ color: '#3fae52' }}>{gapFormatted} away</strong>.
+                                        </span>
+                                      )
+                                    } else {
+                                      return (
+                                        <span>
+                                          The next target is the <strong style={{ color: 'white' }}>{nextName} standard</strong>. {profile?.full_name?.split(' ')[0]} is <strong style={{ color: '#3fae52' }}>{gapFormatted} away</strong> from hitting this benchmark.
+                                        </span>
+                                      )
+                                    }
+                                  })()}
+                                </div>
+                              )}
+                              {nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px' }}>
+                                  <div style={{ padding: '10px 14px' }}>
+                                    <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Today</div>
+                                    <div style={{ fontSize: '20px', fontWeight: '900', color: 'white' }}>{formatVal(tt, athleteValue)}</div>
+                                  </div>
+                                  <div style={{ background: 'rgba(255,255,255,0.07)' }} />
+                                  <div style={{ padding: '10px 14px' }}>
+                                    <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>{nextTarget.level}</div>
+                                    <div style={{ fontSize: '20px', fontWeight: '900', color: 'rgba(255,255,255,0.2)' }}>{formatVal(tt, nextTarget.value)}</div>
+                                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', marginTop: '3px' }}>
+                                      {isLower ? `${(athleteValue - nextTarget.value).toFixed(3)}s to go` : `${formatVal(tt, Math.abs(nextTarget.value - athleteValue))} to go`}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                            </div>
+                          )
+                        })()}
                         {history.length > 1 && <LineChartCanvas testType={tt} history={history} />}
                         {(pfaBench || hnbBench || hcBench) && (
                           <div style={{ marginTop: '12px', borderTop: '1px solid rgba(63,174,82,0.1)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
