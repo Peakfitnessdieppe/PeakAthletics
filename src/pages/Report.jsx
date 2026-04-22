@@ -2011,34 +2011,54 @@ const Report = () => {
             </p>
           )}
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-              gap: '12px',
-              width: '100%',
-            }}
-          >
-            <div style={{ background: 'linear-gradient(135deg, rgba(63,174,82,0.18), rgba(10,15,10,0.9))', border: '1px solid rgba(63,174,82,0.45)', borderRadius: '14px', padding: '18px', textAlign: 'center', boxShadow: '0 12px 30px rgba(0,0,0,0.4)' }}>
-              <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: '10px' }}>Overall</div>
-              <div style={{ fontSize: '56px', fontWeight: '900', color: getScoreColor(displayScores.overall), lineHeight: 1 }}>{displayScores.overall ?? '—'}</div>
-              <div style={{ marginTop: '12px', height: '5px', background: 'rgba(255,255,255,0.12)', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${displayScores.overall ?? 0}%`, background: getScoreColor(displayScores.overall), borderRadius: '3px' }} />
-              </div>
-            </div>
-            {CATEGORIES.map((cat) => {
-              const score = displayScores[cat]
-              const color = getScoreColor(score)
+          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+            {[
+              { label: 'Overall', key: 'overall', score: compScore?.overall_score },
+              { label: 'Speed', key: 'speed', score: compScore?.speed_score },
+              { label: 'Strength', key: 'strength', score: compScore?.strength_score },
+              { label: 'Power', key: 'power', score: compScore?.power_score },
+              { label: 'Agility', key: 'agility', score: compScore?.agility_score },
+              { label: 'Endurance', key: 'endurance', score: compScore?.endurance_score },
+            ].map(({ label, key, score }, i) => {
+              const s = Math.round(score || 0)
+              const isOverall = key === 'overall'
+              const zoneColor = s >= 75 ? '#3fae52' : s >= 50 ? '#f59e0b' : '#ef4444'
+              const zoneLabel = s >= 75 ? 'Strong' : s >= 50 ? 'Above avg' : 'Developing'
               return (
-                <div key={cat} style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '8px' }}>{cat}</div>
-                  <div style={{ fontSize: '36px', fontWeight: '900', color, lineHeight: 1 }}>{score ?? '—'}</div>
-                  <div style={{ marginTop: '10px', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${score ?? 0}%`, background: color, borderRadius: '2px' }} />
+                <div key={key} style={{ background: '#0d1a0d', border: `1px solid ${isOverall ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '10px', padding: isOverall ? '16px 18px' : '14px 16px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '6px' }}>{label}</div>
+                  <div style={{ fontSize: isOverall ? '52px' : '36px', fontWeight: '900', lineHeight: '1', marginBottom: '10px', color: zoneColor }}>{s}</div>
+                  <div style={{ position: 'relative', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '999px', marginBottom: '6px', overflow: 'visible' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: '49%', height: '100%', background: 'rgba(239,68,68,0.5)', borderRadius: '999px 0 0 999px' }} />
+                    <div style={{ position: 'absolute', top: 0, left: '49%', width: '26%', height: '100%', background: 'rgba(245,158,11,0.5)' }} />
+                    <div style={{ position: 'absolute', top: 0, left: '75%', width: '25%', height: '100%', background: 'rgba(63,174,82,0.6)', borderRadius: '0 999px 999px 0' }} />
+                    <div style={{ position: 'absolute', top: '-3px', left: '50%', width: '1px', height: '14px', background: 'rgba(255,255,255,0.25)' }} />
+                    <div style={{ position: 'absolute', top: '50%', left: `${s}%`, transform: 'translate(-50%, -50%)', width: '14px', height: '14px', borderRadius: '50%', background: zoneColor, border: '2px solid #0a0f0a', zIndex: 10 }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)' }}>{isOverall ? 'Peer avg: 50' : 'avg: 50'}</div>
+                    <div style={{ fontSize: '9px', fontWeight: '700', color: zoneColor }}>{zoneLabel}</div>
                   </div>
                 </div>
               )
             })}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginRight: '4px' }}>Zones:</div>
+            {[
+              { color: 'rgba(239,68,68,0.5)', label: 'Developing (0–49)' },
+              { color: 'rgba(245,158,11,0.5)', label: 'Average (50–74)' },
+              { color: 'rgba(63,174,82,0.6)', label: 'Strong (75–100)' },
+            ].map(z => (
+              <div key={z.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: z.color }} />
+                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>{z.label}</span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.25)' }} />
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>Peer average</span>
+            </div>
           </div>
 
           {(() => {
