@@ -321,6 +321,7 @@ const Report = () => {
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
+  const [lightMode, setLightMode] = useState(false)
 
   const tooltipStyle = {
     position: 'relative',
@@ -711,7 +712,7 @@ const Report = () => {
 
   if (!athleteId) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0f0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+      <div style={{ minHeight: '100vh', background: lightMode ? '#f5f7f5' : '#0a0f0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: lightMode ? '#111' : 'white' }}>
         No athlete selected.
       </div>
     )
@@ -719,17 +720,17 @@ const Report = () => {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0f0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ minHeight: '100vh', background: lightMode ? '#f5f7f5' : '#0a0f0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: lightMode ? '#111' : 'white', flexDirection: 'column', gap: '16px' }}>
         <div style={{ width: '40px', height: '40px', border: '4px solid #3fae52', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <span style={{ color: 'rgba(255,255,255,0.6)' }}>Loading report...</span>
+        <span style={{ color: lightMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)' }}>Loading report...</span>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0f0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', padding: '32px' }}>
+      <div style={{ minHeight: '100vh', background: lightMode ? '#f5f7f5' : '#0a0f0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', padding: '32px' }}>
         Error: {error}
       </div>
     )
@@ -761,15 +762,21 @@ const Report = () => {
   }
 
   return (
-    <div style={{ background: '#050705', minHeight: '100vh', color: 'white', fontFamily: 'sans-serif', overflowX: 'hidden', width: '100%' }}>
+    <div style={{ background: lightMode ? '#f5f7f5' : '#050705', minHeight: '100vh', color: lightMode ? '#111' : 'white', fontFamily: 'sans-serif', overflowX: 'hidden', width: '100%' }}>
 
-      {/* BACK BUTTON */}
-      <div style={{ padding: '16px 24px' }}>
+      {/* BACK BUTTON + LIGHT MODE TOGGLE */}
+      <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button
           onClick={() => navigate(-1)}
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '8px', color: '#3fae52', padding: '8px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+          style={{ background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '8px', color: '#3fae52', padding: '8px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
         >
           ← Back
+        </button>
+        <button
+          onClick={() => setLightMode(lm => !lm)}
+          style={{ background: lightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)'}`, borderRadius: '8px', color: lightMode ? '#333' : '#ccc', padding: '8px 14px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          {lightMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
         </button>
       </div>
 
@@ -778,7 +785,7 @@ const Report = () => {
         style={{
           width: '100%',
           minHeight: '220px',
-          backgroundColor: '#050705',
+          backgroundColor: lightMode ? '#f5f7f5' : '#050705',
           position: 'relative',
           overflow: 'hidden',
           overflowX: 'hidden',
@@ -933,7 +940,7 @@ const Report = () => {
                     fontSize: isMobile ? '12px' : '15px',
                     fontWeight: '500',
                     letterSpacing: '0.06em',
-                    color: 'rgba(255,255,255,0.6)',
+                    color: lightMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)',
                     lineHeight: 1.4,
                     textTransform: 'uppercase'
                   }}>
@@ -947,7 +954,7 @@ const Report = () => {
                 fontWeight: '900',
                 textTransform: 'uppercase',
                 letterSpacing: '0.04em',
-                color: 'white',
+                color: lightMode ? '#0a1a0a' : 'white',
                 margin: '0 0 12px 0',
                 lineHeight: 1.1
               }}>
@@ -1009,9 +1016,9 @@ const Report = () => {
                       overflow: 'hidden',
                     }}
                   >
-                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', letterSpacing: '0.14em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
-                    <div style={{ color: 'white', fontWeight: 800, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
-                    {idx !== arr.length - 1 && !isMobile && <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.05)' }} />}
+                    <div style={{ color: lightMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)', fontSize: '10px', letterSpacing: '0.14em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
+                    <div style={{ color: lightMode ? '#111' : 'white', fontWeight: 800, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
+                    {idx !== arr.length - 1 && !isMobile && <div style={{ flex: 1, height: '1px', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }} />}
                   </div>
                 ))}
               </div>
@@ -1027,11 +1034,13 @@ const Report = () => {
           margin: '32px auto 40px auto',
           padding: isMobile ? '0 16px' : '0 24px',
           fontSize: '1.05rem',
-          color: 'rgba(255,255,255,0.8)',
+          color: lightMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)',
           fontStyle: 'italic',
           lineHeight: 1.7,
           borderLeft: '3px solid #3fae52',
-          paddingLeft: '16px'
+          paddingLeft: '16px',
+          background: lightMode ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)',
+          borderRadius: '6px'
         }}>
           {insights.this_season}
         </div>
@@ -1378,7 +1387,7 @@ const Report = () => {
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
                   <thead>
-                    <tr style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    <tr style={{ color: lightMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                       {['Season', 'Team', 'League', 'GP', 'G', 'A', 'PTS', 'PIM'].map((h) => (
                         <th key={h} style={{ textAlign: 'left', padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{h}</th>
                       ))}
@@ -1448,7 +1457,7 @@ const Report = () => {
             margin: '32px auto 40px auto',
             padding: isMobile ? '0 16px' : '0 24px',
             fontSize: '1.05rem',
-            color: 'rgba(255,255,255,0.8)',
+            color: lightMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)',
             fontStyle: 'italic',
             lineHeight: 1.7,
             borderLeft: '3px solid #3fae52',
@@ -1464,7 +1473,7 @@ const Report = () => {
             Development Testing
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '24px', marginTop: '8px' }}>
-            <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginRight: '4px' }}>Benchmarks:</div>
+            <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.25)', marginRight: '4px' }}>Benchmarks:</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52' }}>✓</span>
               <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>cleared</span>
@@ -1474,11 +1483,11 @@ const Report = () => {
               <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>you are here</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(255,255,255,0.04)', border: '1px solid #3fae52', color: '#3fae52' }}>→</span>
+              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1px solid #3fae52', color: '#3fae52' }}>→</span>
               <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>next target</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)' }}>···</span>
+              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'}`, color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.2)' }}>···</span>
               <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>future milestone</span>
             </div>
           </div>
@@ -1488,10 +1497,10 @@ const Report = () => {
             return (
               <div key={cat} style={{ marginBottom: '40px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <h3 style={{ fontWeight: '800', fontSize: '18px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'white', margin: 0 }}>{cat}</h3>
+                  <h3 style={{ fontWeight: '800', fontSize: '18px', textTransform: 'uppercase', letterSpacing: '0.08em', color: lightMode ? '#111' : 'white', margin: 0 }}>{cat}</h3>
                   <span style={{ fontSize: '22px', fontWeight: '900', color: getScoreColor(displayScores[cat]) }}>{displayScores[cat] ?? '—'}</span>
                 </div>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', lineHeight: 1.6, marginBottom: '16px' }}>{CAT_DESCRIPTIONS[cat]}</p>
+                <p style={{ color: lightMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)', fontSize: '13px', lineHeight: 1.6, marginBottom: '16px' }}>{CAT_DESCRIPTIONS[cat]}</p>
                 {(() => {
                   const categoryKeyMap = {
                     'Speed': 'speed',
@@ -1556,11 +1565,11 @@ const Report = () => {
                       {showAiInsight && (
                         <div style={{
                           padding: '10px 14px',
-                          background: 'rgba(255,255,255,0.03)',
-                          borderLeft: '3px solid rgba(255,255,255,0.15)',
+                          background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                          borderLeft: lightMode ? '3px solid rgba(0,0,0,0.15)' : '3px solid rgba(255,255,255,0.15)',
                           borderRadius: '4px',
                         }}>
-                          <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
+                          <span style={{ fontSize: '13px', color: lightMode ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
                             {aiInsight}
                           </span>
                         </div>
@@ -1759,7 +1768,7 @@ const Report = () => {
                                                 onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
                                                 onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
                                               >
-                                                <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>→ {shortName}</div>
+                                                <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>→ {shortName}</div>
                                                 <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName}</div>
                                               </div>
                                             </>
@@ -1775,7 +1784,7 @@ const Report = () => {
                                               onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
                                               onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
                                             >
-                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>{shortName}</div>
+                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'}`, color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>{shortName}</div>
                                               <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName}</div>
                                             </div>
                                           )}
@@ -1817,7 +1826,7 @@ const Report = () => {
                                             onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
                                             onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
                                           >
-                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>→ {target.label}</div>
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>→ {target.label}</div>
                                             <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[target.label] || target.label}</div>
                                           </div>
                                         ) : (
@@ -1827,7 +1836,7 @@ const Report = () => {
                                             onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
                                             onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
                                           >
-                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>{target.label}</div>
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'}`, color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>{target.label}</div>
                                             <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[target.label] || target.label}</div>
                                           </div>
                                         )}
@@ -1861,9 +1870,9 @@ const Report = () => {
                                           ) : meets ? (
                                             <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${t.color}18`, border: `1px solid ${t.color}44`, color: t.color, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>✓ {t.label}</div>
                                           ) : isNext ? (
-                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>→ {t.label}</div>
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>→ {t.label}</div>
                                           ) : (
-                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>{t.label}</div>
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'}`, color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>{t.label}</div>
                                           )}
                                         </React.Fragment>
                                       )
@@ -1899,15 +1908,15 @@ const Report = () => {
                                 </div>
                               )}
                               {nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px' }}>
                                   <div style={{ padding: '10px 14px' }}>
                                     <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Today</div>
-                                    <div style={{ fontSize: '20px', fontWeight: '900', color: 'white' }}>{formatVal(tt, athleteValue)}</div>
+                                    <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? '#111' : 'white' }}>{formatVal(tt, athleteValue)}</div>
                                   </div>
                                   <div style={{ background: 'rgba(255,255,255,0.07)' }} />
                                   <div style={{ padding: '10px 14px' }}>
                                     <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>{nextTarget.level}</div>
-                                    <div style={{ fontSize: '20px', fontWeight: '900', color: 'rgba(255,255,255,0.2)' }}>{formatVal(tt, nextTarget.value)}</div>
+                                    <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.2)' }}>{formatVal(tt, nextTarget.value)}</div>
                                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', marginTop: '3px' }}>
                                       {isLower ? `${(athleteValue - nextTarget.value).toFixed(3)}s to go` : `${formatVal(tt, Math.abs(nextTarget.value - athleteValue))} to go`}
                                     </div>
@@ -1929,14 +1938,14 @@ const Report = () => {
                             )}
                             {hnbBench && (
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                                <span style={{ color: 'rgba(255,255,255,0.4)' }}>HNB Standard</span>
-                                <span style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>{formatVal(tt, hnbBench.value)}</span>
+                                <span style={{ color: lightMode ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)' }}>HNB Standard</span>
+                                <span style={{ color: lightMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)', fontWeight: '600' }}>{formatVal(tt, hnbBench.value)}</span>
                               </div>
                             )}
                             {hcBench && (
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                                <span style={{ color: 'rgba(255,255,255,0.4)' }}>Hockey Canada</span>
-                                <span style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>{formatVal(tt, hcBench.value)}</span>
+                                <span style={{ color: lightMode ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)' }}>Hockey Canada</span>
+                                <span style={{ color: lightMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)', fontWeight: '600' }}>{formatVal(tt, hcBench.value)}</span>
                               </div>
                             )}
                           </div>
@@ -1981,10 +1990,10 @@ const Report = () => {
                     style={{
                       marginTop: '16px',
                       padding: '12px 16px',
-                      background: 'rgba(255,255,255,0.03)',
+                      background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
                       borderRadius: '8px',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                      color: 'rgba(255,255,255,0.35)',
+                      border: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
+                      color: lightMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.35)',
                       fontSize: '11px',
                       lineHeight: '1.5',
                       fontStyle: 'italic',
@@ -2028,7 +2037,7 @@ const Report = () => {
                 <div key={key} style={{ background: '#0d1a0d', border: `1px solid ${isOverall ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '10px', padding: isOverall ? '16px 18px' : '14px 16px' }}>
                   <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '6px' }}>{label}</div>
                   <div style={{ fontSize: isOverall ? '52px' : '36px', fontWeight: '900', lineHeight: '1', marginBottom: '10px', color: zoneColor }}>{s}</div>
-                  <div style={{ position: 'relative', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '999px', marginBottom: '6px', overflow: 'visible' }}>
+                  <div style={{ position: 'relative', height: '8px', background: lightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', borderRadius: '999px', marginBottom: '6px', overflow: 'visible' }}>
                     <div style={{ position: 'absolute', top: 0, left: 0, width: '49%', height: '100%', background: 'rgba(239,68,68,0.5)', borderRadius: '999px 0 0 999px' }} />
                     <div style={{ position: 'absolute', top: 0, left: '49%', width: '26%', height: '100%', background: 'rgba(245,158,11,0.5)' }} />
                     <div style={{ position: 'absolute', top: 0, left: '75%', width: '25%', height: '100%', background: 'rgba(63,174,82,0.6)', borderRadius: '0 999px 999px 0' }} />
@@ -2064,7 +2073,7 @@ const Report = () => {
           {(() => {
             if (insights?.scores_summary) {
               return (
-                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginTop: '16px', padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(63,174,82,0.3)', borderRadius: '4px' }}>
+                <div style={{ fontSize: '13px', color: lightMode ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginTop: '16px', padding: '14px 16px', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(63,174,82,0.3)', borderRadius: '4px' }}>
                   {insights.scores_summary}
                 </div>
               )
@@ -2084,7 +2093,7 @@ const Report = () => {
             const top = sorted[0]
             const bottom = sorted[sorted.length - 1]
             return (
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginTop: '16px', padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(63,174,82,0.3)', borderRadius: '4px' }}>
+              <div style={{ fontSize: '13px', color: lightMode ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginTop: '16px', padding: '14px 16px', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(63,174,82,0.3)', borderRadius: '4px' }}>
                 {`${firstName}'s strongest category is ${top[0]} with a score of ${top[1]}, standing out among ${profile?.gender} ${profile?.age_category} peers. ${bottom[0]} is the current development focus with a score of ${bottom[1]} — an active priority in ${pronoun} training program.`}
               </div>
             )
@@ -2111,7 +2120,7 @@ const Report = () => {
               margin: '32px auto 40px auto',
               padding: isMobile ? '0 16px' : '0 24px',
               fontSize: '1.05rem',
-              color: 'rgba(255,255,255,0.8)',
+              color: lightMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)',
               fontStyle: 'italic',
               lineHeight: 1.7,
               borderLeft: '3px solid #3fae52',
@@ -2141,7 +2150,7 @@ const Report = () => {
               margin: '32px auto 40px auto',
               padding: isMobile ? '0 16px' : '0 24px',
               fontSize: '1.05rem',
-              color: 'rgba(255,255,255,0.8)',
+              color: lightMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)',
               fontStyle: 'italic',
               lineHeight: 1.7,
               borderLeft: '3px solid #3fae52',
@@ -2172,7 +2181,7 @@ const Report = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <img src={PFA_LOGO} alt="Peak Athletics" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
               <div>
-                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>688 Babin St, Dieppe, NB, E1A 5M1</div>
+                <div style={{ color: lightMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)', fontSize: '12px' }}>688 Babin St, Dieppe, NB, E1A 5M1</div>
                 <div style={{ color: '#3fae52', fontSize: '12px' }}>info@peakfitnessdieppe.ca</div>
               </div>
             </div>

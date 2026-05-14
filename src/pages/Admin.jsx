@@ -2111,6 +2111,7 @@ const Admin = () => {
               <th className="py-3 px-3 text-left">Age Category</th>
               <th className="py-3 px-3 text-left">Competition</th>
               <th className="py-3 px-3 text-left">DOB</th>
+              <th className="py-3 px-3 text-left">Access</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-pfa-border">
@@ -2143,6 +2144,51 @@ const Admin = () => {
                     <td className="py-3 px-3">{a.age_category || '-'}</td>
                     <td className="py-3 px-3">{a.competition_level || '-'}</td>
                     <td className="py-3 px-3">{a.date_of_birth?.slice(0, 10) || '-'}</td>
+                    <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                      {a.invite_sent_at ? (
+                        <span style={{ fontSize: '11px', color: '#3fae52', fontWeight: 600 }}>
+                          ✓ Invited {new Date(a.invite_sent_at).toLocaleDateString()}
+                        </span>
+                      ) : a.email && !a.email.includes('@peakathletics.app') ? (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            if (!window.confirm(`Send invite to ${a.full_name} at ${a.email}?`)) return
+                            try {
+                              const res = await fetch('/.netlify/functions/send-athlete-invite', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ athleteId: a.id, email: a.email, fullName: a.full_name }),
+                              })
+                              const data = await res.json()
+                              if (data.success) {
+                                alert(`Invite sent to ${a.email}`)
+                                window.location.reload()
+                              } else {
+                                alert(`Error: ${data.error}`)
+                              }
+                            } catch (err) {
+                              alert('Failed to send invite: ' + err.message)
+                            }
+                          }}
+                          style={{
+                            background: 'rgba(63,174,82,0.15)',
+                            border: '1px solid rgba(63,174,82,0.4)',
+                            borderRadius: '6px',
+                            color: '#3fae52',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '4px 10px',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Send Invite
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)' }}>No email</span>
+                      )}
+                    </td>
                   </tr>
                   {expandedAthleteId === a.id && (() => {
                     const results = athleteResults[a.id] || []
