@@ -22,6 +22,8 @@ const TEST_UNITS = {
   pull_ups: 'reps',
   push_ups: 'reps',
   imtp: 'lbs',
+  triple_jump: 'm',
+  plank: 's',
 }
 
 const STRENGTH_LOAD_TESTS = ['squat', 'bench_press', 'trap_bar_deadlift']
@@ -51,6 +53,8 @@ const TEST_LABELS = {
   pull_ups: 'Pull-Ups',
   push_ups: 'Push-Ups',
   imtp: 'IMTP',
+  triple_jump: 'Triple Jump',
+  plank: 'Plank',
 }
 
 const CATEGORY_COLORS = {

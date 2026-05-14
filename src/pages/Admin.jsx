@@ -40,7 +40,8 @@ const TEST_LABELS = {
   squat: 'Squat', bench_press: 'Bench Press', trap_bar_deadlift: 'Trap Bar Deadlift',
   pull_ups: 'Pull Ups', push_ups: 'Push Ups', vertical_jump: 'Vertical Jump',
   broad_jump: 'Broad Jump', mb_chest_pass: 'MB Chest Pass', '10m_sprint': '10m Sprint',
-  pro_agility_shuttle: 'Pro Agility Shuttle', beep_test: 'Beep Test',
+  '30m_sprint': '30m Sprint', pro_agility_shuttle: 'Pro Agility Shuttle',
+  beep_test: 'Beep Test', triple_jump: 'Triple Jump', plank: 'Plank',
 }
 const AVAILABLE_TESTS = {
   strength: ['squat', 'bench_press', 'trap_bar_deadlift', 'pull_ups', 'push_ups'],
@@ -65,6 +66,8 @@ const CARD_MODAL_TEST_LABELS = {
   pull_ups: 'Pull-Ups',
   push_ups: 'Push-Ups',
   imtp: 'IMTP',
+  triple_jump: 'Triple Jump',
+  plank: 'Plank',
 }
 const CARD_MODAL_TEST_UNITS = {
   '10m_sprint': 's',
@@ -81,11 +84,15 @@ const CARD_MODAL_TEST_UNITS = {
   pull_ups: 'reps',
   push_ups: 'reps',
   imtp: 'lbs',
+  triple_jump: 'm',
+  plank: 's',
 }
 const CARD_MODAL_ALL_TESTS = [
   '10m_sprint',
+  '30m_sprint',
   'vertical_jump',
   'broad_jump',
+  'triple_jump',
   'mb_chest_pass',
   'pro_agility_shuttle',
   'beep_test',
@@ -94,6 +101,7 @@ const CARD_MODAL_ALL_TESTS = [
   'bench_press',
   'pull_ups',
   'push_ups',
+  'plank',
   'imtp',
 ]
 const CARD_MODAL_ROUND_TO_INT = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp', 'push_ups', 'pull_ups']

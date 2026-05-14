@@ -11,6 +11,7 @@ export const LOWER_IS_BETTER_TESTS = ['10m_sprint', '30m_sprint', 'pro_agility_s
 export const LEVEL_LADDERS = {
   male: ['U13', 'U14', 'U15', 'U16', 'HC Junior', 'CHL-age', 'NHL/Pro'],
   female: ['U13', 'U14', 'U15', 'U16', 'HC FU18', 'IIHF Elite', 'Olympic/PWHL'],
+  ringette: ['U17', 'U18', 'SNT/Junior', 'National Team'],
 }
 
 // Confidence: 'published' = governing body standard, 'est' = research estimate, 'pfa' = PFA working target
@@ -353,6 +354,112 @@ export const BENCHMARKS = {
         { level: 'HC FU18', value: 11.01, confidence: 'published', source: 'Hockey Canada' },
         { level: 'IIHF Elite', value: null, confidence: null },
         { level: 'Olympic/PWHL', value: null, confidence: null },
+      ],
+    },
+  },
+
+  ringette: {
+    '10m_sprint': {
+      unit: 's',
+      lowerIsBetter: true,
+      label: '10m Sprint',
+      note: 'Ringette Canada National Team targets 2024-2025. Lower is better.',
+      levels: [
+        { level: 'U17', value: 1.94, confidence: 'published', source: 'Ringette Canada Bronze' },
+        { level: 'U18', value: 1.87, confidence: 'published', source: 'Ringette Canada Silver' },
+        { level: 'SNT/Junior', value: 1.80, confidence: 'published', source: 'Ringette Canada Gold' },
+        { level: 'National Team', value: 1.80, confidence: 'published', source: 'Ringette Canada Gold' },
+      ],
+    },
+
+    '30m_sprint': {
+      unit: 's',
+      lowerIsBetter: true,
+      label: '30m Sprint',
+      note: 'Ringette Canada National Team targets 2024-2025. Lower is better.',
+      levels: [
+        { level: 'U17', value: 4.82, confidence: 'published', source: 'Ringette Canada Bronze' },
+        { level: 'U18', value: 4.67, confidence: 'published', source: 'Ringette Canada Silver' },
+        { level: 'SNT/Junior', value: 4.55, confidence: 'published', source: 'Ringette Canada Gold' },
+        { level: 'National Team', value: 4.55, confidence: 'published', source: 'Ringette Canada Gold' },
+      ],
+    },
+
+    broad_jump: {
+      unit: 'm',
+      lowerIsBetter: false,
+      label: 'Standing Long Jump',
+      note: 'Ringette Canada National Team targets 2024-2025.',
+      levels: [
+        { level: 'U17', value: 2.01, confidence: 'published', source: 'Ringette Canada Bronze' },
+        { level: 'U18', value: 2.10, confidence: 'published', source: 'Ringette Canada Silver' },
+        { level: 'SNT/Junior', value: 2.55, confidence: 'published', source: 'Ringette Canada Gold' },
+        { level: 'National Team', value: 2.55, confidence: 'published', source: 'Ringette Canada Gold' },
+      ],
+    },
+
+    triple_jump: {
+      unit: 'm',
+      lowerIsBetter: false,
+      label: 'Triple Jump',
+      note: 'Ringette Canada National Team targets 2024-2025. Value in meters.',
+      levels: [
+        { level: 'U17', value: 6.28, confidence: 'published', source: 'Ringette Canada Bronze' },
+        { level: 'U18', value: 6.46, confidence: 'published', source: 'Ringette Canada Silver' },
+        { level: 'SNT/Junior', value: 6.90, confidence: 'published', source: 'Ringette Canada Gold' },
+        { level: 'National Team', value: 6.90, confidence: 'published', source: 'Ringette Canada Gold' },
+      ],
+    },
+
+    pull_ups: {
+      unit: 'reps',
+      lowerIsBetter: false,
+      label: 'Chin-Ups',
+      note: 'Ringette Canada National Team targets 2024-2025.',
+      levels: [
+        { level: 'U17', value: 2, confidence: 'published', source: 'Ringette Canada Bronze' },
+        { level: 'U18', value: 4, confidence: 'published', source: 'Ringette Canada Silver' },
+        { level: 'SNT/Junior', value: 9, confidence: 'published', source: 'Ringette Canada Gold' },
+        { level: 'National Team', value: 9, confidence: 'published', source: 'Ringette Canada Gold' },
+      ],
+    },
+
+    push_ups: {
+      unit: 'reps',
+      lowerIsBetter: false,
+      label: 'Push-Ups',
+      note: 'Ringette Canada National Team targets 2024-2025.',
+      levels: [
+        { level: 'U17', value: 20, confidence: 'published', source: 'Ringette Canada Bronze' },
+        { level: 'U18', value: 24, confidence: 'published', source: 'Ringette Canada Silver' },
+        { level: 'SNT/Junior', value: 31, confidence: 'published', source: 'Ringette Canada Gold' },
+        { level: 'National Team', value: 31, confidence: 'published', source: 'Ringette Canada Gold' },
+      ],
+    },
+
+    beep_test: {
+      unit: 'level',
+      lowerIsBetter: false,
+      label: 'AIS 20m Shuttle',
+      note: 'Ringette Canada National Team targets 2024-2025.',
+      levels: [
+        { level: 'U17', value: 8.0, confidence: 'published', source: 'Ringette Canada Bronze' },
+        { level: 'U18', value: 9.0, confidence: 'published', source: 'Ringette Canada Silver' },
+        { level: 'SNT/Junior', value: 10.5, confidence: 'published', source: 'Ringette Canada Gold' },
+        { level: 'National Team', value: 10.5, confidence: 'published', source: 'Ringette Canada Gold' },
+      ],
+    },
+
+    plank: {
+      unit: 's',
+      lowerIsBetter: false,
+      label: 'Plank',
+      note: 'Ringette Canada National Team targets 2024-2025.',
+      levels: [
+        { level: 'U17', value: 120, confidence: 'published', source: 'Ringette Canada Bronze' },
+        { level: 'U18', value: 120, confidence: 'published', source: 'Ringette Canada Silver' },
+        { level: 'SNT/Junior', value: 120, confidence: 'published', source: 'Ringette Canada Gold' },
+        { level: 'National Team', value: 120, confidence: 'published', source: 'Ringette Canada Gold' },
       ],
     },
   },

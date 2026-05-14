@@ -250,11 +250,11 @@ exports.handler = async (event) => {
 
 IMPORTANT RULES:
 - All strength values are in POUNDS (lbs). Never convert or change units.
-- Sport: ${profile.sport}. Surface: ${sportCtx.surface}. Always use sport-specific language. Never reference another sport's terminology.
+- Sport: ${profile.sport}. Surface: ${sportCtx.surface}. Venue: ${sportCtx.venue}. Object in play: ${sportCtx.object}. Always use sport-specific language. For Ringette: use "ring" not "puck", "ringette" not "hockey", athletes are female. Never reference another sport's terminology or equipment.
 - Position: ${positionContext}. Tailor all insights to what matters physically for this position.
 - Write for PARENTS first — warm, clear, proud, plain English. No jargon.
 - Use the athlete's first name (${firstName}) throughout. Pronouns: ${pronoun} / ${pronounCap}.
-- DATA INTEGRITY RULE — CRITICAL: Never make claims about in-game performance that our testing cannot confirm. We test in a controlled setting — we do not observe games. Do NOT say things like "Marc dominates board battles" or "his acceleration is remarkable on the ice" — we have not seen this. Instead say "Marc's 10m sprint of 1.833s suggests his first-step acceleration off a stop should be noticeable" or "at 2.33x bodyweight in relative strength, Marc has the physical profile to win contact situations." Always frame game observations as what the data SUGGESTS, not what we have confirmed.
+- DATA INTEGRITY RULE — CRITICAL: Never make claims about in-game performance that our testing cannot confirm. We test in a controlled setting — we do not observe games. Always frame game observations as what the data SUGGESTS, not what we have confirmed. For example: "${firstName}'s 10m sprint suggests ${pronoun} first-step acceleration off a stop should be noticeable" or "at 2.33x bodyweight in relative strength, ${firstName} has the physical profile to win contact situations." Never say an athlete "dominates" or "is remarkable" at something we have not observed. Use "suggests", "indicates", "points to", "profiles as".
 - RANKING RULE: Use tier language not raw numbers. Say 'Top 3', 'Top 25%', '#1' etc. If athlete holds a record say 'holds the [gender] [age_category] [sport] record'. If athlete is chasing a record and the gap is small (within 15% of record value), mention they are chasing it. Never say 'ranks X of Y'.
 - Frame development areas as training priorities, not weaknesses.
 
@@ -296,8 +296,8 @@ Generate a JSON object with EXACTLY these keys. No markdown, no backticks, no ex
 {
   "this_season": "2-3 sentences telling the story of ${firstName}'s development season. Lead with most impressive physical gains using real numbers and rankings where available. If game stats exist, weave them in as proof. Warm, proud, narrative tone.",
 
-  "speed_insight": "One sentence about speed. Reference actual sprint time and rank if available. Frame as suggestion for ${sportCtx.surface} performance, not confirmed observation. Above/below average per framing context.",
-  "strength_insight": "One sentence about overall strength. Reference standout lift and rank. Position-relevant framing for ${positionContext}.",
+  "speed_insight": "One sentence about speed. Reference actual sprint time and rank if available. Frame as suggestion for ${profile.sport} performance on the ${sportCtx.surface}, not confirmed observation. Above/below average per framing context.",
+  "strength_insight": "One sentence about overall strength. Reference standout lift and rank. Position-relevant framing for ${profile.sport} — ${positionContext}.",
   "squat_insight": "One sentence about squat. Reference e1RM, relative strength, and rank if available. Only if squat data exists.",
   "bench_press_insight": "One sentence about bench press. Reference e1RM and rank. Only if bench press data exists.",
   "trap_bar_insight": "One sentence about trap bar deadlift. Reference e1RM, relative strength, and rank. Only if trap bar data exists.",
@@ -311,8 +311,8 @@ Generate a JSON object with EXACTLY these keys. No markdown, no backticks, no ex
   "endurance_insight": "One sentence about endurance. Reference beep test level and rank.",
   "physical_standouts": "2-3 sentences highlighting most impressive rankings and absolute numbers with peer context. Use actual rank numbers — '${firstName} ranks X of Y for [test] among [gender] [age_category] athletes tested.' This is factual and confirmed. Make every word earn its place.",
   "scores_summary": "2-3 sentences contextualizing composite scores for a parent. Frame what the overall score means. Call out 1-2 highest scoring categories with peer context. End with positive forward-looking sentence about development areas.",
-  "what_to_watch": "2-3 sentences for a parent, coach, or scout. STRICT: Only reference what testing measured. Use 'suggests' not 'is'. Lead with the most impressive ranking or record. If athlete holds a record mention it. If chasing a record mention the gap. Connect to a specific observable on-${sportCtx.surface} moment using 'suggests' language. Never confirm game performance. Third sentence only if meaningful — omit filler.",
-  "next_steps": "1-2 sentences about what Peak Fitness is targeting in the next testing session. Only reference metrics we actually test. Format: 'In ${firstName}'s next testing session, we will be focused on [specific test or category] — targeting [specific measurable improvement].' If a category is below peer average, mention it as priority. Never promise game outcomes or reference things we do not test. Do not end with any reference to in-game performance or on-ice/on-pitch outcomes — end at the specific measurable test target."
+  "what_to_watch": "2-3 sentences for a parent, coach, or scout. STRICT: Only reference what testing measured. Use 'suggests' not 'is'. Lead with the most impressive ranking or record. If athlete holds a record mention it. If chasing a record mention the gap. Connect to a specific observable on-${sportCtx.surface} moment in ${profile.sport} using 'suggests' language — use correct sport terminology (${sportCtx.object}, ${sportCtx.venue}). Never confirm game performance. Third sentence only if meaningful — omit filler.",
+  "next_steps": "1-2 sentences about what Peak Fitness is targeting in the next testing session. Only reference metrics we actually test. Format: 'In ${firstName}'s next testing session, we will be focused on [specific test or category] — targeting [specific measurable improvement].' If a category is below peer average, mention it as priority. Never promise game outcomes or reference things we do not test. Do not end with any reference to in-game performance or on-${sportCtx.surface} outcomes — end at the specific measurable test target."
 }
 
 Every value must be a single string. No nested objects. No arrays. No line breaks within values. Omit conditional keys entirely if test data does not exist.`

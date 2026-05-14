@@ -42,7 +42,7 @@ const TIER_COLORS = {
 }
 
 const STRENGTH_LOAD_TESTS = ['squat', 'bench_press', 'trap_bar_deadlift']
-const LOWER_IS_BETTER = ['10m_sprint', 'pro_agility_shuttle']
+const LOWER_IS_BETTER = ['10m_sprint', '30m_sprint', 'pro_agility_shuttle']
 const calcE1RM = (load, reps) => (!load || !reps || reps === 1) ? load : Math.round(load * (1 + reps / 30))
 
 const TEST_RANGES = {
@@ -57,6 +57,9 @@ const TEST_RANGES = {
   vertical_jump: { min: 20, max: 80, higherIsBetter: true },
   mb_chest_pass: { min: 2.5, max: 8.0, higherIsBetter: true },
   beep_test: { min: 4, max: 15, higherIsBetter: true },
+  '30m_sprint': { min: 3.5, max: 6.0, higherIsBetter: false },
+  triple_jump: { min: 4.0, max: 8.0, higherIsBetter: true },
+  plank: { min: 0, max: 300, higherIsBetter: true },
 }
 
 const LOWER_IS_BETTER_SET = new Set(LOWER_IS_BETTER)
@@ -102,6 +105,9 @@ const formatVal = (testType, value) => {
   if (['vertical_jump', 'ncmj'].includes(testType)) return `${Number(value).toFixed(1)} in`
   if (testType === 'beep_test') return `Level ${Number(value).toFixed(2)}`
   if (['pull_ups', 'push_ups'].includes(testType)) return `${Math.round(value)} reps`
+  if (testType === '30m_sprint') return `${Number(value).toFixed(2)}s`
+  if (testType === 'triple_jump') return `${Number(value).toFixed(2)}m`
+  if (testType === 'plank') return `${Math.round(value)}s`
   if (testType === 'mb_chest_pass') return `${Number(value).toFixed(2)} m`
   return parseFloat(Number(value).toFixed(1))
 }
@@ -1615,11 +1621,14 @@ const Report = () => {
                           {pb ? formatVal(tt, pb.value) : '—'}
                         </div>
                         {(() => {
+                          const sport = profile?.sport || ''
                           const gender = profile?.gender === 'female' ? 'female' : 'male'
                           const ageCategory = profile?.age_category || ''
-                          const ladder = LEVEL_LADDERS[gender]
+                          const isRingette = sport === 'Ringette'
+                          const benchKey = isRingette ? 'ringette' : gender
+                          const ladder = isRingette ? LEVEL_LADDERS['ringette'] : LEVEL_LADDERS[gender]
                           const athleteLadderIdx = ladder.indexOf(ageCategory)
-                          const bench = BENCHMARKS[gender]?.[tt]
+                          const bench = BENCHMARKS[benchKey]?.[tt]
                           if (!bench || !pb) return null
 
                           const athleteValue = (() => {
