@@ -1340,11 +1340,31 @@ const Admin = () => {
   }
 
   const handleDeleteTeam = async (id) => {
-    if (!window.confirm('Delete this team?')) return
-    const { error } = await supabase.from('pfa_teams').delete().eq('id', id)
-    if (!error) {
+    if (!window.confirm('Delete this team? Athletes on this team will NOT be deleted — they will just be unassigned.')) return
+    try {
+      const { error: linkError } = await supabase
+        .from('athlete_teams')
+        .delete()
+        .eq('team_id', id)
+      if (linkError) {
+        console.error('Failed to remove athlete team links:', linkError.message)
+        alert('Failed to remove athlete links: ' + linkError.message)
+        return
+      }
+      const { error: teamError } = await supabase
+        .from('pfa_teams')
+        .delete()
+        .eq('id', id)
+      if (teamError) {
+        console.error('Failed to delete team:', teamError.message)
+        alert('Failed to delete team: ' + teamError.message)
+        return
+      }
       loadTeams()
       loadMetrics()
+    } catch (err) {
+      console.error('Delete team error:', err)
+      alert('Unexpected error: ' + err.message)
     }
   }
 
