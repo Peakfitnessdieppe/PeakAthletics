@@ -180,11 +180,11 @@ const Login = () => {
       <div style={{ width: '100%', maxWidth: '480px' }}>
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <img
             src="https://iilysafrbbnklelzzqyh.supabase.co/storage/v1/object/public/Assets/Peak%20Athletics%20Logo%202.png"
             alt="Peak Fitness Athletics"
-            style={{ height: '80px', width: 'auto', marginBottom: '16px', filter: 'drop-shadow(0 0 10px rgba(63,174,82,0.4))' }}
+            style={{ height: '240px', width: 'auto', maxWidth: '480px', margin: '0 auto 16px', display: 'block', filter: 'drop-shadow(0 0 10px rgba(63,174,82,0.4))' }}
           />
           <div style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '0.15em', color: '#3fae52' }}>PEAK FITNESS ATHLETICS</div>
           <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Performance Testing Platform</div>
