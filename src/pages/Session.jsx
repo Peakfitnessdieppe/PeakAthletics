@@ -518,7 +518,15 @@ const Session = () => {
         
         {/* Header */}
         <div style={{ padding: '20px 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '0.15em', color: '#3fae52' }}>TEST SESSION</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button
+              onClick={() => window.history.back()}
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '8px', color: '#3fae52', padding: '6px 14px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+            >
+              ← Admin
+            </button>
+            <div style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '0.15em', color: '#3fae52' }}>TEST SESSION</div>
+          </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             {['session', 'history'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)}
