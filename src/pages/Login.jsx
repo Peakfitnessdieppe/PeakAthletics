@@ -3,31 +3,57 @@ import { Navigate } from 'react-router-dom'
 import useAuth from '../hooks/useAuth'
 import { supabase } from '../services/supabase'
 
-const SPORTS = ['Hockey', 'Soccer', 'Football', 'Ringette', 'Volleyball', 'Track & Field', 'Martial Arts', 'Other']
+const SPORTS = ['Hockey', 'Soccer', 'American Football', 'Ringette', 'Volleyball', 'Basketball', 'Baseball', 'Lacrosse', 'Tennis', 'Track & Field', 'Martial Arts', 'Other']
 
 const POSITIONS_BY_SPORT = {
   Hockey: ['Center', 'Left Wing', 'Right Wing', 'Defense', 'Goalie'],
-  Soccer: ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'],
-  Volleyball: ['Setter', 'Outside Hitter', 'Middle Blocker', 'Libero', 'Opposite Hitter'],
+  Soccer: ['Goalkeeper', 'Defender', 'Midfielder', 'Forward', 'Winger'],
+  'American Football': ['Quarterback', 'Running Back', 'Wide Receiver', 'Tight End', 'Offensive Line', 'Defensive Line', 'Linebacker', 'Cornerback', 'Safety', 'Kicker', 'Punter'],
   Ringette: ['Center', 'Wing', 'Defense', 'Goalie'],
+  Volleyball: ['Setter', 'Outside Hitter', 'Middle Blocker', 'Libero', 'Opposite Hitter'],
+  Basketball: ['Point Guard', 'Shooting Guard', 'Small Forward', 'Power Forward', 'Center'],
+  Baseball: ['Pitcher', 'Catcher', 'First Base', 'Second Base', 'Third Base', 'Shortstop', 'Left Field', 'Center Field', 'Right Field', 'Designated Hitter'],
+  Lacrosse: ['Attack', 'Midfield', 'Defense', 'Goalie'],
+  Tennis: ['Singles', 'Doubles'],
 }
 const DEFAULT_POSITIONS = ['Forward', 'Defense', 'Midfielder', 'Goalie', 'Other']
 const getPositions = (sport) => POSITIONS_BY_SPORT[sport] || DEFAULT_POSITIONS
 
-const AGE_CATEGORIES_BY_SPORT = {
-  Hockey: ['U11', 'U13', 'U14', 'U15', 'U16', 'U18', 'U19', 'Junior', 'Senior'],
-  Soccer: ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'University', 'Senior'],
-  Volleyball: ['U14', 'U16', 'U18', 'University', 'Senior'],
-}
-const DEFAULT_AGE_CATEGORIES = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'University', 'Senior']
-const getAgeCategories = (sport) => AGE_CATEGORIES_BY_SPORT[sport] || DEFAULT_AGE_CATEGORIES
+const ALL_AGE_CATEGORIES = ['U11', 'U12', 'U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'University', 'Junior', 'Senior']
+const getAgeCategories = () => ALL_AGE_CATEGORIES
 
 const COMPETITION_LEVELS = ['AAA', 'AA', 'A', 'Junior', 'University', 'Semi-Pro', 'Pro', 'Recreational']
 
-const HOCKEY_TEAMS = [
-  'Dieppe Flyers', 'Moncton Hawks', 'Northern Rivermen', 'Moncton Wildcats',
-  'Moncton Rallye Motors Nissan Flyers', 'Fredericton Red Wings', 'Saint John Vito\'s',
-  'Miramichi Timberwolves', 'Bathurst Titans', 'Campbellton Tigers',
+const TEAM_OPTIONS = [
+  'Bernice MacNaughton High School',
+  'Dieppe Flyers',
+  'Dieppe Impact',
+  'Dieppe Lynx',
+  'Dieppe-Memramcook Aigles',
+  'East Phantoms',
+  'École Clément-Cormier',
+  'École L\'Odyssée',
+  'École Mathieu-Martin',
+  'École Secondaire Népisiguit',
+  'Fury',
+  'Harrison Trimble High School',
+  'Miramichi Rivermen',
+  'Moncton Beavers',
+  'Moncton Flyers',
+  'Moncton Hawks',
+  'Moncton High School',
+  'Moncton Rockets',
+  'Moncton Scorpions',
+  'Moncton Storm',
+  'Moncton Thunderbirds',
+  'Moncton Wildcats',
+  'Northern Rivermen',
+  'Polyvalente Louis-J.-Robichaud',
+  'Riverview Blues',
+  'Riverview Devils',
+  'Riverview High School',
+  'Team NB Ringette',
+  'West Kent Aces',
 ]
 
 const inputStyle = {
@@ -169,11 +195,18 @@ const Login = () => {
 
   const reg = (field) => ({
     value: regForm[field],
-    onChange: (e) => setRegForm((prev) => ({ ...prev, [field]: e.target.value })),
+    onChange: (e) => {
+      const value = e.target.value
+      if (field === 'sport') {
+        setRegForm((prev) => ({ ...prev, sport: value, position: '', age_category: '' }))
+      } else {
+        setRegForm((prev) => ({ ...prev, [field]: value }))
+      }
+    },
   })
 
   const positions = getPositions(regForm.sport)
-  const ageCategories = getAgeCategories(regForm.sport)
+  const ageCategories = getAgeCategories()
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0f0a', color: '#fff', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px' }}>
@@ -306,7 +339,6 @@ const Login = () => {
                     <option value="">Select...</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
-                    <option value="other">Other</option>
                   </select>
                 </div>
               </div>
@@ -340,7 +372,7 @@ const Login = () => {
                 <label style={labelStyle}>Team Name <span style={{ color: '#ef4444' }}>*</span></label>
                 <select {...reg('team_name')} required style={inputStyle}>
                   <option value="">Select...</option>
-                  {HOCKEY_TEAMS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  {TEAM_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                   <option value="Other">Other / Not Listed</option>
                 </select>
               </div>

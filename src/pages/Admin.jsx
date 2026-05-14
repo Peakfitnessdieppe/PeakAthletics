@@ -1347,23 +1347,40 @@ const Admin = () => {
         .delete()
         .eq('team_id', id)
       if (linkError) {
-        console.error('Failed to remove athlete team links:', linkError.message)
-        alert('Failed to remove athlete links: ' + linkError.message)
+        alert('Failed to remove athlete team links: ' + linkError.message)
         return
       }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ team_id: null })
+        .eq('team_id', id)
+      if (profileError) {
+        alert('Failed to unlink profiles: ' + profileError.message)
+        return
+      }
+
+      const { error: sessionError } = await supabase
+        .from('test_sessions')
+        .update({ team_id: null })
+        .eq('team_id', id)
+      if (sessionError) {
+        alert('Failed to unlink test sessions: ' + sessionError.message)
+        return
+      }
+
       const { error: teamError } = await supabase
         .from('pfa_teams')
         .delete()
         .eq('id', id)
       if (teamError) {
-        console.error('Failed to delete team:', teamError.message)
         alert('Failed to delete team: ' + teamError.message)
         return
       }
+
       loadTeams()
       loadMetrics()
     } catch (err) {
-      console.error('Delete team error:', err)
       alert('Unexpected error: ' + err.message)
     }
   }
