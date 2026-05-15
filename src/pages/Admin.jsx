@@ -30,6 +30,7 @@ const SECTION_LABELS = {
   scoreWeights: 'Score Weights',
   measurements: 'Measurements',
   dashboard: 'Dashboard',
+  programs: 'Programs',
 }
 
 const SPORTS = ['Football', 'Hockey', 'Martial Arts', 'Ringette', 'Soccer', 'Track & Field']
@@ -254,6 +255,28 @@ const Admin = () => {
   const [editingWeightSetTests, setEditingWeightSetTests] = useState({})
   const [expandedWeightSet, setExpandedWeightSet] = useState(null)
   const [weightableTests, setWeightableTests] = useState({})
+
+  const [programs, setPrograms] = useState([])
+  const [programsLoading, setProgramsLoading] = useState(false)
+  const [selectedProgram, setSelectedProgram] = useState(null)
+  const [selectedWeek, setSelectedWeek] = useState(null)
+  const [selectedDay, setSelectedDay] = useState(null)
+  const [weeks, setWeeks] = useState([])
+  const [days, setDays] = useState([])
+  const [exercises, setExercises] = useState([])
+  const [showProgramForm, setShowProgramForm] = useState(false)
+  const [programForm, setProgramForm] = useState({
+    title: '', slug: '', description: '', sport: 'all',
+    tags: '', weeks_total: 8, days_per_week: 4,
+    minutes_per_session: 60, level: 'all',
+    pdf_url: '', thumbnail_url: '', published: false
+  })
+  const [weekForm, setWeekForm] = useState({ week_number: '', focus: '' })
+  const [dayForm, setDayForm] = useState({ day_number: '', label: '', session_type: 'Training' })
+  const [exerciseForm, setExerciseForm] = useState({
+    name: '', sets_reps: '', coaching_notes: '',
+    video_url: '', video_provider: 'youtube', sort_order: 0
+  })
 
   const filteredUsers = useMemo(() => {
     const term = userSearch.toLowerCase()
@@ -1083,6 +1106,11 @@ const Admin = () => {
       setTestsLoading(false)
     }
     loadTests()
+  }, [activeSection])
+
+  useEffect(() => {
+    if (activeSection !== 'programs') return
+    loadPrograms()
   }, [activeSection])
 
   const openCreateUser = () => {
@@ -3330,6 +3358,144 @@ const Admin = () => {
     </SectionContainer>
   )
 
+  const loadPrograms = async () => {
+    setProgramsLoading(true)
+    const { data, error } = await supabase
+      .from('pfa_programs')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (!error) setPrograms(data || [])
+    setProgramsLoading(false)
+  }
+
+  const loadWeeks = async (programId) => {
+    const { data } = await supabase
+      .from('pfa_weeks')
+      .select('*')
+      .eq('program_id', programId)
+      .order('week_number')
+    setWeeks(data || [])
+    setSelectedWeek(null)
+    setDays([])
+    setSelectedDay(null)
+    setExercises([])
+  }
+
+  const loadDays = async (weekId) => {
+    const { data } = await supabase
+      .from('pfa_days')
+      .select('*')
+      .eq('week_id', weekId)
+      .order('day_number')
+    setDays(data || [])
+    setSelectedDay(null)
+    setExercises([])
+  }
+
+  const loadExercises = async (dayId) => {
+    const { data } = await supabase
+      .from('pfa_exercises')
+      .select('*')
+      .eq('day_id', dayId)
+      .order('sort_order')
+    setExercises(data || [])
+  }
+
+  const saveProgram = async () => {
+    const payload = {
+      ...programForm,
+      tags: programForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
+      weeks_total: parseInt(programForm.weeks_total),
+      days_per_week: parseInt(programForm.days_per_week),
+      minutes_per_session: parseInt(programForm.minutes_per_session),
+      slug: programForm.slug || programForm.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+    }
+    if (selectedProgram) {
+      await supabase.from('pfa_programs').update(payload).eq('id', selectedProgram.id)
+    } else {
+      await supabase.from('pfa_programs').insert(payload)
+    }
+    setShowProgramForm(false)
+    setProgramForm({ title: '', slug: '', description: '', sport: 'all', tags: '', weeks_total: 8, days_per_week: 4, minutes_per_session: 60, level: 'all', pdf_url: '', thumbnail_url: '', published: false })
+    loadPrograms()
+  }
+
+  const deleteProgram = async (id) => {
+    if (!confirm('Delete this program and all its weeks, days, and exercises?')) return
+    await supabase.from('pfa_programs').delete().eq('id', id)
+    if (selectedProgram?.id === id) {
+      setSelectedProgram(null)
+      setWeeks([])
+      setDays([])
+      setExercises([])
+    }
+    loadPrograms()
+  }
+
+  const togglePublished = async (prog) => {
+    await supabase.from('pfa_programs').update({ published: !prog.published }).eq('id', prog.id)
+    loadPrograms()
+  }
+
+  const addWeek = async () => {
+    if (!selectedProgram || !weekForm.week_number) return
+    await supabase.from('pfa_weeks').insert({
+      program_id: selectedProgram.id,
+      week_number: parseInt(weekForm.week_number),
+      focus: weekForm.focus,
+    })
+    setWeekForm({ week_number: '', focus: '' })
+    loadWeeks(selectedProgram.id)
+  }
+
+  const deleteWeek = async (id) => {
+    await supabase.from('pfa_weeks').delete().eq('id', id)
+    if (selectedWeek?.id === id) {
+      setSelectedWeek(null)
+      setDays([])
+      setSelectedDay(null)
+      setExercises([])
+    }
+    loadWeeks(selectedProgram.id)
+  }
+
+  const addDay = async () => {
+    if (!selectedWeek || !dayForm.day_number || !dayForm.label) return
+    await supabase.from('pfa_days').insert({
+      week_id: selectedWeek.id,
+      day_number: parseInt(dayForm.day_number),
+      label: dayForm.label,
+      session_type: dayForm.session_type,
+    })
+    setDayForm({ day_number: '', label: '', session_type: 'Training' })
+    loadDays(selectedWeek.id)
+  }
+
+  const deleteDay = async (id) => {
+    await supabase.from('pfa_days').delete().eq('id', id)
+    if (selectedDay?.id === id) {
+      setSelectedDay(null)
+      setExercises([])
+    }
+    loadDays(selectedWeek.id)
+  }
+
+  const addExercise = async () => {
+    if (!selectedDay || !exerciseForm.name) return
+    await supabase.from('pfa_exercises').insert({
+      ...exerciseForm,
+      day_id: selectedDay.id,
+      sort_order: parseInt(exerciseForm.sort_order) || 0,
+    })
+    setExerciseForm({ name: '', sets_reps: '', coaching_notes: '', video_url: '', video_provider: 'youtube', sort_order: 0 })
+    loadExercises(selectedDay.id)
+  }
+
+  const deleteExercise = async (id) => {
+    await supabase.from('pfa_exercises').delete().eq('id', id)
+    loadExercises(selectedDay.id)
+  }
+
   const renderSection = () => {
     switch (activeSection) {
       case 'Dashboard':
@@ -3421,6 +3587,14 @@ const Admin = () => {
             >
               Progress Reports
             </a>
+            <button
+              onClick={() => setActiveSection('programs')}
+              className={`${navItemBase} w-full text-left border border-transparent ${
+                activeSection === 'programs' ? 'border-l-4 border-pfa-green text-pfa-green bg-white/5' : 'text-white/60'
+              }`}
+            >
+              Programs
+            </button>
           </div>
         </aside>
 
@@ -3431,6 +3605,450 @@ const Admin = () => {
           </div>
           {renderSection()}
           {activeSection === 'scoreWeights' && renderScoreWeights()}
+          {activeSection === 'programs' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white">Programs</h2>
+                <button
+                  onClick={() => {
+                    setSelectedProgram(null)
+                    setProgramForm({ title: '', slug: '', description: '', sport: 'all', tags: '', weeks_total: 8, days_per_week: 4, minutes_per_session: 60, level: 'all', pdf_url: '', thumbnail_url: '', published: false })
+                    setShowProgramForm(true)
+                  }}
+                  className="px-4 py-2 bg-[#3fae52] hover:bg-[#4ec962] text-black font-bold text-sm uppercase tracking-wide rounded"
+                >
+                  + New Program
+                </button>
+              </div>
+
+              {showProgramForm && (
+                <div className="bg-[#0d1a0d] border border-[#1a2e1a] rounded-lg p-6 mb-6">
+                  <h3 className="text-white font-bold uppercase tracking-wide mb-4">
+                    {selectedProgram ? 'Edit Program' : 'New Program'}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Title *</label>
+                      <input
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none"
+                        value={programForm.title}
+                        onChange={(e) => setProgramForm((f) => ({
+                          ...f,
+                          title: e.target.value,
+                          slug: e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+                        }))}
+                        placeholder="Explosive Speed System"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Slug</label>
+                      <input
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none"
+                        value={programForm.slug}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, slug: e.target.value }))}
+                        placeholder="explosive-speed-system"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Description</label>
+                      <textarea
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none h-20 resize-none"
+                        value={programForm.description}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, description: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Sport</label>
+                      <select
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none"
+                        value={programForm.sport}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, sport: e.target.value }))}
+                      >
+                        <option value="all">All Sports</option>
+                        <option value="hockey">Hockey</option>
+                        <option value="soccer">Soccer</option>
+                        <option value="ringette">Ringette</option>
+                        <option value="basketball">Basketball</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Level</label>
+                      <select
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none"
+                        value={programForm.level}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, level: e.target.value }))}
+                      >
+                        <option value="all">All Levels</option>
+                        <option value="beginner">Beginner</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Tags (comma-separated)</label>
+                      <input
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none"
+                        value={programForm.tags}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, tags: e.target.value }))}
+                        placeholder="speed, hockey, offseason"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Weeks Total</label>
+                      <input
+                        type="number"
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none"
+                        value={programForm.weeks_total}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, weeks_total: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Days / Week</label>
+                      <input
+                        type="number"
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none"
+                        value={programForm.days_per_week}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, days_per_week: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Minutes / Session</label>
+                      <input
+                        type="number"
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none"
+                        value={programForm.minutes_per_session}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, minutes_per_session: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">PDF URL</label>
+                      <input
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none"
+                        value={programForm.pdf_url}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, pdf_url: e.target.value }))}
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Thumbnail URL</label>
+                      <input
+                        className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-3 py-2 text-white text-sm focus:border-[#3fae52] outline-none"
+                        value={programForm.thumbnail_url}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, thumbnail_url: e.target.value }))}
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div className="col-span-2 flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="prog-published"
+                        checked={programForm.published}
+                        onChange={(e) => setProgramForm((f) => ({ ...f, published: e.target.checked }))}
+                        className="w-4 h-4 accent-[#3fae52]"
+                      />
+                      <label htmlFor="prog-published" className="text-sm text-gray-400">
+                        Published — visible to subscribers
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-5">
+                    <button
+                      onClick={saveProgram}
+                      className="px-5 py-2 bg-[#3fae52] hover:bg-[#4ec962] text-black font-bold text-sm uppercase tracking-wide rounded"
+                    >
+                      Save Program
+                    </button>
+                    <button
+                      onClick={() => setShowProgramForm(false)}
+                      className="px-5 py-2 border border-[#1a2e1a] text-gray-400 hover:text-white text-sm uppercase tracking-wide rounded"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {programsLoading ? (
+                <p className="text-gray-500 text-sm">Loading...</p>
+              ) : (
+                <div className="bg-[#0d1a0d] border border-[#1a2e1a] rounded-lg overflow-hidden mb-6">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#1a2e1a]">
+                        <th className="text-left px-4 py-3 text-xs text-gray-500 uppercase tracking-wide">Title</th>
+                        <th className="text-left px-4 py-3 text-xs text-gray-500 uppercase tracking-wide">Sport</th>
+                        <th className="text-left px-4 py-3 text-xs text-gray-500 uppercase tracking-wide">Structure</th>
+                        <th className="text-left px-4 py-3 text-xs text-gray-500 uppercase tracking-wide">Status</th>
+                        <th className="text-left px-4 py-3 text-xs text-gray-500 uppercase tracking-wide">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {programs.map((prog) => (
+                        <tr
+                          key={prog.id}
+                          className={`border-b border-[#1a2e1a] cursor-pointer transition-colors ${
+                            selectedProgram?.id === prog.id ? 'bg-[#0a1a0a]' : 'hover:bg-[#0a120a]'
+                          }`}
+                        >
+                          <td
+                            className="px-4 py-3 text-white font-medium"
+                            onClick={() => { setSelectedProgram(prog); loadWeeks(prog.id) }}
+                          >
+                            {prog.title}
+                            {selectedProgram?.id === prog.id && (
+                              <span className="ml-2 text-xs text-[#3fae52]">▶ editing</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-gray-400 capitalize">{prog.sport}</td>
+                          <td className="px-4 py-3 text-gray-400">{prog.weeks_total}w · {prog.days_per_week}d/wk · {prog.minutes_per_session}min</td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => togglePublished(prog)}
+                              className={`text-xs font-bold uppercase tracking-wide px-2 py-1 rounded ${
+                                prog.published
+                                  ? 'bg-[#3fae52]/20 text-[#3fae52]'
+                                  : 'bg-gray-800 text-gray-500'
+                              }`}
+                            >
+                              {prog.published ? 'Live' : 'Draft'}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => {
+                                  setSelectedProgram(prog)
+                                  setProgramForm({ ...prog, tags: (prog.tags || []).join(', ') })
+                                  setShowProgramForm(true)
+                                }}
+                                className="text-xs text-blue-400 hover:text-blue-300 uppercase tracking-wide"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => deleteProgram(prog.id)}
+                                className="text-xs text-red-500 hover:text-red-400 uppercase tracking-wide"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {programs.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-10 text-center text-gray-600 text-sm">
+                            No programs yet. Click + New Program to create your first one.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {selectedProgram && (
+                <div>
+                  <h3 className="text-white font-bold uppercase tracking-wide text-sm mb-3">
+                    Building: {selectedProgram.title}
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4">
+
+                    <div className="bg-[#0d1a0d] border border-[#1a2e1a] rounded-lg p-4">
+                      <h4 className="text-xs text-gray-500 uppercase tracking-wide font-bold mb-3">Weeks</h4>
+                      <div className="space-y-2 mb-4">
+                        {weeks.map((w) => (
+                          <div
+                            key={w.id}
+                            onClick={() => { setSelectedWeek(w); loadDays(w.id) }}
+                            className={`flex items-center justify-between px-3 py-2 rounded cursor-pointer text-sm transition-colors ${
+                              selectedWeek?.id === w.id
+                                ? 'bg-[#3fae52]/20 border border-[#3fae52]/50 text-white'
+                                : 'bg-[#0a120a] text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            <span>Week {w.week_number}{w.focus ? ` — ${w.focus}` : ''}</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); deleteWeek(w.id) }}
+                              className="text-red-600 hover:text-red-400 text-xs ml-2 leading-none"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                        {weeks.length === 0 && (
+                          <p className="text-xs text-gray-600">No weeks yet.</p>
+                        )}
+                      </div>
+                      <div className="space-y-2 pt-3 border-t border-[#1a2e1a]">
+                        <input
+                          className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none"
+                          placeholder="Week number"
+                          value={weekForm.week_number}
+                          onChange={(e) => setWeekForm((f) => ({ ...f, week_number: e.target.value }))}
+                        />
+                        <input
+                          className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none"
+                          placeholder="Focus (e.g. Acceleration)"
+                          value={weekForm.focus}
+                          onChange={(e) => setWeekForm((f) => ({ ...f, focus: e.target.value }))}
+                        />
+                        <button
+                          onClick={addWeek}
+                          className="w-full py-1.5 bg-[#3fae52]/20 hover:bg-[#3fae52]/30 text-[#3fae52] text-xs uppercase tracking-wide rounded font-bold"
+                        >
+                          + Add Week
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#0d1a0d] border border-[#1a2e1a] rounded-lg p-4">
+                      <h4 className="text-xs text-gray-500 uppercase tracking-wide font-bold mb-3">
+                        {selectedWeek ? `Days — Week ${selectedWeek.week_number}` : 'Select a week first'}
+                      </h4>
+                      <div className="space-y-2 mb-4">
+                        {days.map((d) => (
+                          <div
+                            key={d.id}
+                            onClick={() => { setSelectedDay(d); loadExercises(d.id) }}
+                            className={`flex items-center justify-between px-3 py-2 rounded cursor-pointer text-sm transition-colors ${
+                              selectedDay?.id === d.id
+                                ? 'bg-[#3fae52]/20 border border-[#3fae52]/50 text-white'
+                                : 'bg-[#0a120a] text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            <span>Day {d.day_number} — {d.label}</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); deleteDay(d.id) }}
+                              className="text-red-600 hover:text-red-400 text-xs ml-2 leading-none"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                        {selectedWeek && days.length === 0 && (
+                          <p className="text-xs text-gray-600">No days yet.</p>
+                        )}
+                      </div>
+                      {selectedWeek && (
+                        <div className="space-y-2 pt-3 border-t border-[#1a2e1a]">
+                          <input
+                            className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none"
+                            placeholder="Day number"
+                            value={dayForm.day_number}
+                            onChange={(e) => setDayForm((f) => ({ ...f, day_number: e.target.value }))}
+                          />
+                          <input
+                            className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none"
+                            placeholder="Label (e.g. Speed & Acceleration)"
+                            value={dayForm.label}
+                            onChange={(e) => setDayForm((f) => ({ ...f, label: e.target.value }))}
+                          />
+                          <select
+                            className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none"
+                            value={dayForm.session_type}
+                            onChange={(e) => setDayForm((f) => ({ ...f, session_type: e.target.value }))}
+                          >
+                            <option>Training</option>
+                            <option>Speed</option>
+                            <option>Strength</option>
+                            <option>Power</option>
+                            <option>Recovery</option>
+                            <option>Rest</option>
+                          </select>
+                          <button
+                            onClick={addDay}
+                            className="w-full py-1.5 bg-[#3fae52]/20 hover:bg-[#3fae52]/30 text-[#3fae52] text-xs uppercase tracking-wide rounded font-bold"
+                          >
+                            + Add Day
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-[#0d1a0d] border border-[#1a2e1a] rounded-lg p-4">
+                      <h4 className="text-xs text-gray-500 uppercase tracking-wide font-bold mb-3">
+                        {selectedDay ? `Exercises — ${selectedDay.label}` : 'Select a day first'}
+                      </h4>
+                      <div className="space-y-2 mb-4">
+                        {exercises.map((ex) => (
+                          <div key={ex.id} className="bg-[#0a120a] rounded px-3 py-2 text-xs space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-white font-semibold">{ex.name}</span>
+                              <button
+                                onClick={() => deleteExercise(ex.id)}
+                                className="text-red-600 hover:text-red-400 text-xs leading-none"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                            {ex.sets_reps && <div className="text-gray-500">{ex.sets_reps}</div>}
+                            {ex.coaching_notes && <div className="text-gray-600 italic">{ex.coaching_notes}</div>}
+                            {ex.video_url && (
+                              <div className="text-[#3fae52]/60 truncate">{ex.video_provider}: {ex.video_url}</div>
+                            )}
+                          </div>
+                        ))}
+                        {selectedDay && exercises.length === 0 && (
+                          <p className="text-xs text-gray-600">No exercises yet.</p>
+                        )}
+                      </div>
+                      {selectedDay && (
+                        <div className="space-y-2 pt-3 border-t border-[#1a2e1a]">
+                          <input
+                            className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none"
+                            placeholder="Exercise name *"
+                            value={exerciseForm.name}
+                            onChange={(e) => setExerciseForm((f) => ({ ...f, name: e.target.value }))}
+                          />
+                          <input
+                            className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none"
+                            placeholder="Sets / reps (e.g. 4 × 6 · 90s rest)"
+                            value={exerciseForm.sets_reps}
+                            onChange={(e) => setExerciseForm((f) => ({ ...f, sets_reps: e.target.value }))}
+                          />
+                          <textarea
+                            className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none h-14 resize-none"
+                            placeholder="Coaching notes"
+                            value={exerciseForm.coaching_notes}
+                            onChange={(e) => setExerciseForm((f) => ({ ...f, coaching_notes: e.target.value }))}
+                          />
+                          <input
+                            className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none"
+                            placeholder="Video URL (YouTube or Vimeo)"
+                            value={exerciseForm.video_url}
+                            onChange={(e) => setExerciseForm((f) => ({ ...f, video_url: e.target.value }))}
+                          />
+                          <select
+                            className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none"
+                            value={exerciseForm.video_provider}
+                            onChange={(e) => setExerciseForm((f) => ({ ...f, video_provider: e.target.value }))}
+                          >
+                            <option value="youtube">YouTube</option>
+                            <option value="vimeo">Vimeo</option>
+                          </select>
+                          <input
+                            type="number"
+                            className="w-full bg-[#0a120a] border border-[#1a2e1a] rounded px-2 py-1.5 text-white text-xs focus:border-[#3fae52] outline-none"
+                            placeholder="Sort order (0, 1, 2...)"
+                            value={exerciseForm.sort_order}
+                            onChange={(e) => setExerciseForm((f) => ({ ...f, sort_order: e.target.value }))}
+                          />
+                          <button
+                            onClick={addExercise}
+                            className="w-full py-1.5 bg-[#3fae52]/20 hover:bg-[#3fae52]/30 text-[#3fae52] text-xs uppercase tracking-wide rounded font-bold"
+                          >
+                            + Add Exercise
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {cardModalAthlete && (
             <div
               style={{

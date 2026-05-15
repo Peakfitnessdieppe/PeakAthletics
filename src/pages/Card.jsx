@@ -435,7 +435,7 @@ const Card = () => {
       >
         <button
           onClick={signOut}
-          className="absolute top-4 right-4 text-sm text-white/70 hover:text-white bg-white/5 border border-pfa-border px-3 py-1 rounded-lg"
+          className="absolute top-4 right-4 text-sm text-white/70 hover:text-white bg-white/5 border border-pfa-border px-3 py-1 rounded-lg hidden sm:block"
         >
           Sign Out
         </button>
@@ -885,6 +885,27 @@ const Card = () => {
             }}
           >
             View Full Report
+          </button>
+          <button
+            type="button"
+            onClick={signOut}
+            className="sm:hidden"
+            style={{
+              width: '100%',
+              maxWidth: '320px',
+              marginTop: '10px',
+              background: 'rgba(255,255,255,0.08)',
+              color: 'white',
+              fontWeight: '700',
+              fontSize: '13px',
+              padding: '12px',
+              borderRadius: '16px',
+              border: '1px solid rgba(255,255,255,0.15)',
+              cursor: 'pointer',
+              letterSpacing: '0.05em',
+            }}
+          >
+            Sign Out
           </button>
         </div>
       </div>
