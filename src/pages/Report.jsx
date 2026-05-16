@@ -595,7 +595,7 @@ const Report = () => {
           .from('pfa_ai_insights')
           .select('insight_json, generated_at')
           .eq('athlete_id', athleteId)
-          .single()
+          .maybeSingle()
 
         if (cached?.insight_json) {
           setInsights(cached.insight_json)

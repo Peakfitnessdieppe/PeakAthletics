@@ -237,18 +237,23 @@ const Card = () => {
     ]
   }
 
+  const profileId = profile?.id || ''
+  const profileAgeCat = profile?.age_category || ''
+  const profileGender = profile?.gender || ''
+  const profileAvatarUrl = profile?.avatar_url || ''
+
   useEffect(() => {
     fetchResults()
-  }, [profile?.id])
+  }, [profileId])
 
   useEffect(() => {
     const fetchComposite = async () => {
-      if (!profile?.id) return
+      if (!profileId) return
       try {
         const { data: compScores, error } = await supabase
           .from('pfa_composite_scores')
           .select('overall_score, speed_score, power_score, strength_score, agility_score, endurance_score, calculated_at')
-          .eq('athlete_id', profile.id)
+          .eq('athlete_id', profileId)
           .order('calculated_at', { ascending: false })
           .limit(1)
         console.log('[Card] compScore fetch result:', compScores, error)
@@ -258,12 +263,12 @@ const Card = () => {
       }
     }
     fetchComposite()
-  }, [profile?.id])
+  }, [profileId])
 
   useEffect(() => {
     const loadRankings = async () => {
-      if (!profile?.id || !profile?.age_category || !profile?.gender) return
-      const rankings = await getAthleteTestRankings(profile.id, profile.age_category, profile.gender)
+      if (!profileId || !profileAgeCat || !profileGender) return
+      const rankings = await getAthleteTestRankings(profileId, profileAgeCat, profileGender)
       console.log(
         'Test rankings loaded:',
         JSON.stringify(
@@ -280,11 +285,11 @@ const Card = () => {
       setTestRankings(rankings)
     }
     loadRankings()
-  }, [profile?.id, profile?.age_category, profile?.gender])
+  }, [profileId, profileAgeCat, profileGender])
 
   useEffect(() => {
-    setAvatarUrl(profile?.avatar_url || null)
-  }, [profile?.avatar_url])
+    setAvatarUrl(profileAvatarUrl || null)
+  }, [profileAvatarUrl])
 
   const initials = useMemo(() => {
     if (!profile?.full_name) return 'NA'
@@ -867,6 +872,24 @@ const Card = () => {
           ) : (
             <div className="text-white/60 text-sm">Tap to flip</div>
           )}
+
+          <div
+            onClick={() => navigate('/pro')}
+            className="mx-4 mb-4 cursor-pointer group rounded-xl border border-[#3fae52]/30 bg-[#0d1a0d] hover:border-[#3fae52]/70 hover:bg-[#0d1a0d] transition-all overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-5 py-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold uppercase tracking-widest text-[#3fae52]">PFA PRO</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#3fae52]/20 text-[#3fae52] uppercase tracking-wide">BETA</span>
+                </div>
+                <div className="text-white font-bold text-sm">Access Your Training Programs</div>
+                <div className="text-gray-500 text-xs mt-0.5">8-week dryland programs from the PFA coaching team</div>
+              </div>
+              <div className="text-[#3fae52] text-xl group-hover:translate-x-1 transition-transform">→</div>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={() => navigate('/report')}

@@ -11,6 +11,7 @@ import Session from './pages/Session'
 import Admin from './pages/Admin'
 import Report from './pages/Report'
 import LandingPage from './pages/LandingPage'
+import Pro from './pages/Pro'
 
 const App = () => {
   return (
@@ -64,6 +65,14 @@ const App = () => {
             element={
               <RequireAuth allowedRoles={['athlete', 'family', 'pfa_admin', 'pfa_staff', 'team_coach']}>
                 <Report />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/pro"
+            element={
+              <RequireAuth allowedRoles={['athlete', 'family', 'pfa_admin', 'pfa_staff', 'team_coach']}>
+                <Pro />
               </RequireAuth>
             }
           />
