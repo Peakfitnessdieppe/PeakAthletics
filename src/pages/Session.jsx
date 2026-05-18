@@ -106,10 +106,12 @@ const Session = () => {
   const [saveConfirm, setSaveConfirm] = useState('')
   const [athleteMode, setAthleteMode] = useState('team')
   const [athleteSearch, setAthleteSearch] = useState('')
+  const [availableTests, setAvailableTests] = useState({})
+  const [testMeta, setTestMeta] = useState({})
   const inputRef = useRef(null)
 
   const currentAthlete = participants[currentIndex] || null
-  const currentTest = useMemo(() => getTest(selectedTestId), [selectedTestId])
+  const currentTest = useMemo(() => testMeta[selectedTestId] || getTest(selectedTestId), [selectedTestId, testMeta])
   const completedCount = useMemo(
     () => results.filter((r) => r.session_id === sessionId && r.test_type === selectedTestId).length,
     [results, sessionId, selectedTestId]
@@ -146,6 +148,31 @@ const Session = () => {
 
   useEffect(() => {
     loadHistory()
+  }, [])
+
+  useEffect(() => {
+    const loadTests = async () => {
+      const { data, error } = await supabase
+        .from('pfa_tests')
+        .select('test_type, display_name, category, unit, lower_is_better, is_load_based')
+        .eq('is_active', true)
+        .order('category')
+        .order('display_name')
+      if (!error && data) {
+        const grouped = data.reduce((acc, test) => {
+          if (!acc[test.category]) acc[test.category] = []
+          acc[test.category].push(test)
+          return acc
+        }, {})
+        const meta = data.reduce((acc, test) => {
+          acc[test.test_type] = test
+          return acc
+        }, {})
+        setAvailableTests(grouped)
+        setTestMeta(meta)
+      }
+    }
+    loadTests()
   }, [])
 
   useEffect(() => {
@@ -198,6 +225,10 @@ const Session = () => {
       inputRef.current.select()
     }
   }, [currentAthlete])
+
+  const isLoadBasedTest = (id) => testMeta[id]?.is_load_based ?? STRENGTH_LOAD_TESTS.includes(id)
+  const isLowerBetter = (id) => testMeta[id]?.lower_is_better ?? LOWER_IS_BETTER.includes(id)
+  const getTestLabel = (id) => testMeta[id]?.display_name || TEST_LABELS[id] || id
 
   const refreshActiveSessions = async () => {
     try {
@@ -331,8 +362,8 @@ const Session = () => {
 
       if (!currentTest) return
 
-      const isLoadBased = STRENGTH_LOAD_TESTS.includes(selectedTestId)
-      const isLower = LOWER_IS_BETTER.includes(selectedTestId)
+      const isLoadBased = isLoadBasedTest(selectedTestId)
+      const isLower = isLowerBetter(selectedTestId)
 
       // Build trial data
       let trials = []
@@ -479,8 +510,8 @@ const Session = () => {
   const { last, baseline } = getLastAndBaseline()
 
   const getTrialBestIndex = () => {
-    const isLoadBased = STRENGTH_LOAD_TESTS.includes(selectedTestId)
-    const isLower = LOWER_IS_BETTER.includes(selectedTestId)
+    const isLoadBased = isLoadBasedTest(selectedTestId)
+    const isLower = isLowerBetter(selectedTestId)
     let bestIdx = -1
     let bestVal = null
     for (let i = 0; i < 3; i++) {
@@ -497,13 +528,13 @@ const Session = () => {
   }
 
   const hasAnyTrial = () => {
-    const isLoadBased = STRENGTH_LOAD_TESTS.includes(selectedTestId)
+    const isLoadBased = isLoadBasedTest(selectedTestId)
     if (isLoadBased) return trialLoads.some(v => v !== '') || trialReps.some(v => v !== '')
     return trialValues.some(v => v !== '')
   }
 
   const trialCount = () => {
-    const isLoadBased = STRENGTH_LOAD_TESTS.includes(selectedTestId)
+    const isLoadBased = isLoadBasedTest(selectedTestId)
     if (isLoadBased) return trialLoads.filter((v, i) => v !== '' && trialReps[i] !== '').length
     return trialValues.filter(v => v !== '').length
   }
@@ -624,14 +655,18 @@ const Session = () => {
                 <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Test</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
                   {(selectedCategory === 'anthropometrics'
-                    ? [{ id: 'inbody_scan', name: 'InBody Scan' }]
-                    : TEST_CATEGORIES.find(c => c.category === selectedCategory)?.tests || []
-                  ).map(test => (
-                    <button key={test.id} onClick={() => setSelectedTestId(test.id)}
-                      style={{ padding: '12px 16px', borderRadius: '10px', border: selectedTestId === test.id ? '2px solid #3fae52' : '1px solid rgba(255,255,255,0.08)', background: selectedTestId === test.id ? 'rgba(63,174,82,0.1)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', textAlign: 'left', color: selectedTestId === test.id ? '#3fae52' : 'rgba(255,255,255,0.8)', fontWeight: selectedTestId === test.id ? '600' : '400', fontSize: '14px' }}>
-                      {test.name}
-                    </button>
-                  ))}
+                    ? [{ test_type: 'inbody_scan', display_name: 'InBody Scan' }]
+                    : availableTests[selectedCategory] || []
+                  ).map(test => {
+                    const id = test.test_type || test.id
+                    const isSelected = selectedTestId === id
+                    return (
+                      <button key={id} onClick={() => setSelectedTestId(id)}
+                        style={{ padding: '12px 16px', borderRadius: '10px', border: isSelected ? '2px solid #3fae52' : '1px solid rgba(255,255,255,0.08)', background: isSelected ? 'rgba(63,174,82,0.1)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', textAlign: 'left', color: isSelected ? '#3fae52' : 'rgba(255,255,255,0.8)', fontWeight: isSelected ? '600' : '400', fontSize: '14px' }}>
+                        {test.name || test.display_name}
+                      </button>
+                    )
+                  })}
                 </div>
               </>
             )}
@@ -655,7 +690,7 @@ const Session = () => {
   }
 
   const renderLive = () => {
-    const isLoadBased = STRENGTH_LOAD_TESTS.includes(selectedTestId)
+    const isLoadBased = isLoadBasedTest(selectedTestId)
     const isAnthro = selectedCategory === 'anthropometrics'
     const bestIdx = getTrialBestIndex()
     const totalAthletes = participants.length
@@ -668,7 +703,7 @@ const Session = () => {
         {/* Top bar */}
         <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: '#3fae52' }}>{TEST_LABELS[selectedTestId] || selectedTestId}</div>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#3fae52' }}>{getTestLabel(selectedTestId)}</div>
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{sessionInfo?.pfa_teams?.name || 'Individual'} · {sessionInfo?.location || 'No location'}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -883,7 +918,7 @@ const Session = () => {
                       <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                         <div>
                           <div style={{ fontSize: '13px', color: 'white', fontWeight: '500' }}>{item.profiles?.full_name}</div>
-                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{TEST_LABELS[item.test_type] || item.test_type}</div>
+                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{getTestLabel(item.test_type)}</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div style={{ fontSize: '14px', fontWeight: '700', color: '#3fae52' }}>{item.value}{item.unit || ''}</div>

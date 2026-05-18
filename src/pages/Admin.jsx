@@ -3063,46 +3063,48 @@ const Admin = () => {
             {catWeightRows(defaultCatWeights, (cat, val) => setDefaultCatWeights((prev) => ({ ...prev, [cat]: val })))}
 
             {/* Test weights for multi-test categories */}
-            {['strength', 'power'].map((category) => {
-              const tests = defaultTestWeights[category] || {}
-              const activeTests = Object.entries(tests).filter(([, d]) => d.is_active)
-              const testTotal = activeTests.reduce((s, [, d]) => s + Number(d.weight), 0)
-              const unusedTests = (weightableTests[category] || []).filter((t) => !tests[t.test_type])
-              return (
-                <div key={category} style={{ marginTop: '16px', padding: '14px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
-                    {CATEGORY_LABELS[category]} — Individual Test Weights
-                  </div>
-                  <div style={{ fontSize: '12px', color: testTotal === 100 ? '#3fae52' : '#f5a623', marginBottom: '10px' }}>
-                    Total: {testTotal}% {testTotal !== 100 ? '— should equal 100%' : '✓'}
-                  </div>
-                  {Object.entries(tests).map(([testType, data]) => (
-                    <div key={testType} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                      <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || (weightableTests[category] || []).find((t) => t.test_type === testType)?.display_name || testType}</div>
-                      <input type="number" min="0" max="100" value={data.weight}
-                        onChange={(e) => setDefaultTestWeights((prev) => ({ ...prev, [category]: { ...prev[category], [testType]: { ...data, weight: Number(e.target.value) } } }))}
-                        style={inputStyle} />
-                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>%</span>
-                      <button onClick={() => setDefaultTestWeights((prev) => { const u = { ...prev[category] }; delete u[testType]; return { ...prev, [category]: u } })}
-                        style={{ background: 'rgba(224,92,42,0.15)', border: '1px solid rgba(224,92,42,0.3)', borderRadius: '4px', color: '#e05c2a', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
-                        Remove
-                      </button>
+            {Object.entries(weightableTests)
+              .filter(([, tests]) => (tests?.length || 0) >= 2)
+              .map(([category]) => {
+                const tests = defaultTestWeights[category] || {}
+                const activeTests = Object.entries(tests).filter(([, d]) => d.is_active)
+                const testTotal = activeTests.reduce((s, [, d]) => s + Number(d.weight), 0)
+                const unusedTests = (weightableTests[category] || []).filter((t) => !tests[t.test_type])
+                return (
+                  <div key={category} style={{ marginTop: '16px', padding: '14px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                      {CATEGORY_LABELS[category]} — Individual Test Weights
                     </div>
-                  ))}
-                  {unusedTests.length > 0 && (
-                    <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Add:</span>
-                      {unusedTests.map((t) => (
-                        <button key={t.test_type} onClick={() => setDefaultTestWeights((prev) => ({ ...prev, [category]: { ...prev[category], [t.test_type]: { weight: 0, is_active: true, id: null } } }))}
-                          style={{ background: 'rgba(63,174,82,0.1)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: '#3fae52', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
-                          + {t.display_name}
+                    <div style={{ fontSize: '12px', color: testTotal === 100 ? '#3fae52' : '#f5a623', marginBottom: '10px' }}>
+                      Total: {testTotal}% {testTotal !== 100 ? '— should equal 100%' : '✓'}
+                    </div>
+                    {Object.entries(tests).map(([testType, data]) => (
+                      <div key={testType} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                        <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || (weightableTests[category] || []).find((t) => t.test_type === testType)?.display_name || testType}</div>
+                        <input type="number" min="0" max="100" value={data.weight}
+                          onChange={(e) => setDefaultTestWeights((prev) => ({ ...prev, [category]: { ...prev[category], [testType]: { ...data, weight: Number(e.target.value) } } }))}
+                          style={inputStyle} />
+                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>%</span>
+                        <button onClick={() => setDefaultTestWeights((prev) => { const u = { ...prev[category] }; delete u[testType]; return { ...prev, [category]: u } })}
+                          style={{ background: 'rgba(224,92,42,0.15)', border: '1px solid rgba(224,92,42,0.3)', borderRadius: '4px', color: '#e05c2a', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
+                          Remove
                         </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                      </div>
+                    ))}
+                    {unusedTests.length > 0 && (
+                      <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Add:</span>
+                        {unusedTests.map((t) => (
+                          <button key={t.test_type} onClick={() => setDefaultTestWeights((prev) => ({ ...prev, [category]: { ...prev[category], [t.test_type]: { weight: 0, is_active: true, id: null } } }))}
+                            style={{ background: 'rgba(63,174,82,0.1)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: '#3fae52', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
+                            + {t.display_name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
               <button onClick={handleSaveDefault} disabled={catTotal !== 100}
@@ -3222,48 +3224,50 @@ const Admin = () => {
                           ))}
 
                           {/* Edit mode — test weights for multi-test categories */}
-                          {['strength', 'power'].map((category) => {
-                            const tests = editingWeightSetTests[category] || {}
-                            const testTotal = Object.values(tests).reduce((s, d) => s + Number(d.weight), 0)
-                            const unusedTests = (weightableTests[category] || []).filter((t) => !tests[t.test_type])
-                            return (
-                              <div key={category} style={{ marginTop: '14px', padding: '12px', background: 'rgba(63,174,82,0.04)', border: '1px solid rgba(63,174,82,0.12)', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-                                  {CATEGORY_LABELS[category]} — Test Weights
-                                </div>
-                                <div style={{ fontSize: '12px', color: testTotal === 100 ? '#3fae52' : '#f5a623', marginBottom: '8px' }}>
-                                  Total: {testTotal}% {testTotal !== 100 ? '— should equal 100%' : '✓'}
-                                </div>
-                                {Object.entries(tests).map(([testType, data]) => (
-                                  <div key={testType} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                    <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || (weightableTests[category] || []).find((t) => t.test_type === testType)?.display_name || testType}</div>
-                                    <input type="number" min="0" max="100" value={data.weight}
-                                      onChange={(e) => setEditingWeightSetTests((prev) => ({ ...prev, [category]: { ...prev[category], [testType]: { ...data, weight: Number(e.target.value) } } }))}
-                                      style={{ width: '54px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '6px', color: 'white', padding: '4px 8px', fontSize: '12px', textAlign: 'center' }} />
-                                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>%</span>
-                                    <button onClick={() => setEditingWeightSetTests((prev) => { const u = { ...prev[category] }; delete u[testType]; return { ...prev, [category]: u } })}
-                                      style={{ background: 'rgba(224,92,42,0.1)', border: '1px solid rgba(224,92,42,0.25)', borderRadius: '4px', color: '#e05c2a', padding: '2px 7px', fontSize: '11px', cursor: 'pointer' }}>
-                                      ✕
-                                    </button>
+                          {Object.entries(weightableTests)
+                            .filter(([, tests]) => (tests?.length || 0) >= 2)
+                            .map(([category]) => {
+                              const tests = editingWeightSetTests[category] || {}
+                              const testTotal = Object.values(tests).reduce((s, d) => s + Number(d.weight), 0)
+                              const unusedTests = (weightableTests[category] || []).filter((t) => !tests[t.test_type])
+                              return (
+                                <div key={category} style={{ marginTop: '14px', padding: '12px', background: 'rgba(63,174,82,0.04)', border: '1px solid rgba(63,174,82,0.12)', borderRadius: '8px' }}>
+                                  <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                                    {CATEGORY_LABELS[category]} — Individual Test Weights
                                   </div>
-                                ))}
-                                {unusedTests.length > 0 && (
-                                  <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>Add:</span>
-                                    {unusedTests.map((t) => (
-                                      <button key={t.test_type} onClick={() => setEditingWeightSetTests((prev) => ({
-                                        ...prev,
-                                        [category]: { ...prev[category], [t.test_type]: { weight: 0, id: null } }
-                                      }))}
-                                        style={{ background: 'rgba(63,174,82,0.08)', border: '1px solid rgba(63,174,82,0.25)', borderRadius: '4px', color: '#3fae52', padding: '2px 7px', fontSize: '11px', cursor: 'pointer' }}>
-                                        + {t.display_name}
+                                  <div style={{ fontSize: '12px', color: testTotal === 100 ? '#3fae52' : '#f5a623', marginBottom: '8px' }}>
+                                    Total: {testTotal}% {testTotal !== 100 ? '— should equal 100%' : '✓'}
+                                  </div>
+                                  {Object.entries(tests).map(([testType, data]) => (
+                                    <div key={testType} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                      <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || (weightableTests[category] || []).find((t) => t.test_type === testType)?.display_name || testType}</div>
+                                      <input type="number" min="0" max="100" value={data.weight}
+                                        onChange={(e) => setEditingWeightSetTests((prev) => ({ ...prev, [category]: { ...prev[category], [testType]: { ...data, weight: Number(e.target.value) } } }))}
+                                        style={{ width: '54px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '6px', color: 'white', padding: '4px 8px', fontSize: '12px', textAlign: 'center' }} />
+                                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>%</span>
+                                      <button onClick={() => setEditingWeightSetTests((prev) => { const u = { ...prev[category] }; delete u[testType]; return { ...prev, [category]: u } })}
+                                        style={{ background: 'rgba(224,92,42,0.15)', border: '1px solid rgba(224,92,42,0.3)', borderRadius: '4px', color: '#e05c2a', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
+                                        Remove
                                       </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
+                                    </div>
+                                  ))}
+                                  {unusedTests.length > 0 && (
+                                    <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Add:</span>
+                                      {unusedTests.map((t) => (
+                                        <button key={t.test_type} onClick={() => setEditingWeightSetTests((prev) => ({
+                                          ...prev,
+                                          [category]: { ...prev[category], [t.test_type]: { weight: 0, is_active: true, id: null } }
+                                        }))}
+                                          style={{ background: 'rgba(63,174,82,0.08)', border: '1px solid rgba(63,174,82,0.25)', borderRadius: '4px', color: '#3fae52', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}>
+                                          + {t.display_name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
 
                           <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
                             <button onClick={handleSaveWeightSet} disabled={editTotal !== 100}
@@ -3541,56 +3545,52 @@ const Admin = () => {
                 <button
                   key={item}
                   onClick={() => setActiveSection(item)}
-                  className={`${navItemBase} w-full text-left border border-transparent ${
-                    active ? 'border-l-4 border-pfa-green text-pfa-green bg-white/5' : 'text-white/60'
+                  className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    activeSection === item
+                      ? 'bg-[#1a2e1a] text-[#3fae52]'
+                      : 'text-gray-400 hover:bg-[#1a2e1a] hover:text-white'
                   }`}
                 >
                   {item}
                 </button>
               )
             })}
-            <div
+            <button
               onClick={() => setActiveSection('scoreWeights')}
-              style={{
-                padding: '12px 20px',
-                cursor: 'pointer',
-                color: activeSection === 'scoreWeights' ? '#3fae52' : 'rgba(255,255,255,0.7)',
-                borderLeft: activeSection === 'scoreWeights' ? '3px solid #3fae52' : '3px solid transparent',
-                background: activeSection === 'scoreWeights' ? 'rgba(63,174,82,0.08)' : 'transparent',
-                fontSize: '14px',
-              }}
+              className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeSection === 'scoreWeights'
+                  ? 'bg-[#1a2e1a] text-[#3fae52]'
+                  : 'text-gray-400 hover:bg-[#1a2e1a] hover:text-white'
+              }`}
             >
               Score Weights
-            </div>
-            <div
+            </button>
+            <button
               onClick={() => setActiveSection('tests')}
-              style={{
-                padding: '12px 20px',
-                cursor: 'pointer',
-                color: activeSection === 'tests' ? '#3fae52' : 'rgba(255,255,255,0.7)',
-                borderLeft: activeSection === 'tests' ? '3px solid #3fae52' : '3px solid transparent',
-                background: activeSection === 'tests' ? 'rgba(63,174,82,0.08)' : 'transparent',
-                fontSize: '14px',
-              }}
+              className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeSection === 'tests'
+                  ? 'bg-[#1a2e1a] text-[#3fae52]'
+                  : 'text-gray-400 hover:bg-[#1a2e1a] hover:text-white'
+              }`}
             >
               Tests
-            </div>
+            </button>
             <a
               href="/session"
-              className={`${navItemBase} block border border-transparent text-white/60 hover:text-pfa-green hover:border-pfa-green`}
+              className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeSection === 'sessions'
+                  ? 'bg-[#1a2e1a] text-[#3fae52]'
+                  : 'text-gray-400 hover:bg-[#1a2e1a] hover:text-white'
+              }`}
             >
               Sessions
             </a>
-            <a
-              href="/report"
-              className={`${navItemBase} block border border-transparent text-white/60 hover:text-pfa-green hover:border-pfa-green`}
-            >
-              Progress Reports
-            </a>
             <button
               onClick={() => setActiveSection('programs')}
-              className={`${navItemBase} w-full text-left border border-transparent ${
-                activeSection === 'programs' ? 'border-l-4 border-pfa-green text-pfa-green bg-white/5' : 'text-white/60'
+              className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeSection === 'programs'
+                  ? 'bg-[#1a2e1a] text-[#3fae52]'
+                  : 'text-gray-400 hover:bg-[#1a2e1a] hover:text-white'
               }`}
             >
               Programs
