@@ -655,77 +655,6 @@ const Card = () => {
                   const measurementRows = buildMeasurementSeasons(measurements)
                   return (
                     <>
-                      {/* STANDARDIZED SCORES */}
-                      <div style={{ padding: '12px 16px 0' }}>
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
-                            padding: '6px 0',
-                            borderBottom: '1px solid rgba(63,174,82,0.3)',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>STANDARDIZED SCORES</div>
-                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
-                          <div style={{ color: '#3fae52', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
-                        </div>
-
-                        {[
-                          { label: 'Overall', key: 'overall_score' },
-                          { label: 'Speed', key: 'speed_score' },
-                          { label: 'Power', key: 'power_score' },
-                          { label: 'Strength', key: 'strength_score' },
-                          { label: 'Agility', key: 'agility_score' },
-                          { label: 'Endurance', key: 'endurance_score' },
-                        ].map((row, i, arr) => {
-                          const latestTestDate = (latestResults || []).reduce((latest, r) => {
-                            return !latest || r.date_tested > latest ? r.date_tested : latest
-                          }, null)
-                          const scoreSeasonYear = latestTestDate ? getSeasonYear(latestTestDate) : null
-                          console.log('[Card] latestResults:', latestResults?.length, latestResults?.[0])
-                          console.log('[Card] latestTestDate:', latestTestDate)
-                          console.log('[Card] scoreSeasonYear:', scoreSeasonYear)
-                          console.log('[Card] compScore:', compScore)
-                          const score2025 =
-                            scoreSeasonYear === 2025 && compScore && compScore[row.key] != null
-                              ? Math.round(compScore[row.key])
-                              : null
-                          const score2026 =
-                            scoreSeasonYear === 2026 && compScore && compScore[row.key] != null
-                              ? Math.round(compScore[row.key])
-                              : null
-
-                          return (
-                            <div
-                              key={row.key}
-                              style={{
-                                display: 'grid',
-                                gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
-                                padding: '5px 0',
-                                borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                              }}
-                            >
-                              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{row.label}</div>
-                              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>
-                                {score2025 !== null && compScore?.[row.key] != null ? score2025 : '—'}
-                              </div>
-                              <div
-                                style={{
-                                  color: score2026 !== null ? '#ffffff' : 'rgba(255,255,255,0.25)',
-                                  fontSize: 'clamp(9px, 2vw, 11px)',
-                                  fontWeight: score2026 !== null ? '700' : '400',
-                                  textAlign: 'center',
-                                }}
-                              >
-                                {score2026 !== null && compScore?.[row.key] != null ? score2026 : '—'}
-                              </div>
-                            </div>
-                          )
-                        })}
-                        <div style={{ borderBottom: '1px solid rgba(63,174,82,0.2)', margin: '8px 0' }} />
-                      </div>
-
                       <div style={{ padding: 'clamp(8px, 2vw, 12px) clamp(10px, 3vw, 16px) 0' }}>
                         <div
                           style={{
@@ -833,6 +762,77 @@ const Card = () => {
                           * Squat, Bench Press, and Trap Bar Deadlift values represent an estimated one-repetition maximum (1RM), calculated from the load and repetitions completed during testing using a validated predictive formula.
                         </div>
                       </div>
+
+                      {/* STANDARDIZED SCORES */}
+                      <div style={{ padding: '12px 16px 0' }}>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
+                            padding: '6px 0',
+                            borderBottom: '1px solid rgba(63,174,82,0.3)',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase' }}>STANDARDIZED SCORES</div>
+                          <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2025</div>
+                          <div style={{ color: '#3fae52', fontSize: 'clamp(8px, 1.8vw, 10px)', fontWeight: '700', letterSpacing: '0.1em', textAlign: 'center' }}>2026</div>
+                        </div>
+
+                        {[
+                          { label: 'Overall', key: 'overall_score' },
+                          { label: 'Speed', key: 'speed_score' },
+                          { label: 'Power', key: 'power_score' },
+                          { label: 'Strength', key: 'strength_score' },
+                          { label: 'Agility', key: 'agility_score' },
+                          { label: 'Endurance', key: 'endurance_score' },
+                        ].map((row, i, arr) => {
+                          const latestTestDate = (latestResults || []).reduce((latest, r) => {
+                            return !latest || r.date_tested > latest ? r.date_tested : latest
+                          }, null)
+                          const scoreSeasonYear = latestTestDate ? getSeasonYear(latestTestDate) : null
+                          console.log('[Card] latestResults:', latestResults?.length, latestResults?.[0])
+                          console.log('[Card] latestTestDate:', latestTestDate)
+                          console.log('[Card] scoreSeasonYear:', scoreSeasonYear)
+                          console.log('[Card] compScore:', compScore)
+                          const score2025 =
+                            scoreSeasonYear === 2025 && compScore && compScore[row.key] != null
+                              ? Math.round(compScore[row.key])
+                              : null
+                          const score2026 =
+                            scoreSeasonYear === 2026 && compScore && compScore[row.key] != null
+                              ? Math.round(compScore[row.key])
+                              : null
+
+                          return (
+                            <div
+                              key={row.key}
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
+                                padding: '5px 0',
+                                borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                              }}
+                            >
+                              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{row.label}</div>
+                              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>
+                                {score2025 !== null && compScore?.[row.key] != null ? score2025 : '—'}
+                              </div>
+                              <div
+                                style={{
+                                  color: score2026 !== null ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                                  fontSize: 'clamp(9px, 2vw, 11px)',
+                                  fontWeight: score2026 !== null ? '700' : '400',
+                                  textAlign: 'center',
+                                }}
+                              >
+                                {score2026 !== null && compScore?.[row.key] != null ? score2026 : '—'}
+                              </div>
+                            </div>
+                          )
+                        })}
+                        <div style={{ borderBottom: '1px solid rgba(63,174,82,0.2)', margin: '8px 0' }} />
+                      </div>
                     </>
                   )
                 })()}
@@ -873,22 +873,24 @@ const Card = () => {
             <div className="text-white/60 text-sm">Tap to flip</div>
           )}
 
-          <div
-            onClick={() => navigate('/pro')}
-            className="mx-4 mb-4 cursor-pointer group rounded-xl border border-[#3fae52]/30 bg-[#0d1a0d] hover:border-[#3fae52]/70 hover:bg-[#0d1a0d] transition-all overflow-hidden"
-          >
-            <div className="flex items-center justify-between px-5 py-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-bold uppercase tracking-widest text-[#3fae52]">PFA PRO</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#3fae52]/20 text-[#3fae52] uppercase tracking-wide">BETA</span>
+          {profile?.role !== 'athlete' && (
+            <div
+              onClick={() => navigate('/pro')}
+              className="mx-4 mb-4 cursor-pointer group rounded-xl border border-[#3fae52]/30 bg-[#0d1a0d] hover:border-[#3fae52]/70 hover:bg-[#0d1a0d] transition-all overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-5 py-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-widest text-[#3fae52]">PFA PRO</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#3fae52]/20 text-[#3fae52] uppercase tracking-wide">BETA</span>
+                  </div>
+                  <div className="text-white font-bold text-sm">Access Your Training Programs</div>
+                  <div className="text-gray-500 text-xs mt-0.5">8-week dryland programs from the PFA coaching team</div>
                 </div>
-                <div className="text-white font-bold text-sm">Access Your Training Programs</div>
-                <div className="text-gray-500 text-xs mt-0.5">8-week dryland programs from the PFA coaching team</div>
+                <div className="text-[#3fae52] text-xl group-hover:translate-x-1 transition-transform">→</div>
               </div>
-              <div className="text-[#3fae52] text-xl group-hover:translate-x-1 transition-transform">→</div>
             </div>
-          </div>
+          )}
 
           <button
             type="button"

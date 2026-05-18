@@ -329,6 +329,8 @@ const Report = () => {
   const fileInputRef = useRef(null)
   const [lightMode, setLightMode] = useState(false)
 
+  const SPORTS_WITH_BENCHMARKS = ['hockey', 'ringette']
+
   const tooltipStyle = {
     position: 'relative',
     display: 'inline-flex',
@@ -742,6 +744,7 @@ const Report = () => {
     )
   }
   const { profile, benchmarks } = reportData
+  const hasBenchmarks = SPORTS_WITH_BENCHMARKS.includes(profile?.sport?.toLowerCase())
   const age = calcAge(profile?.date_of_birth || profile?.dob)
   const initials = (profile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
   const firstName = (profile?.full_name || 'Athlete').split(' ')[0]
@@ -1478,25 +1481,27 @@ const Report = () => {
           <div style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid rgba(63,174,82,0.2)', paddingBottom: '8px' }}>
             Development Testing
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '24px', marginTop: '8px' }}>
-            <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.25)', marginRight: '4px' }}>Benchmarks:</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52' }}>✓</span>
-              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>cleared</span>
+          {hasBenchmarks && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '24px', marginTop: '8px' }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.25)', marginRight: '4px' }}>Benchmarks:</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52' }}>✓</span>
+                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>cleared</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(168,85,247,0.15)', border: '1px solid #a855f7', color: '#a855f7' }}>YOU</span>
+                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>you are here</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1px solid #3fae52', color: '#3fae52' }}>→</span>
+                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>next target</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'}`, color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.2)' }}>···</span>
+                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>future milestone</span>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(168,85,247,0.15)', border: '1px solid #a855f7', color: '#a855f7' }}>YOU</span>
-              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>you are here</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1px solid #3fae52', color: '#3fae52' }}>→</span>
-              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>next target</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'}`, color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.2)' }}>···</span>
-              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>future milestone</span>
-            </div>
-          </div>
+          )}
           {CATEGORIES.map((cat) => {
             const results = groupedResults[cat] || []
             const catTestTypes = [...new Set(results.map((r) => r.test_type))]
@@ -1628,6 +1633,7 @@ const Report = () => {
                           const benchKey = isRingette ? 'ringette' : gender
                           const ladder = isRingette ? LEVEL_LADDERS['ringette'] : LEVEL_LADDERS[gender]
                           const athleteLadderIdx = ladder.indexOf(ageCategory)
+                          if (!hasBenchmarks) return null
                           const bench = BENCHMARKS[benchKey]?.[tt]
                           if (!bench || !pb) return null
 
@@ -1730,13 +1736,15 @@ const Report = () => {
                               </div>
 
                               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                                {hasBenchmarks && (
                                 <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#3fae52' }}>
                                   {profile?.sport?.toLowerCase().includes('hockey') ? 'Hockey Development Benchmarks' : profile?.sport?.toLowerCase().includes('soccer') ? 'Soccer Development Benchmarks' : 'Hockey Development Benchmarks'}
                                 </div>
+                              )}
                               </div>
 
                               {/* Chip track — standard tests */}
-                              {!isRelativeOnly && !bench.tieredTargets && !bench.relativeTargets && (bench.levels || []).some(l => l.value != null) && (
+                              {hasBenchmarks && !isRelativeOnly && !bench.tieredTargets && !bench.relativeTargets && (bench.levels || []).some(l => l.value != null) && (
                                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
                                   {(() => {
                                     const visibleLevels = ladder
@@ -1805,7 +1813,7 @@ const Report = () => {
                               )}
 
                               {/* Chip track — relative targets */}
-                              {(isRelativeOnly || (bench.relativeTargets && bodyweightLbs)) && !bench.tieredTargets && (
+                              {hasBenchmarks && (isRelativeOnly || (bench.relativeTargets && bodyweightLbs)) && !bench.tieredTargets && (
                                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
                                   {(bench.relativeTargets || []).map((target, idx) => {
                                     const relVal = bodyweightLbs ? athleteValue / bodyweightLbs : 0
@@ -1856,7 +1864,7 @@ const Report = () => {
                               )}
 
                               {/* Chip track — tiered targets (push-ups etc) */}
-                              {bench.tieredTargets && (
+                              {hasBenchmarks && bench.tieredTargets && (
                                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
                                   {(() => {
                                     const currentTierData = bench.tieredTargets.find(t => t.levels.some(l => l === ageCategory || ladder.indexOf(l) >= athleteLadderIdx))
@@ -1891,7 +1899,7 @@ const Report = () => {
                               )}
 
                               {/* Comparison card — next target */}
-                              {nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
+                              {hasBenchmarks && nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
                                 <div style={{ background: 'rgba(255,255,255,0.02)', borderLeft: '2px solid rgba(255,255,255,0.08)', borderRadius: '0 6px 6px 0', padding: '10px 12px', fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.7', marginBottom: '12px' }}>
                                   {(() => {
                                     const clearedLevels = (bench.levels || []).filter(l => l.value != null && (isLower ? athleteValue <= l.value : athleteValue >= l.value))
@@ -1916,7 +1924,7 @@ const Report = () => {
                                   })()}
                                 </div>
                               )}
-                              {nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
+                              {hasBenchmarks && nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px' }}>
                                   <div style={{ padding: '10px 14px' }}>
                                     <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Today</div>
