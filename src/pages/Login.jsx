@@ -86,6 +86,11 @@ const Login = () => {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
   const [formLoading, setFormLoading] = useState(false)
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotStatus, setForgotStatus] = useState('idle') // idle | success | error
+  const [forgotError, setForgotError] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
 
   const [regForm, setRegForm] = useState({
     full_name: '',
@@ -223,6 +228,78 @@ const Login = () => {
           <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>Performance Testing Platform</div>
         </div>
 
+        {forgotOpen && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '16px' }}>
+            <div style={{ width: '100%', maxWidth: '420px', background: '#0a0f0a', border: '1px solid rgba(63,174,82,0.25)', borderRadius: '14px', padding: '20px', position: 'relative', color: 'white', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+              <button
+                onClick={() => setForgotOpen(false)}
+                style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: '28px', height: '28px', color: 'rgba(255,255,255,0.7)', cursor: 'pointer' }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <h3 style={{ margin: '0 0 10px', color: '#3fae52', fontSize: '18px', fontWeight: '800' }}>Reset Password</h3>
+              <p style={{ margin: '0 0 14px', color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>Enter your account email and we’ll send you a reset link.</p>
+              <label style={{ ...labelStyle, marginBottom: '6px' }}>Email</label>
+              <input
+                type="email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                style={inputStyle}
+                placeholder="you@example.com"
+              />
+
+              {forgotStatus === 'success' && (
+                <div style={{ marginTop: '10px', background: 'rgba(63,174,82,0.1)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '8px', padding: '10px 12px', color: '#3fae52', fontSize: '13px' }}>
+                  Check your email — we've sent a password reset link.
+                </div>
+              )}
+              {forgotStatus === 'error' && (
+                <div style={{ marginTop: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '10px 12px', color: '#f87171', fontSize: '13px' }}>
+                  {forgotError}
+                </div>
+              )}
+
+              <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setForgotStatus('idle')
+                    setForgotError('')
+                    if (!forgotEmail) {
+                      setForgotStatus('error')
+                      setForgotError('Please enter your email.')
+                      return
+                    }
+                    setForgotLoading(true)
+                    const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+                      redirectTo: 'https://athletics.peakfitnessdieppe.ca/reset-password'
+                    })
+                    setForgotLoading(false)
+                    if (resetError) {
+                      setForgotStatus('error')
+                      setForgotError(resetError.message)
+                    } else {
+                      setForgotStatus('success')
+                    }
+                  }}
+                  disabled={forgotLoading}
+                  style={{ flex: 1, background: '#3fae52', color: '#0a0f0a', fontWeight: '800', padding: '12px', borderRadius: '10px', border: 'none', cursor: forgotLoading ? 'not-allowed' : 'pointer', fontSize: '14px', letterSpacing: '0.04em', opacity: forgotLoading ? 0.7 : 1 }}
+                >
+                  {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForgotOpen(false)}
+                  style={{ padding: '12px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)', fontWeight: '600', cursor: 'pointer', minWidth: '90px' }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Tab Toggle */}
         <div style={{ display: 'flex', background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '10px', padding: '4px', marginBottom: '24px' }}>
           {['login', 'register'].map((m) => (
@@ -273,6 +350,15 @@ const Login = () => {
               <div>
                 <label style={labelStyle}>Password</label>
                 <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required style={inputStyle} />
+                <div style={{ marginTop: '8px', textAlign: 'right' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setForgotOpen(true); setForgotEmail(email); setForgotStatus('idle'); setForgotError('') }}
+                    style={{ background: 'transparent', border: 'none', color: '#3fae52', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
               </div>
               <button
                 type="submit"

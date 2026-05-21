@@ -12,6 +12,7 @@ import Admin from './pages/Admin'
 import Report from './pages/Report'
 import LandingPage from './pages/LandingPage'
 import Pro from './pages/Pro'
+import ResetPassword from './pages/ResetPassword'
 
 const App = () => {
   return (
@@ -19,6 +20,7 @@ const App = () => {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<LandingPage />} />
           <Route
             path="/dashboard"
