@@ -187,6 +187,17 @@ const Login = () => {
       })
       if (profileError) throw profileError
 
+      // Send welcome email
+      try {
+        await fetch('/.netlify/functions/send-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, fullName: regForm.full_name }),
+        })
+      } catch (welcomeErr) {
+        console.warn('Welcome email failed (non-blocking):', welcomeErr)
+      }
+
       setSuccess('Registration successful! Please check your email to confirm your account, then sign in.')
       setMode('login')
       setEmail('')

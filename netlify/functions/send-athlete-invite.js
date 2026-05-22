@@ -42,7 +42,7 @@ exports.handler = async (event) => {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'info@peakfitnessdieppe.ca',
+        from: 'Peak Athletics <info@peakfitnessdieppe.ca>',
         to: email,
         subject: "Your athlete's PFA performance profile is ready",
         html,
@@ -97,11 +97,6 @@ function buildEmailHtml(fullName, athleteFirstName, resetLink) {
                 <p style="margin:0 0 10px;font-size:14.5px;color:#e6f9ed;line-height:1.6;">📊 <strong>Performance Report</strong> — a detailed breakdown of every test with Level Readiness benchmarks compared to the next level of competition</p>
                 <p style="margin:0;font-size:14.5px;color:#e6f9ed;line-height:1.6;">📈 <strong>Progress Tracking</strong> — see how ${athleteFirstName}'s numbers change every testing cycle</p>
               </div>
-            </div>
-
-            <!-- Level Readiness -->
-            <div style="background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);border-radius:18px;padding:20px;margin-bottom:28px;">
-              <p style="margin:0;font-size:14px;color:#e6f9ed;line-height:1.6;"><strong style="color:#a855f7;">Level Readiness</strong> — results are measured against the next level of competition, from ${athleteFirstName}'s current age group all the way to elite. You'll see exactly where they stand and what it takes to reach the next level.</p>
             </div>
 
             <!-- CTA -->
