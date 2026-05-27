@@ -348,6 +348,7 @@ const Dashboard = () => {
               name: fastestProfile?.full_name || 'Unknown',
               value: '10m Sprint: ' + fastestEntry.value + 's',
               position: fastestProfile?.position || '',
+              athleteId: fastestEntry.athlete_id,
             }
           : null,
         mostExplosive: powerLeader
@@ -357,6 +358,7 @@ const Dashboard = () => {
               position: mostExplosiveProfile?.position || '',
               vertJump: bestVert?.value || null,
               broadJump: bestBroad?.value || null,
+              athleteId: powerLeader.athlete_id,
             }
           : null,
         strongest: strengthLeader
@@ -365,6 +367,7 @@ const Dashboard = () => {
               value: typeof strengthLeader.strength_score === 'number' ? `Strength Score: ${Math.round(strengthLeader.strength_score)}` : 'Strength Score: —',
               position: strongestProfile?.position || '',
               lifts: strengthLiftRows,
+              athleteId: strengthLeader.athlete_id,
             }
           : null,
         conditioning: topBeepEntry
@@ -372,6 +375,7 @@ const Dashboard = () => {
               name: topBeepProfile?.full_name || 'Unknown',
               value: 'Beep Test: Level ' + topBeepEntry.value,
               position: topBeepProfile?.position || '',
+              athleteId: topBeepEntry.athlete_id,
             }
           : null,
         mostAgile: mostAgileEntry
@@ -379,6 +383,7 @@ const Dashboard = () => {
               name: mostAgileProfile?.full_name || 'Unknown',
               value: 'Pro Agility: ' + mostAgileEntry.value + 's',
               position: mostAgileProfile?.position || '',
+              athleteId: mostAgileEntry.athlete_id,
             }
           : null,
       })
@@ -484,48 +489,61 @@ const Dashboard = () => {
   }
 
   const CATEGORY_TESTS = {
-    Speed: ['10m_sprint', '30m_sprint', 'pro_agility_shuttle'],
-    Power: ['vertical_jump', 'broad_jump', 'ncmj', 'mb_chest_pass'],
+    Speed: ['10m_sprint', '30m_sprint', '25m_sprint', 'pro_agility_shuttle'],
+    Power: ['vertical_jump', 'broad_jump', 'triple_jump', 'ncmj', 'mb_chest_pass'],
     Strength: ['squat', 'trap_bar_deadlift', 'bench_press', 'pull_ups', 'push_ups', 'imtp'],
     Agility: ['pro_agility_shuttle'],
-    Endurance: ['beep_test'],
-    Conditioning: ['beep_test'],
+    Endurance: ['beep_test', 'plank'],
   }
 
-  const LOWER_IS_BETTER = ['10m_sprint', '30m_sprint', 'pro_agility_shuttle']
+  const LOWER_IS_BETTER = ['10m_sprint', '30m_sprint', '25m_sprint', 'pro_agility_shuttle']
 
   const TEST_LABELS = {
     '10m_sprint': '10m Sprint',
+    '25m_sprint': '25m Sprint',
     '30m_sprint': '30m Sprint',
-    vertical_jump: 'Vertical Jump',
-    broad_jump: 'Broad Jump',
-    ncmj: 'NCMJ',
-    mb_chest_pass: 'MB Chest Pass',
-    pro_agility_shuttle: 'Pro Agility',
-    beep_test: 'Beep Test',
-    squat: 'Squat',
-    trap_bar_deadlift: 'Trap Bar Deadlift',
-    bench_press: 'Bench Press',
-    pull_ups: 'Pull-Ups',
-    push_ups: 'Push-Ups',
-    imtp: 'IMTP',
+    'vertical_jump': 'Vertical Jump',
+    'broad_jump': 'Broad Jump',
+    'triple_jump': 'Triple Jump',
+    'pull_ups': 'Pull-Ups',
+    'push_ups': 'Push-Ups',
+    'chin_ups': 'Chin-Ups',
+    'beep_test': 'Beep Test',
+    'plank': 'Plank',
+    'squat': 'Squat',
+    'bench_press': 'Bench Press',
+    'trap_bar_deadlift': 'Trap Bar Deadlift',
+    'pro_agility_shuttle': 'Pro Agility Shuttle',
+    'illinois_agility': 'Illinois Agility',
+    't_test': 'T-Test',
+    'muscle_mass': 'Muscle Mass',
+    'body_fat': 'Body Fat',
+    'height': 'Height',
+    'weight': 'Weight',
   }
 
   const TEST_UNITS = {
     '10m_sprint': 's',
+    '25m_sprint': 's',
     '30m_sprint': 's',
-    pro_agility_shuttle: 's',
-    vertical_jump: 'cm',
-    broad_jump: 'm',
-    ncmj: 'cm',
-    mb_chest_pass: 'm',
-    beep_test: 'lvl',
-    squat: 'lbs',
-    trap_bar_deadlift: 'lbs',
-    bench_press: 'lbs',
-    pull_ups: 'reps',
-    push_ups: 'reps',
-    imtp: 'lbs',
+    'vertical_jump': ' in',
+    'broad_jump': ' m',
+    'triple_jump': ' m',
+    'pull_ups': ' reps',
+    'push_ups': ' reps',
+    'chin_ups': ' reps',
+    'beep_test': ' lvl',
+    'plank': 's',
+    'squat': ' lbs',
+    'bench_press': ' lbs',
+    'trap_bar_deadlift': ' lbs',
+    'pro_agility_shuttle': 's',
+    'illinois_agility': 's',
+    't_test': 's',
+    'muscle_mass': ' lbs',
+    'body_fat': '%',
+    'height': ' in',
+    'weight': ' lbs',
   }
 
   const buildLeaderboards = (categoryOverride) => {
@@ -559,7 +577,7 @@ const Dashboard = () => {
       })
 
       entries.sort((a, b) => (isLower ? a.value - b.value : b.value - a.value))
-      byTest[test] = entries.slice(0, 10)
+      byTest[test] = entries
     })
 
     return byTest
@@ -991,197 +1009,166 @@ const Dashboard = () => {
                       marginBottom: '16px',
                     }}
                   >
-                    {/* Fastest */}
-                    <div
-                      style={{
-                        background: '#0d1a0e',
-                        border: '1px solid rgba(63,174,82,0.2)',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
-                        🏃 FASTEST PLAYER
-                      </div>
-                      <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
-                        {insights.fastest?.name || 'No sprint data yet'}
-                      </div>
-                      <div style={{ color: '#3fae52', fontSize: '13px' }}>
-                        {insights.fastest?.value || ''}
-                      </div>
-                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
-                        {insights.fastest?.position || ''}
-                      </div>
-                    </div>
-
-                    {/* Most explosive */}
-                    <div
-                      style={{
-                        background: '#0d1a0e',
-                        border: '1px solid rgba(63,174,82,0.2)',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{ color: 'rgba(245,158,11,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
-                        ⚡ MOST EXPLOSIVE
-                      </div>
-                      <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
-                        {insights.mostExplosive?.name || 'No power data yet'}
-                      </div>
-                      <div style={{ color: '#f59e0b', fontSize: '13px' }}>
-                        {insights.mostExplosive?.value || ''}
-                      </div>
-                      {((insights.mostExplosive?.vertJump && !isNaN(insights.mostExplosive.vertJump)) ||
-                        (insights.mostExplosive?.broadJump && !isNaN(insights.mostExplosive.broadJump))) && (
-                        <div style={{ marginTop: '6px', display: 'grid', gap: '6px' }}>
-                          {insights.mostExplosive?.vertJump && !isNaN(insights.mostExplosive.vertJump) && (
-                            <div
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                color: 'rgba(255,255,255,0.6)',
-                                fontSize: '10px',
-                              }}
-                            >
-                              <span style={{ color: 'rgba(255,255,255,0.75)' }}>Vertical Jump</span>
-                              <span style={{ textAlign: 'right', color: '#f59e0b', fontWeight: 700 }}>
-                                {insights.mostExplosive.vertJump} cm
-                              </span>
-                            </div>
-                          )}
-                          {insights.mostExplosive?.broadJump && !isNaN(insights.mostExplosive.broadJump) && (
-                            <div
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                color: 'rgba(255,255,255,0.6)',
-                                fontSize: '10px',
-                              }}
-                            >
-                              <span style={{ color: 'rgba(255,255,255,0.75)' }}>Broad Jump</span>
-                              <span style={{ textAlign: 'right', color: '#f59e0b', fontWeight: 700 }}>
-                                {insights.mostExplosive.broadJump} m
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
-                        {insights.mostExplosive?.position || ''}
-                      </div>
-                    </div>
-
-                    {/* Strongest */}
-                    <div
-                      style={{
-                        background: '#0d1a0e',
-                        border: '1px solid rgba(63,174,82,0.2)',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{ color: 'rgba(239,68,68,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
-                        💪 STRONGEST
-                      </div>
-                      <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
-                        {insights.strongest?.name || 'No strength data yet'}
-                      </div>
-                      <div style={{ color: '#ef4444', fontSize: '13px' }}>
-                        {insights.strongest?.value || ''}
-                      </div>
-                      {insights.strongest?.lifts?.length > 0 && (
-                        <div style={{ marginTop: '6px', display: 'grid', gap: '4px' }}>
-                          {insights.strongest.lifts.map((lift) => (
-                            <div
-                              key={lift.testType}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                color: 'rgba(255,255,255,0.6)',
-                                fontSize: '10px',
-                              }}
-                            >
-                              <span style={{ color: 'rgba(255,255,255,0.75)' }}>
-                                {lift.testType === 'bench_press'
-                                  ? 'Bench'
-                                  : lift.testType === 'trap_bar_deadlift'
-                                  ? 'Trap Bar DL'
-                                  : TEST_LABELS[lift.testType] || lift.testType}
-                              </span>
-                              <span style={{ textAlign: 'right' }}>
-                                {lift.load} × {lift.reps}
-                              </span>
-                              <span style={{ textAlign: 'right', color: '#ef4444', fontWeight: 700 }}>
-                                {Math.round(lift.e1rm)} lbs
-                              </span>
-                              {lift.relative_strength && (
-                                <span style={{ textAlign: 'right', color: 'rgba(255,255,255,0.65)' }}>
-                                  {parseFloat(lift.relative_strength).toFixed(1)}× BW
+                    {(() => {
+                      const lowerIsBetter = new Set(['10m_sprint', '25m_sprint', '30m_sprint', 'pro_agility_shuttle'])
+                      const bestValue = (athleteId, test) => {
+                        const vals = (allResultsState || [])
+                          .filter((r) => r.athlete_id === athleteId && r.test_type === test)
+                          .map((r) => parseFloat(r.value))
+                          .filter((v) => !Number.isNaN(v))
+                        if (!vals.length) return null
+                        return lowerIsBetter.has(test) ? Math.min(...vals) : Math.max(...vals)
+                      }
+                      const renderRows = (athleteId, tests, color) => {
+                        const rows = tests
+                          .map((t) => {
+                            const v = bestValue(athleteId, t)
+                            if (v == null) return null
+                            const label = TEST_LABELS[t] || t
+                            const unit = TEST_UNITS[t] || ''
+                            return (
+                              <div
+                                key={t}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  color: 'rgba(255,255,255,0.6)',
+                                  fontSize: '10px',
+                                }}
+                              >
+                                <span style={{ color: 'rgba(255,255,255,0.75)' }}>{label}</span>
+                                <span style={{ textAlign: 'right', color, fontWeight: 700 }}>
+                                  {v} {unit}
                                 </span>
-                              )}
+                              </div>
+                            )
+                          })
+                          .filter(Boolean)
+                        if (!rows.length) return null
+                        return (
+                          <div style={{ marginTop: '6px', display: 'grid', gap: '6px' }}>
+                            {rows}
+                          </div>
+                        )
+                      }
+
+                      return (
+                        <>
+                          {/* Fastest */}
+                          <div
+                            style={{
+                              background: '#0d1a0e',
+                              border: '1px solid rgba(63,174,82,0.2)',
+                              borderRadius: '12px',
+                              padding: '20px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div style={{ color: 'rgba(63,174,82,0.6)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
+                              🏃 SPEED LEADER
                             </div>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
-                        {insights.strongest?.position || ''}
-                      </div>
-                    </div>
+                            <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
+                              {insights.fastest?.name || 'No sprint data yet'}
+                            </div>
+                            <div style={{ color: '#3fae52', fontSize: '13px', fontWeight: 700 }}>
+                              {insights.fastest?.athleteId != null && scores[insights.fastest.athleteId]?.speed_score != null
+                                ? `Speed Score: ${Math.round(scores[insights.fastest.athleteId].speed_score)}`
+                                : ''}
+                            </div>
+                            {insights.fastest?.athleteId &&
+                              renderRows(insights.fastest.athleteId, ['10m_sprint', '25m_sprint', '30m_sprint'], '#3fae52')}
+                            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
+                              {insights.fastest?.position || ''}
+                            </div>
+                          </div>
 
-                    {/* Conditioning */}
-                    <div
-                      style={{
-                        background: '#0d1a0e',
-                        border: '1px solid rgba(63,174,82,0.2)',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{ color: 'rgba(6,182,212,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
-                        🫁 CONDITIONING
-                      </div>
-                      <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
-                        {insights.conditioning?.name || 'No beep test data yet'}
-                      </div>
-                      <div style={{ color: '#06b6d4', fontSize: '13px' }}>
-                        {insights.conditioning?.value || ''}
-                      </div>
-                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
-                        {insights.conditioning?.position || ''}
-                      </div>
-                    </div>
+                          {/* Most explosive */}
+                          <div
+                            style={{
+                              background: '#0d1a0e',
+                              border: '1px solid rgba(63,174,82,0.2)',
+                              borderRadius: '12px',
+                              padding: '20px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div style={{ color: 'rgba(245,158,11,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
+                              ⚡ MOST EXPLOSIVE
+                            </div>
+                            <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
+                              {insights.mostExplosive?.name || 'No power data yet'}
+                            </div>
+                            <div style={{ color: '#3fae52', fontSize: '13px', fontWeight: 700 }}>
+                              {insights.mostExplosive?.athleteId != null && scores[insights.mostExplosive.athleteId]?.power_score != null
+                                ? `Power Score: ${Math.round(scores[insights.mostExplosive.athleteId].power_score)}`
+                                : ''}
+                            </div>
+                            {insights.mostExplosive?.athleteId &&
+                              renderRows(insights.mostExplosive.athleteId, ['vertical_jump', 'broad_jump', 'triple_jump', 'ncmj', 'mb_chest_pass'], '#f59e0b')}
+                            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
+                              {insights.mostExplosive?.position || ''}
+                            </div>
+                          </div>
 
-                    {/* Most Agile */}
-                    <div
-                      style={{
-                        background: '#0d1a0e',
-                        border: '1px solid rgba(139,92,246,0.25)',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{ color: 'rgba(139,92,246,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
-                        🔀 MOST AGILE
-                      </div>
-                      <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
-                        {insights.mostAgile?.name || 'No agility data yet'}
-                      </div>
-                      <div style={{ color: '#8b5cf6', fontSize: '13px' }}>
-                        {insights.mostAgile?.value || ''}
-                      </div>
-                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
-                        {insights.mostAgile?.position || ''}
-                      </div>
-                    </div>
+                          {/* Strongest */}
+                          <div
+                            style={{
+                              background: '#0d1a0e',
+                              border: '1px solid rgba(63,174,82,0.2)',
+                              borderRadius: '12px',
+                              padding: '20px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div style={{ color: 'rgba(239,68,68,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
+                              💪 STRONGEST
+                            </div>
+                            <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
+                              {insights.strongest?.name || 'No strength data yet'}
+                            </div>
+                            <div style={{ color: '#3fae52', fontSize: '13px', fontWeight: 700 }}>
+                              {insights.strongest?.athleteId != null && scores[insights.strongest.athleteId]?.strength_score != null
+                                ? `Strength Score: ${Math.round(scores[insights.strongest.athleteId].strength_score)}`
+                                : ''}
+                            </div>
+                            {insights.strongest?.athleteId &&
+                              renderRows(insights.strongest.athleteId, ['pull_ups', 'push_ups', 'squat', 'bench_press', 'trap_bar_deadlift'], '#ef4444')}
+                            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
+                              {insights.strongest?.position || ''}
+                            </div>
+                          </div>
+
+                          {/* Conditioning */}
+                          <div
+                            style={{
+                              background: '#0d1a0e',
+                              border: '1px solid rgba(63,174,82,0.2)',
+                              borderRadius: '12px',
+                              padding: '20px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <div style={{ color: 'rgba(6,182,212,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
+                              🩺 CONDITIONING
+                            </div>
+                            <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
+                              {insights.conditioning?.name || 'No conditioning data yet'}
+                            </div>
+                            <div style={{ color: '#3fae52', fontSize: '13px', fontWeight: 700 }}>
+                              {insights.conditioning?.athleteId != null && scores[insights.conditioning.athleteId]?.endurance_score != null
+                                ? `Endurance Score: ${Math.round(scores[insights.conditioning.athleteId].endurance_score)}`
+                                : ''}
+                            </div>
+                            {insights.conditioning?.athleteId &&
+                              renderRows(insights.conditioning.athleteId, ['beep_test', 'plank'], '#06b6d4')}
+                            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', marginTop: '4px' }}>
+                              {insights.conditioning?.position || ''}
+                            </div>
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
 
                   {(coachInsightsLoading || coachInsights) && (
@@ -1242,6 +1229,336 @@ const Dashboard = () => {
                     </div>
                   )}
 
+                  <div
+                    style={{
+                      borderTop: '1px solid rgba(63,174,82,0.2)',
+                      marginTop: '40px',
+                      paddingTop: '32px',
+                      marginBottom: '48px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: 'white',
+                        fontSize: '20px',
+                        fontWeight: '700',
+                        marginBottom: '24px',
+                      }}
+                    >
+                      Team Test History
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '12px',
+                        marginBottom: '24px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <input
+                        value={historySearch}
+                        onChange={(e) => setHistorySearch(e.target.value)}
+                        placeholder="Search athlete..."
+                        style={{
+                          flex: '1 1 240px',
+                          minWidth: '220px',
+                          background: '#0d1a0e',
+                          border: '1px solid rgba(63,174,82,0.2)',
+                          borderRadius: '10px',
+                          padding: '10px 12px',
+                          color: '#fff',
+                        }}
+                      />
+                      <select
+                        value={historyCategory}
+                        onChange={(e) => setHistoryCategory(e.target.value)}
+                        style={{
+                          flex: '0 0 200px',
+                          background: '#0d1a0e',
+                          border: '1px solid rgba(63,174,82,0.2)',
+                          borderRadius: '10px',
+                          padding: '10px 12px',
+                          color: '#fff',
+                        }}
+                      >
+                        {['All', 'Speed', 'Power', 'Strength', 'Agility', 'Endurance'].map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {(() => {
+                      if (!allResultsState || allResultsState.length === 0) {
+                        return (
+                          <div
+                            style={{
+                              color: 'rgba(255,255,255,0.5)',
+                              textAlign: 'center',
+                              padding: '40px 0',
+                            }}
+                          >
+                            No test sessions recorded for this team yet.
+                          </div>
+                        )
+                      }
+
+                      const grouped = {}
+                      ;(allResultsState || []).forEach((r) => {
+                        const dateOnly = new Date(r.date_tested).toISOString().split('T')[0]
+                        if (!grouped[dateOnly]) grouped[dateOnly] = []
+                        grouped[dateOnly].push(r)
+                      })
+
+                      const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a))
+
+                      return sortedDates
+                        .filter((dateStr) => {
+                          if (historyCategory === 'All') return true
+                          const entries = grouped[dateStr] || []
+                          return entries.some((r) => (r.category || '').toUpperCase() === historyCategory.toUpperCase())
+                        })
+                        .map((dateStr) => {
+                          const entries = grouped[dateStr] || []
+                          const filteredEntries = historyCategory === 'All'
+                            ? entries
+                            : entries.filter((r) => (r.category || '').toUpperCase() === historyCategory.toUpperCase())
+
+                          const uniqueAthletes = new Set(filteredEntries.map((i) => i.athlete_id)).size
+                          const uniqueCategories = Array.from(
+                            new Set(filteredEntries.map((i) => (i.category || '').toUpperCase()).filter(Boolean))
+                          )
+                          const totalResults = filteredEntries.length
+
+                          const resultsByCategory = {}
+                          filteredEntries.forEach((item) => {
+                            const cat = (item.category || 'UNKNOWN').toUpperCase()
+                            if (!resultsByCategory[cat]) resultsByCategory[cat] = {}
+                            if (!resultsByCategory[cat][item.test_type]) resultsByCategory[cat][item.test_type] = []
+                            resultsByCategory[cat][item.test_type].push(item)
+                          })
+
+                          const expanded = !!expandedHistoryDates[dateStr]
+                          const formattedDate = new Date(dateStr).toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
+
+                          return (
+                            <div key={dateStr} style={{ marginBottom: '8px' }}>
+                              <div
+                                onClick={() =>
+                                  setExpandedHistoryDates((prev) => ({ ...prev, [dateStr]: !prev[dateStr] }))
+                                }
+                                style={{
+                                  background: '#0d1a0e',
+                                  border: '1px solid rgba(63,174,82,0.15)',
+                                  borderRadius: '10px',
+                                  padding: '14px 18px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  cursor: 'pointer',
+                                  borderLeft: expanded ? '3px solid #3fae52' : '1px solid rgba(63,174,82,0.15)',
+                                }}
+                              >
+                                <div style={{ color: '#fff', fontWeight: 600 }}>{formattedDate}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                  {uniqueCategories.map((cat) => {
+                                    const color = DASH_CATEGORY_COLORS[cat] || '#3fae52'
+                                    return (
+                                      <span
+                                        key={`${dateStr}-${cat}`}
+                                        style={{
+                                          fontSize: '10px',
+                                          fontWeight: 700,
+                                          padding: '3px 8px',
+                                          borderRadius: '12px',
+                                          background: `${color}26`,
+                                          color,
+                                          letterSpacing: '0.05em',
+                                        }}
+                                      >
+                                        {cat}
+                                      </span>
+                                    )
+                                  })}
+                                </div>
+                                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span>
+                                    {uniqueAthletes} athletes · {totalResults} results
+                                  </span>
+                                  <span style={{ color: '#3fae52' }}>{expanded ? '▲' : '▼'}</span>
+                                </div>
+                              </div>
+
+                              {expanded && (
+                                <div
+                                  style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                                    gap: '12px',
+                                    padding: '12px 0 16px',
+                                  }}
+                                >
+                                  {Object.entries(resultsByCategory)
+                                    .filter(([cat]) => historyCategory === 'All' || cat === historyCategory.toUpperCase())
+                                    .map(([cat, tests]) => {
+                                      const testEntries = Object.entries(tests)
+                                      if (testEntries.length === 0) return null
+                                      const color = DASH_CATEGORY_COLORS[cat] || '#3fae52'
+                                      const totalTests = testEntries.length
+                                      const athleteIds = new Set()
+                                      testEntries.forEach(([, list]) => list.forEach((item) => athleteIds.add(item.athlete_id)))
+                                      return (
+                                        <div
+                                          key={`${dateStr}-${cat}`}
+                                          style={{
+                                            background: '#0a0f0a',
+                                            border: '1px solid rgba(63,174,82,0.1)',
+                                            borderRadius: '10px',
+                                            padding: '14px',
+                                          }}
+                                        >
+                                          <div
+                                            style={{
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'space-between',
+                                              marginBottom: '10px',
+                                            }}
+                                          >
+                                            <div
+                                              style={{
+                                                color,
+                                                fontWeight: 700,
+                                                fontSize: '12px',
+                                                letterSpacing: '0.08em',
+                                              }}
+                                            >
+                                              {cat}
+                                            </div>
+                                            <div
+                                              style={{
+                                                fontSize: '11px',
+                                                color: 'rgba(255,255,255,0.6)',
+                                                background: 'rgba(255,255,255,0.05)',
+                                                padding: '4px 8px',
+                                                borderRadius: '999px',
+                                              }}
+                                            >
+                                              {totalTests} tests · {athleteIds.size} athletes
+                                            </div>
+                                          </div>
+
+                                          {testEntries.map(([testType, list]) => {
+                                            const label = DASH_TEST_LABELS[testType] || testType
+                                            const unit = DASH_TEST_UNITS[testType] || ''
+                                            return (
+                                              <div key={`${dateStr}-${cat}-${testType}`} style={{ marginTop: '8px' }}>
+                                                <div
+                                                  style={{
+                                                    color: 'rgba(255,255,255,0.7)',
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    marginBottom: '6px',
+                                                  }}
+                                                >
+                                                  {label}
+                                                </div>
+                                                <div>
+                                                  {list.map((item, idx) => {
+                                                    const name = getAthleteName(item.athlete_id)
+                                                    const matches = historySearch
+                                                      ? name?.toLowerCase().includes(historySearch.toLowerCase())
+                                                      : true
+                                                    const shouldDim = historySearch && !matches
+                                                    return (
+                                                      <div
+                                                        key={`${dateStr}-${cat}-${testType}-${idx}`}
+                                                        style={{
+                                                          display: 'flex',
+                                                          alignItems: 'center',
+                                                          justifyContent: 'space-between',
+                                                          padding: '4px 0',
+                                                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                                          background:
+                                                            historySearch && matches ? 'rgba(63,174,82,0.08)' : 'transparent',
+                                                          opacity: shouldDim ? 0.3 : 1,
+                                                        }}
+                                                      >
+                                                        <div
+                                                          style={{
+                                                            color: '#fff',
+                                                            fontSize: '12px',
+                                                            fontWeight: 500,
+                                                          }}
+                                                        >
+                                                          {name}
+                                                        </div>
+                                                        {STRENGTH_LOAD_TESTS.includes(testType) ? (
+                                                          <div style={{ textAlign: 'right' }}>
+                                                            <div style={{ color: '#3fae52', fontSize: '12px', fontWeight: '700' }}>
+                                                              {Math.round(item.value)} lbs
+                                                            </div>
+                                                            {item.load_value && item.reps && (
+                                                              <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px', marginTop: '2px' }}>
+                                                                {item.load_value} × {item.reps} reps
+                                                              </div>
+                                                            )}
+                                                            {item.relative_strength && (
+                                                              <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px', marginTop: '1px' }}>
+                                                                {parseFloat(item.relative_strength).toFixed(1)}× BW
+                                                              </div>
+                                                            )}
+                                                          </div>
+                                                        ) : (
+                                                          <div
+                                                            style={{
+                                                              textAlign: 'right',
+                                                            }}
+                                                          >
+                                                            <div
+                                                              style={{
+                                                                color: '#3fae52',
+                                                                fontSize: '12px',
+                                                                fontWeight: '700',
+                                                              }}
+                                                            >
+                                                              {formatResultValue(testType, item.value)}{unit}
+                                                            </div>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    )
+                                                  })}
+                                                </div>
+                                              </div>
+                                            )
+                                          })}
+                                        </div>
+                                      )
+                                    })}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                    })()}
+
+                  </div>
+
+                  {coachInsights?.heatmap_read && (
+                    <div style={{ marginTop: '12px', marginBottom: '24px', padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(63,174,82,0.1)', borderLeft: '3px solid rgba(63,174,82,0.4)', borderRadius: '8px' }}>
+                      <div style={{ color: 'rgba(63,174,82,0.7)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Grid Intelligence</div>
+                      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{coachInsights.heatmap_read}</p>
+                    </div>
+                  )}
+
                   {roster.length > 0 && (() => {
                     const categories = ['speed', 'strength', 'power', 'agility', 'endurance']
                     const categoryLabels = ['Speed', 'Strength', 'Power', 'Agility', 'Endurance']
@@ -1261,7 +1578,7 @@ const Dashboard = () => {
                     }
 
                     return (
-                      <div style={{ marginBottom: '24px', background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.15)', borderRadius: '12px', padding: '20px' }}>
+                      <div style={{ marginBottom: '24px', marginTop: '48px', background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.15)', borderRadius: '12px', padding: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                           <div style={{ color: '#fff', fontSize: '15px', fontWeight: 700 }}>Roster Development Grid</div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '11px' }}>
@@ -1285,42 +1602,106 @@ const Dashboard = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {filteredRoster.map((ath) => {
-                                const s = scores[ath.id]
-                                const firstName = (ath.full_name || '').split(' ')[0]
-                                const lastName = (ath.full_name || '').split(' ').slice(1).join(' ')
-                                return (
-                                  <tr key={ath.id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                                    <td style={{ padding: '8px 12px 8px 0', fontSize: '12px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                      {firstName} <span style={{ color: 'rgba(255,255,255,0.45)', fontWeight: 400 }}>{lastName}</span>
-                                    </td>
-                                    {categories.map((cat) => {
-                                      const score = s?.[`${cat}_score`] != null ? Math.round(s[`${cat}_score`]) : null
-                                      const cell = getCellColor(score)
-                                      return (
-                                        <td key={cat} style={{ padding: '4px', textAlign: 'center' }}>
-                                          <div style={{ background: cell.bg, color: cell.text, fontSize: '12px', fontWeight: 700, borderRadius: '6px', padding: '6px 4px', minWidth: '40px' }}>
-                                            {cell.label}
-                                          </div>
-                                        </td>
-                                      )
-                                    })}
-                                  </tr>
-                                )
-                              })}
+                              {(() => {
+                                console.log('[Grid fallback] allResultsState length:', allResultsState?.length)
+                                console.log('[Grid fallback] roster length:', filteredRoster?.length)
+                                const ranges = {
+                                  '10m_sprint': { best: 1.6, worst: 2.4 },
+                                  '25m_sprint': { best: 3.5, worst: 5.5 },
+                                  '30m_sprint': { best: 3.8, worst: 5.5 },
+                                  vertical_jump: { best: 70, worst: 20 },
+                                  broad_jump: { best: 3.0, worst: 1.5 },
+                                  pull_ups: { best: 20, worst: 0 },
+                                  push_ups: { best: 50, worst: 0 },
+                                  beep_test: { best: 13, worst: 4 },
+                                  plank: { best: 180, worst: 30 },
+                                  pro_agility_shuttle: { best: 4.0, worst: 6.5 },
+                                  bench_press: { best: 225, worst: 75 },
+                                  squat: { best: 315, worst: 95 },
+                                  trap_bar_deadlift: { best: 405, worst: 135 },
+                                  ncmj: { best: 70, worst: 20 },
+                                  mb_chest_pass: { best: 8, worst: 3 },
+                                }
+
+                                const fallbackCategoryTests = {
+                                  speed: ['10m_sprint', '30m_sprint', '25m_sprint', 'pro_agility_shuttle'],
+                                  strength: ['squat', 'bench_press', 'trap_bar_deadlift', 'pull_ups', 'push_ups'],
+                                  power: ['vertical_jump', 'broad_jump', 'ncmj', 'mb_chest_pass'],
+                                  agility: ['pro_agility_shuttle'],
+                                  endurance: ['beep_test', 'plank'],
+                                }
+
+                                const lowerIsBetter = new Set(['10m_sprint', '25m_sprint', '30m_sprint', 'pro_agility_shuttle'])
+
+                                const fallbackScores = {}
+
+                                filteredRoster.forEach((ath) => {
+                                  const categoryScores = {}
+                                  Object.entries(fallbackCategoryTests).forEach(([cat, tests]) => {
+                                    const scoresForCat = []
+                                    tests.forEach((test) => {
+                                      const range = ranges[test]
+                                      if (!range) return
+                                      const results = allResultsState.filter((r) => r.athlete_id === ath.id && r.test_type === test)
+                                      if (cat === 'speed' && (test === '10m_sprint' || test === '25m_sprint')) {
+                                        console.log('[Grid fallback] athlete:', ath.id, ath.full_name, 'sprint results:', allResultsState?.filter((r) => r.athlete_id === ath.id && ['10m_sprint', '25m_sprint'].includes(r.test_type)))
+                                      }
+                                      const values = results
+                                        .map((r) => parseFloat(r.value))
+                                        .filter((v) => typeof v === 'number' && !Number.isNaN(v))
+                                      if (!values.length) return
+                                      const bestValue = lowerIsBetter.has(test) ? Math.min(...values) : Math.max(...values)
+                                      const { best, worst } = range
+                                      const denom = Math.max(0.00001, Math.abs(best - worst))
+                                      let score
+                                      if (lowerIsBetter.has(test)) {
+                                        score = 100 - ((bestValue - best) / denom) * 100
+                                      } else {
+                                        score = ((bestValue - worst) / denom) * 100
+                                      }
+                                      score = Math.max(0, Math.min(100, score))
+                                      scoresForCat.push(score)
+                                    })
+                                    if (scoresForCat.length) {
+                                      categoryScores[cat] = scoresForCat.reduce((a, b) => a + b, 0) / scoresForCat.length
+                                    }
+                                  })
+                                  fallbackScores[ath.id] = categoryScores
+                                })
+
+                                return filteredRoster.map((ath) => {
+                                  const s = scores[ath.id]
+                                  const firstName = (ath.full_name || '').split(' ')[0]
+                                  const lastName = (ath.full_name || '').split(' ').slice(1).join(' ')
+                                  return (
+                                    <tr key={ath.id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                                      <td style={{ padding: '8px 12px 8px 0', fontSize: '12px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                        {firstName} <span style={{ color: 'rgba(255,255,255,0.45)', fontWeight: 400 }}>{lastName}</span>
+                                      </td>
+                                      {categories.map((cat) => {
+                                        const primary = s?.[`${cat}_score`]
+                                        const fallback = fallbackScores[ath.id]?.[cat]
+                                        const rawScore = primary != null ? primary : fallback
+                                        const score = rawScore != null ? Math.round(rawScore) : null
+                                        const cell = getCellColor(score)
+                                        return (
+                                          <td key={cat} style={{ padding: '4px', textAlign: 'center' }}>
+                                            <div style={{ background: cell.bg, color: cell.text, fontSize: '12px', fontWeight: 700, borderRadius: '6px', padding: '6px 4px', minWidth: '40px' }}>
+                                              {cell.label}
+                                            </div>
+                                          </td>
+                                        )
+                                      })}
+                                    </tr>
+                                  )
+                                })
+                              })()}
                             </tbody>
                           </table>
                         </div>
                       </div>
                     )
                   })()}
-
-                  {coachInsights?.heatmap_read && (
-                    <div style={{ marginTop: '12px', marginBottom: '24px', padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(63,174,82,0.1)', borderLeft: '3px solid rgba(63,174,82,0.4)', borderRadius: '8px' }}>
-                      <div style={{ color: 'rgba(63,174,82,0.7)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '6px' }}>Grid Intelligence</div>
-                      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: 1.7, margin: 0 }}>{coachInsights.heatmap_read}</p>
-                    </div>
-                  )}
 
                   {needsTesting.length > 0 && (
                     <div
@@ -1975,7 +2356,7 @@ const Dashboard = () => {
                       marginBottom: '16px',
                     }}
                   >
-                    {['All', 'Speed', 'Power', 'Strength', 'Agility', 'Endurance', 'Conditioning'].map((cat) => {
+                    {['All', 'Speed', 'Power', 'Strength', 'Agility', 'Endurance'].map((cat) => {
                       const active = leaderboardCategory === cat
                       return (
                         <button

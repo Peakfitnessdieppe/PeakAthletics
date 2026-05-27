@@ -2781,8 +2781,8 @@ const Admin = () => {
       color: 'white', padding: '5px 8px', fontSize: '12px', textAlign: 'center'
     }
     const selectStyle = {
-      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)',
-      borderRadius: '6px', color: 'white', padding: '6px 10px', fontSize: '12px'
+      background: '#0a0f0a', border: '1px solid rgba(63,174,82,0.3)',
+      borderRadius: '6px', color: '#fff', padding: '6px 10px', fontSize: '12px'
     }
     const sectionHeader = (text) => (
       <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.12em', color: '#3fae52', textTransform: 'uppercase', marginBottom: '14px' }}>{text}</div>
@@ -3122,16 +3122,16 @@ const Admin = () => {
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <select value={newCustom.sport} onChange={(e) => setNewCustom((prev) => ({ ...prev, sport: e.target.value }))} style={selectStyle}>
-                <option value="">Sport</option>
-                {SPORTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                <option value="" style={{ background: '#0d1a0e', color: '#fff' }}>Sport</option>
+                {SPORTS.map((s) => <option key={s} value={s} style={{ background: '#0d1a0e', color: '#fff' }}>{s}</option>)}
               </select>
               <select value={newCustom.age_category} onChange={(e) => setNewCustom((prev) => ({ ...prev, age_category: e.target.value }))} style={selectStyle}>
-                <option value="">Age Category</option>
-                {AGE_CATEGORIES.map((a) => <option key={a} value={a}>{a}</option>)}
+                <option value="" style={{ background: '#0d1a0e', color: '#fff' }}>Age Category</option>
+                {AGE_CATEGORIES.map((a) => <option key={a} value={a} style={{ background: '#0d1a0e', color: '#fff' }}>{a}</option>)}
               </select>
               <select value={newCustom.gender} onChange={(e) => setNewCustom((prev) => ({ ...prev, gender: e.target.value }))} style={selectStyle}>
-                <option value="">Gender</option>
-                {GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
+                <option value="" style={{ background: '#0d1a0e', color: '#fff' }}>Gender</option>
+                {GENDERS.map((g) => <option key={g} value={g} style={{ background: '#0d1a0e', color: '#fff' }}>{g}</option>)}
               </select>
             </div>
 
