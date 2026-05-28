@@ -244,6 +244,7 @@ const Admin = () => {
   const [defaultTestWeights, setDefaultTestWeights] = useState({})
   const [customWeightSets, setCustomWeightSets] = useState([])
   const [newCustom, setNewCustom] = useState({ sport: '', age_category: '', gender: '', speed: 25, strength: 25, power: 25, agility: 15, endurance: 10 })
+  const [newCustomTestWeights, setNewCustomTestWeights] = useState({})
   const [weightsLoading, setWeightsLoading] = useState(false)
   const [weightsSaved, setWeightsSaved] = useState('')
   const [tests, setTests] = useState([])
@@ -2865,7 +2866,25 @@ const Admin = () => {
           created_by: user?.id
         }).select().single()
         if (data) setCustomWeightSets((prev) => [...prev, data])
+        if (data && newCustomTestWeights) {
+          for (const [category, tests] of Object.entries(newCustomTestWeights)) {
+            for (const [testType, tData] of Object.entries(tests)) {
+              await supabase.from('pfa_test_weights').upsert({
+                category,
+                test_type: testType,
+                weight: (tData.weight || 0) / 100,
+                is_active: true,
+                sport: newCustom.sport,
+                age_category: newCustom.age_category,
+                gender: newCustom.gender,
+                created_by: user?.id,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'category,test_type,sport,age_category,gender' })
+            }
+          }
+        }
         setNewCustom({ sport: '', age_category: '', gender: '', speed: 25, strength: 25, power: 25, agility: 15, endurance: 10 })
+        setNewCustomTestWeights({})
         setWeightsSaved('custom')
         setTimeout(() => setWeightsSaved(''), 3000)
       } catch (err) { console.error('Save custom error:', err) }
@@ -3140,6 +3159,76 @@ const Admin = () => {
               { speed: newCustom.speed, strength: newCustom.strength, power: newCustom.power, agility: newCustom.agility, endurance: newCustom.endurance },
               (cat, val) => setNewCustom((prev) => ({ ...prev, [cat]: val }))
             )}
+
+            {/* Test weights for multi-test categories (custom set) */}
+            {Object.entries(weightableTests)
+              .filter(([, tests]) => (tests?.length || 0) >= 2)
+              .map(([category]) => {
+                const tests = newCustomTestWeights[category] || {}
+                const activeTests = Object.entries(tests)
+                const testTotal = activeTests.reduce((s, [, d]) => s + Number(d.weight || 0), 0)
+                const unusedTests = (weightableTests[category] || []).filter((t) => !tests[t.test_type])
+                return (
+                  <div key={`custom-${category}`} style={{ marginTop: '16px', padding: '14px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '11px', color: '#3fae52', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                      {CATEGORY_LABELS[category]} — Individual Test Weights
+                    </div>
+                    <div style={{ fontSize: '12px', color: testTotal === 100 ? '#3fae52' : '#f5a623', marginBottom: '10px' }}>
+                      Total: {testTotal}% {testTotal !== 100 ? '— should equal 100%' : '✓'}
+                    </div>
+                    {activeTests.map(([testType, data]) => (
+                      <div key={testType} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                        <div style={{ width: '150px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{TEST_LABELS[testType] || (weightableTests[category] || []).find((t) => t.test_type === testType)?.display_name || testType}</div>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={data.weight || 0}
+                          onChange={(e) => setNewCustomTestWeights((prev) => ({
+                            ...prev,
+                            [category]: {
+                              ...(prev[category] || {}),
+                              [testType]: { ...data, weight: Number(e.target.value) },
+                            },
+                          }))}
+                          style={inputStyle}
+                        />
+                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>%</span>
+                        <button
+                          onClick={() => setNewCustomTestWeights((prev) => {
+                            const updated = { ...(prev[category] || {}) }
+                            delete updated[testType]
+                            return { ...prev, [category]: updated }
+                          })}
+                          style={{ background: 'rgba(224,92,42,0.15)', border: '1px solid rgba(224,92,42,0.3)', borderRadius: '4px', color: '#e05c2a', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    {unusedTests.length > 0 && (
+                      <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Add:</span>
+                        {unusedTests.map((t) => (
+                          <button
+                            key={t.test_type}
+                            onClick={() => setNewCustomTestWeights((prev) => ({
+                              ...prev,
+                              [category]: {
+                                ...(prev[category] || {}),
+                                [t.test_type]: { weight: 0, is_active: true, id: null },
+                              },
+                            }))}
+                            style={{ background: 'rgba(63,174,82,0.1)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: '#3fae52', padding: '3px 8px', fontSize: '11px', cursor: 'pointer' }}
+                          >
+                            + {t.display_name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
               <button onClick={handleAddCustom}
