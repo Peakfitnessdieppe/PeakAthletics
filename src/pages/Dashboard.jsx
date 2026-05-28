@@ -1150,7 +1150,7 @@ const Dashboard = () => {
                             }}
                           >
                             <div style={{ color: 'rgba(6,182,212,0.8)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em' }}>
-                              🩺 CONDITIONING
+                              🩺 ENDURANCE
                             </div>
                             <div style={{ color: 'white', fontSize: '18px', fontWeight: '700', margin: '8px 0 4px' }}>
                               {insights.conditioning?.name || 'No conditioning data yet'}

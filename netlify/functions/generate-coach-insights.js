@@ -138,12 +138,35 @@ exports.handler = async (event) => {
       teamAvg[c] = teamCount[c] > 0 ? Math.round(teamAvg[c] / teamCount[c]) : null
     })
 
-    const prompt = `You are a performance director briefing a high-level hockey coach before practice. Your job is to surface what the data is showing — not to tell the coach what they already know from watching the ice. The coach has the eyes. You have the numbers. Point at things worth confirming with their coaching eye.
+    const testedCategories = {
+      speed: athleteSummaries.filter(a => a.speed !== null).length,
+      strength: athleteSummaries.filter(a => a.strength !== null).length,
+      power: athleteSummaries.filter(a => a.power !== null).length,
+      agility: athleteSummaries.filter(a => a.agility !== null).length,
+      endurance: athleteSummaries.filter(a => a.endurance !== null).length,
+    }
+    const totalAthletes = athleteSummaries.length
+    const categoryStatus = Object.entries(testedCategories).map(([cat, count]) => {
+      if (count === 0) return `${cat}: NO ATHLETES TESTED — omit from analysis, do not treat as weakness`
+      if (count < totalAthletes) return `${cat}: ${count}/${totalAthletes} athletes tested — partial data, flag gaps but do not penalize team average`
+      return `${cat}: all ${count} athletes tested`
+    }).join('\n')
+
+    const prompt = `You are a performance director briefing a coach before practice. Your job is to surface what the data is showing — not to tell the coach what they already know. The coach has the eyes. You have the numbers.
 
 Team: ${team?.name || 'Unknown'} | ${team?.sport} | ${team?.age_category} | ${team?.competition_level}
 Most recent test session: ${mostRecentTestDate ? new Date(mostRecentTestDate).toLocaleDateString() : 'Unknown'}
 
-TEAM AVERAGES vs PEER DATABASE AVERAGES (all athletes tested at PFA):
+TESTING COVERAGE — READ THIS BEFORE WRITING ANYTHING:
+${categoryStatus}
+
+CRITICAL RULES:
+- If a category shows "NO ATHLETES TESTED" — do NOT mention it as a weakness, gap, or area needing improvement. It is simply untested. Omit it entirely from team_pulse, collective_gap, and heatmap_read.
+- If a category is partially tested, you may mention gaps exist but do not treat missing scores as low scores.
+- Only draw conclusions from categories where meaningful data exists (at least 30% of athletes tested).
+- The heatmap_read must only reference scores and categories that actually appear in the grid data below.
+
+TEAM AVERAGES vs PEER DATABASE (only shown for tested categories):
 Overall: Team ${teamAvg.overall ?? '—'} vs Peer ${peerAvg.overall ?? '—'}
 Speed: Team ${teamAvg.speed ?? '—'} vs Peer ${peerAvg.speed ?? '—'}
 Strength: Team ${teamAvg.strength ?? '—'} vs Peer ${peerAvg.strength ?? '—'}
@@ -152,16 +175,16 @@ Agility: Team ${teamAvg.agility ?? '—'} vs Peer ${peerAvg.agility ?? '—'}
 Endurance: Team ${teamAvg.endurance ?? '—'} vs Peer ${peerAvg.endurance ?? '—'}
 
 INDIVIDUAL ATHLETE PROFILES:
-${athleteSummaries.map((a) => `${a.name} (${a.position}): Overall ${a.overall ?? 'untested'}, Speed ${a.speed ?? '—'}, Strength ${a.strength ?? '—'}, Power ${a.power ?? '—'}, Agility ${a.agility ?? '—'}, Endurance ${a.endurance ?? '—'} | Last tested: ${a.lastTestedDaysAgo != null ? a.lastTestedDaysAgo + ' days ago' : 'never'}`).join('\n')}
+${athleteSummaries.map((a) => `${a.name} (${a.position}): Overall ${a.overall ?? 'untested'}, Speed ${a.speed ?? 'untested'}, Strength ${a.strength ?? 'untested'}, Power ${a.power ?? 'untested'}, Agility ${a.agility ?? 'untested'}, Endurance ${a.endurance ?? 'untested'} | Last tested: ${a.lastTestedDaysAgo != null ? a.lastTestedDaysAgo + ' days ago' : 'never'}`).join('\n')}
 
 Respond ONLY with a valid JSON object. No markdown, no explanation, no backticks. Use exactly these keys:
 {
-  "team_pulse": "2-3 sentences on where this team sits physically as a unit vs peers. Be specific with numbers. Reference the most recent test date.",
-  "data_flags": "2-3 specific things the data is surfacing that the coach should watch for and confirm with their eyes on the ice or in the gym. Frame each as an observation to verify, not a conclusion. Use athlete names. Separate each flag with a line break.",
-  "testing_gaps": "Which athletes have incomplete physical profiles and why closing those gaps matters for the team picture. Be specific about what categories are missing.",
-  "collective_strength": "The one physical quality this team does best as a group, with peer context and specific numbers.",
-  "collective_gap": "The one physical quality holding this team back most, with peer context, specific numbers, and a concrete training direction.",
-  "heatmap_read": "2-3 sentences interpreting the team heatmap grid. Read the columns — which categories are strongest across the roster, which are most incomplete, which show the widest spread between athletes. Be specific with names and numbers. This is the so-what behind what the coach is seeing visually."
+  "team_pulse": "2-3 sentences on where this team sits physically as a unit vs peers. Be specific with numbers. Reference the most recent test date. Only mention categories with sufficient test coverage.",
+  "data_flags": "2-3 specific things the data is surfacing that the coach should watch for and confirm with their eyes. Frame each as an observation to verify, not a conclusion. Use athlete names. Only flag categories where data exists. Separate each flag with a line break.",
+  "testing_gaps": "Which athletes have incomplete physical profiles and what categories are missing. If an entire category is untested across the whole team, note it as a team-wide testing gap, not a performance weakness.",
+  "collective_strength": "The one physical quality this team does best as a group, with peer context and specific numbers. Only choose from categories with full or near-full test coverage.",
+  "collective_gap": "The one physical quality holding this team back most, with peer context and specific numbers. Only choose from categories where meaningful data exists — do not cite untested categories as gaps.",
+  "heatmap_read": "2-3 sentences interpreting the team grid. Only reference categories and scores that actually appear in the grid. Note which categories show the widest spread between athletes. Be specific with names and numbers from the grid only."
 }`
 
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
