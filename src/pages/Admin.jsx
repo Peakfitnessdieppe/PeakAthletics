@@ -33,8 +33,21 @@ const SECTION_LABELS = {
   programs: 'Programs',
 }
 
-const SPORTS = ['Football', 'Hockey', 'Martial Arts', 'Ringette', 'Soccer', 'Track & Field']
-const AGE_CATEGORIES = ['Junior', 'Martial Arts', 'Senior', 'Track & Field', 'U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19']
+const SPORTS = [
+  'Hockey',
+  'Soccer',
+  'American Football',
+  'Ringette',
+  'Volleyball',
+  'Basketball',
+  'Baseball',
+  'Lacrosse',
+  'Tennis',
+  'Track & Field',
+  'Martial Arts',
+  'Other'
+]
+const AGE_CATEGORIES = ['U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'Junior', 'Senior']
 const GENDERS = ['male', 'female']
 const CATEGORY_LABELS = { speed: 'Speed', strength: 'Strength', power: 'Power', agility: 'Agility', endurance: 'Endurance' }
 const TEST_LABELS = {
@@ -3083,7 +3096,7 @@ const Admin = () => {
 
             {/* Test weights for multi-test categories */}
             {Object.entries(weightableTests)
-              .filter(([, tests]) => (tests?.length || 0) >= 2)
+              .filter(([category, tests]) => category && category !== 'anthropometrics' && (tests?.length || 0) >= 1)
               .map(([category]) => {
                 const tests = defaultTestWeights[category] || {}
                 const activeTests = Object.entries(tests).filter(([, d]) => d.is_active)
@@ -3146,10 +3159,12 @@ const Admin = () => {
               </select>
               <select value={newCustom.age_category} onChange={(e) => setNewCustom((prev) => ({ ...prev, age_category: e.target.value }))} style={selectStyle}>
                 <option value="" style={{ background: '#0d1a0e', color: '#fff' }}>Age Category</option>
+                <option value="all" style={{ background: '#0d1a0e', color: '#fff' }}>All Ages</option>
                 {AGE_CATEGORIES.map((a) => <option key={a} value={a} style={{ background: '#0d1a0e', color: '#fff' }}>{a}</option>)}
               </select>
               <select value={newCustom.gender} onChange={(e) => setNewCustom((prev) => ({ ...prev, gender: e.target.value }))} style={selectStyle}>
                 <option value="" style={{ background: '#0d1a0e', color: '#fff' }}>Gender</option>
+                <option value="all" style={{ background: '#0d1a0e', color: '#fff' }}>All Genders</option>
                 {GENDERS.map((g) => <option key={g} value={g} style={{ background: '#0d1a0e', color: '#fff' }}>{g}</option>)}
               </select>
             </div>
@@ -3162,7 +3177,7 @@ const Admin = () => {
 
             {/* Test weights for multi-test categories (custom set) */}
             {Object.entries(weightableTests)
-              .filter(([, tests]) => (tests?.length || 0) >= 2)
+              .filter(([category, tests]) => category && category !== 'anthropometrics' && (tests?.length || 0) >= 1)
               .map(([category]) => {
                 const tests = newCustomTestWeights[category] || {}
                 const activeTests = Object.entries(tests)

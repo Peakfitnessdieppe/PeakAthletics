@@ -48,19 +48,43 @@ exports.handler = async (event) => {
     .select('*')
 
   // Helper to get weights for a sport+age combo
-  const getWeights = (sport, ageCategory) => {
-    const override = (weightOverrides || []).find(
-      w => w.sport === sport && w.age_category === ageCategory
-    )
-    if (override) {
+  const getWeights = (sport, ageCategory, gender) => {
+    const overrides = weightOverrides || []
+
+    // Score each override by specificity — higher score = more specific match
+    const scored = overrides
+      .filter(w => w.sport === sport) // must match sport
+      .map(w => {
+        const ageMatch = w.age_category === ageCategory
+        const ageAll = w.age_category === 'all' || !w.age_category
+        const genderMatch = w.gender === gender
+        const genderAll = w.gender === 'all' || !w.gender
+
+        // Must match or be "all" for both age and gender
+        if (!ageMatch && !ageAll) return null
+        if (!genderMatch && !genderAll) return null
+
+        // Specificity score: specific match = 2 pts, "all" = 1 pt
+        const ageScore = ageMatch ? 2 : 1
+        const genderScore = genderMatch ? 2 : 1
+
+        return { w, score: ageScore + genderScore }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.score - a.score)
+
+    const best = scored[0]?.w
+
+    if (best) {
       return {
-        speed: override.speed_weight,
-        power: override.power_weight,
-        strength: override.strength_weight,
-        agility: override.agility_weight,
-        endurance: override.endurance_weight
+        speed: best.speed_weight,
+        power: best.power_weight,
+        strength: best.strength_weight,
+        agility: best.agility_weight,
+        endurance: best.endurance_weight,
       }
     }
+
     return DEFAULT_WEIGHTS
   }
 
@@ -158,7 +182,7 @@ exports.handler = async (event) => {
   for (const athlete of athletes) {
     const peerKey = `${athlete.sport}__${athlete.age_category}` 
     const stats = peerStats[peerKey] || {}
-    const weights = getWeights(athlete.sport, athlete.age_category)
+    const weights = getWeights(athlete.sport, athlete.age_category, athlete.gender)
 
     // Get best result per test_type for this athlete
     const athleteResults = (allResults || []).filter(r => r.athlete_id === athlete.id)
