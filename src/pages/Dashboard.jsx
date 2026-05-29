@@ -99,6 +99,21 @@ const Dashboard = () => {
   }, [profile?.id])
 
   useEffect(() => {
+    if (!profile?.id) return
+
+    const channel = supabase
+      .channel('composite-scores-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pfa_composite_scores' },
+        () => { loadData() }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.id])
+
+  useEffect(() => {
     if (!teams.length || !profile?.id) return
     const teamId = teams[0]?.id
     if (!teamId) return
