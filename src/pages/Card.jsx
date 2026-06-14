@@ -75,7 +75,7 @@ const Card = () => {
   }
 
   const formatCardValue = (testType, value) => {
-    const ROUND_TO_INT = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
+    const ROUND_TO_INT = ['squat', 'trap_bar_deadlift', 'bench_press']
     const units = {
       '10m_sprint': 's',
       '30m_sprint': 's',
@@ -90,7 +90,7 @@ const Card = () => {
       bench_press: 'lbs',
       pull_ups: 'reps',
       push_ups: 'reps',
-      imtp: 'lbs',
+      imtp: 'N/kg',
     }
     const labels = {
       '10m_sprint': '10M SPRINT',
@@ -156,7 +156,7 @@ const Card = () => {
       push_ups: 'reps',
       imtp: 'N/kg',
     }
-    const ROUND_TO_INT = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
+    const ROUND_TO_INT = ['squat', 'trap_bar_deadlift', 'bench_press']
 
     const byTestBySeason = {}
     for (const r of results || []) {
@@ -175,7 +175,11 @@ const Card = () => {
 
     const formatVal = (testType, rec) => {
       if (!rec || rec.value === undefined || rec.value === null) return { main: '—', load: null, reps: null }
-      const v = ROUND_TO_INT.includes(testType) ? Math.round(rec.value) : rec.value
+      const v = testType === 'imtp'
+        ? parseFloat(rec.value).toFixed(2)
+        : ROUND_TO_INT.includes(testType)
+        ? Math.round(rec.value)
+        : rec.value
       return {
         main: `${v} ${TEST_UNITS[testType] || ''}`.trim(),
         load: rec.load_value,

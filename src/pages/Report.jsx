@@ -98,7 +98,8 @@ const CAT_DESCRIPTIONS = {
 
 const formatVal = (testType, value) => {
   if (value === null || value === undefined) return '—'
-  const lbTests = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
+  const lbTests = ['squat', 'trap_bar_deadlift', 'bench_press']
+  if (testType === 'imtp') return `${parseFloat(value).toFixed(2)} N/kg`
   if (lbTests.includes(testType)) return `${Math.round(parseFloat(value))} lbs`
   if (testType === 'broad_jump') return `${Number(value).toFixed(2)} m`
   if (['10m_sprint', '30m_sprint', 'pro_agility_shuttle'].includes(testType)) return `${Number(value).toFixed(3)} s`

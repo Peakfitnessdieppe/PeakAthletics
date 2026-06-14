@@ -246,6 +246,18 @@ exports.handler = async (event) => {
       return profile.position || 'athlete'
     })()
 
+    const testedCategories = {
+      speed: (results || []).some(r => ['10m_sprint', '25m_sprint', '30m_sprint'].includes(r.test_type)),
+      strength: (results || []).some(r => ['push_ups', 'pull_ups', 'squat', 'bench_press', 'trap_bar_deadlift', 'imtp'].includes(r.test_type)),
+      power: (results || []).some(r => ['vertical_jump', 'broad_jump', 'triple_jump', 'ncmj', 'mb_chest_pass'].includes(r.test_type)),
+      agility: (results || []).some(r => ['pro_agility_shuttle', 'illinois_agility', 't_test'].includes(r.test_type)),
+      endurance: (results || []).some(r => ['beep_test', 'plank'].includes(r.test_type)),
+    }
+
+    const categoryStatus = Object.entries(testedCategories).map(([cat, tested]) =>
+      tested ? `${cat}: TESTED` : `${cat}: NOT TESTED — omit insight entirely, do not frame as weakness`
+    ).join('\n')
+
     const prompt = `You are PeakIQ, the performance intelligence system for Peak Fitness Athletics in Dieppe, NB, Canada.
 
 IMPORTANT RULES:
@@ -257,6 +269,10 @@ IMPORTANT RULES:
 - DATA INTEGRITY RULE — CRITICAL: Never make claims about in-game performance that our testing cannot confirm. We test in a controlled setting — we do not observe games. Always frame game observations as what the data SUGGESTS, not what we have confirmed. For example: "${firstName}'s 10m sprint suggests ${pronoun} first-step acceleration off a stop should be noticeable" or "at 2.33x bodyweight in relative strength, ${firstName} has the physical profile to win contact situations." Never say an athlete "dominates" or "is remarkable" at something we have not observed. Use "suggests", "indicates", "points to", "profiles as".
 - RANKING RULE: Use tier language not raw numbers. Say 'Top 3', 'Top 25%', '#1' etc. If athlete holds a record say 'holds the [gender] [age_category] [sport] record'. If athlete is chasing a record and the gap is small (within 15% of record value), mention they are chasing it. Never say 'ranks X of Y'.
 - Frame development areas as training priorities, not weaknesses.
+- TESTING COVERAGE — READ BEFORE WRITING ANYTHING:
+${categoryStatus}
+
+- UNTESTED CATEGORY RULE: If a category shows "NOT TESTED" — do NOT generate an insight for it. Do not include the key in the JSON at all. Do not say the athlete needs improvement in that area. It is simply untested. This applies to speed_insight, strength_insight, power_insight, agility_insight, endurance_insight and all conditional keys.
 
 ATHLETE: ${profile.full_name}
 Sport: ${profile.sport} | Position: ${profile.position || 'N/A'} | Age Group: ${profile.age_category} | Level: ${profile.competition_level || 'N/A'} | Gender: ${profile.gender}
@@ -285,11 +301,11 @@ ${resultsSummary}
 GAME STATISTICS (${profile.sport}):
 ${gameContext}
 
-REQUIRED KEYS — these must always appear in the response regardless of data availability:
-this_season, speed_insight, strength_insight, power_insight, agility_insight, endurance_insight, physical_standouts, scores_summary, what_to_watch, next_steps
+REQUIRED KEYS — these must always appear:
+this_season, physical_standouts, scores_summary, what_to_watch, next_steps
 
-CONDITIONAL KEYS — only include if the relevant test data exists:
-squat_insight, bench_press_insight, trap_bar_insight, pull_ups_insight, push_ups_insight, vertical_jump_insight, broad_jump_insight, mb_chest_pass_insight
+CONDITIONAL KEYS — only include if the category is TESTED and test data exists:
+speed_insight, strength_insight, power_insight, agility_insight, endurance_insight, squat_insight, bench_press_insight, trap_bar_insight, pull_ups_insight, push_ups_insight, vertical_jump_insight, broad_jump_insight, mb_chest_pass_insight
 
 Generate a JSON object with EXACTLY these keys. No markdown, no backticks, no extra text — just raw JSON:
 

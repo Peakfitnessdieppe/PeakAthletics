@@ -416,7 +416,7 @@ const Session = () => {
         trial_2: isLoadBased ? (trialLoads[1] && trialReps[1] ? calcE1RM(parseFloat(trialLoads[1]), parseInt(trialReps[1])) : null) : parseFloat(trialValues[1]) || null,
         trial_3: isLoadBased ? (trialLoads[2] && trialReps[2] ? calcE1RM(parseFloat(trialLoads[2]), parseInt(trialReps[2])) : null) : parseFloat(trialValues[2]) || null,
         best_value: finalTrial.value,
-        load_value: finalTrial.load || null,
+        load_value: selectedTestId === 'imtp' ? finalTrial.value : (finalTrial.load || null),
         reps: finalTrial.reps || null,
         e1rm: isLoadBased ? finalTrial.value : null,
         relative_strength: isLoadBased ? calcRelativeStrength(finalTrial.value, latestBodyweight) : null,
@@ -427,13 +427,23 @@ const Session = () => {
 
       // Save best to pfa_test_results
       const relStr = isLoadBased ? calcRelativeStrength(finalTrial.value, latestBodyweight) : null
+      const isImtp = selectedTestId === 'imtp'
+      let imtpNkg = null
+      if (isImtp && latestBodyweight) {
+        const bodyweightKg = latestBodyweight / 2.205
+        imtpNkg = Math.round(((finalTrial.value * 9.81) / bodyweightKg) * 100) / 100
+      } else if (isImtp && !latestBodyweight) {
+        console.warn('IMTP save: missing bodyweight, inserting raw kg value')
+      }
+      const insertValue = isImtp && latestBodyweight ? imtpNkg : finalTrial.value
+      const insertUnit = isImtp && latestBodyweight ? 'N/kg' : currentTest.unit
       const { data: saved, error } = await supabase.from('pfa_test_results').insert({
         athlete_id: currentAthlete.id,
         session_id: sessionId,
         category: selectedCategory,
         test_type: selectedTestId,
-        value: finalTrial.value,
-        unit: currentTest.unit,
+        value: insertValue,
+        unit: insertUnit,
         higher_is_better: !isLower,
         flagged,
         load_value: finalTrial.load || null,
