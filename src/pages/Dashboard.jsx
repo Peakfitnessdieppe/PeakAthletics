@@ -542,6 +542,7 @@ const Dashboard = () => {
     'body_fat': 'Body Fat',
     'height': 'Height',
     'weight': 'Weight',
+    'imtp': 'IMTP',
   }
 
   const TEST_UNITS = {
@@ -566,6 +567,7 @@ const Dashboard = () => {
     'body_fat': '%',
     'height': ' in',
     'weight': ' lbs',
+    'imtp': ' N/kg',
   }
 
   const buildLeaderboards = (categoryOverride) => {

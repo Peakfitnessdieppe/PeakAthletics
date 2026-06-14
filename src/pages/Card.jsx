@@ -19,6 +19,7 @@ const Card = () => {
   const [baselineResults, setBaselineResults] = useState([])
   const [testRankings, setTestRankings] = useState([])
   const [measurements, setMeasurements] = useState([])
+  const [applicableTests, setApplicableTests] = useState([])
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null)
   const [uploading, setUploading] = useState(false)
   const [photoMessage, setPhotoMessage] = useState('')
@@ -37,6 +38,24 @@ const Card = () => {
       setLatestResults(latest || [])
       setBaselineResults(baseline || [])
       setMeasurements(bodyMeasurements || [])
+      const { data: allTestWeights } = await supabase
+        .from('pfa_test_weights')
+        .select('test_type, category, weight, sport, age_category, gender, is_active')
+        .eq('is_active', true)
+
+      const sport = profile.sport
+      const ageCategory = profile.age_category
+      const gender = profile.gender
+
+      const sportWeights = (allTestWeights || []).filter((w) => w.sport === sport || w.sport === 'default')
+      const applicable = (() => {
+        let match = sportWeights.filter((w) => w.sport === sport && w.age_category === ageCategory && w.gender === gender)
+        if (!match.length) match = sportWeights.filter((w) => w.sport === sport && w.age_category === ageCategory && w.gender === 'all')
+        if (!match.length) match = sportWeights.filter((w) => w.sport === sport && w.age_category === 'all' && w.gender === 'all')
+        if (!match.length) match = sportWeights.filter((w) => w.sport === 'default')
+        return match.map((w) => w.test_type)
+      })()
+      setApplicableTests(applicable)
       console.log('[Card] profile:', profile)
       console.log('[Card] latest results:', latest)
     } catch (err) {
@@ -102,24 +121,9 @@ const Card = () => {
     return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear()
   }
 
-  const buildSeasonStats = (results) => {
+  const buildSeasonStats = (results, testList) => {
     const LOWER_IS_BETTER = ['10m_sprint', '30m_sprint', 'pro_agility_shuttle']
-    const ALL_TESTS = [
-      '10m_sprint',
-      '30m_sprint',
-      'vertical_jump',
-      'broad_jump',
-      'ncmj',
-      'mb_chest_pass',
-      'pro_agility_shuttle',
-      'beep_test',
-      'squat',
-      'trap_bar_deadlift',
-      'bench_press',
-      'pull_ups',
-      'push_ups',
-      'imtp',
-    ]
+    const ALL_TESTS = testList || []
     const TEST_LABELS = {
       '10m_sprint': '10m Sprint',
       '30m_sprint': '30m Sprint',
@@ -150,7 +154,7 @@ const Card = () => {
       bench_press: 'lbs',
       pull_ups: 'reps',
       push_ups: 'reps',
-      imtp: 'lbs',
+      imtp: 'N/kg',
     }
     const ROUND_TO_INT = ['squat', 'trap_bar_deadlift', 'bench_press', 'imtp']
 
@@ -651,7 +655,7 @@ const Card = () => {
                 </div>
 
                 {(() => {
-                  const seasonStats = buildSeasonStats(latestResults)
+                  const seasonStats = buildSeasonStats(latestResults, applicableTests)
                   const measurementRows = buildMeasurementSeasons(measurements)
                   return (
                     <>

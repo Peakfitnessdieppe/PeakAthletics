@@ -3329,7 +3329,7 @@ const Admin = () => {
 
                           {/* Edit mode — test weights for multi-test categories */}
                           {Object.entries(weightableTests)
-                            .filter(([, tests]) => (tests?.length || 0) >= 2)
+                            .filter(([, tests]) => (tests?.length || 0) >= 1)
                             .map(([category]) => {
                               const tests = editingWeightSetTests[category] || {}
                               const testTotal = Object.values(tests).reduce((s, d) => s + Number(d.weight), 0)
@@ -3397,7 +3397,7 @@ const Admin = () => {
                                 <div style={{ fontSize: '16px', color: 'white', fontWeight: '700', marginBottom: hasTests ? '6px' : '0' }}>{catPct}%</div>
                                 {hasTests && Object.entries(catTests).map(([testType, data]) => (
                                   <div key={testType} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginBottom: '2px' }}>
-                                    {TEST_LABELS[testType] || (weightableTests[category] || []).find((t) => t.test_type === testType)?.display_name || testType}: {data.weight}%
+                                    {TEST_LABELS[testType] || (weightableTests[cat] || []).find((t) => t.test_type === testType)?.display_name || testType}: {data.weight}%
                                   </div>
                                 ))}
                               </div>
