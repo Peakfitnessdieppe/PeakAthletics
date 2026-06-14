@@ -121,6 +121,7 @@ export default function LandingPage() {
   const [statsVisible, setStatsVisible] = useState(false)
   const [inquiryOpen, setInquiryOpen] = useState(false)
   const [inquiryType, setInquiryType] = useState('')
+  const [showInquireModal, setShowInquireModal] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', phone: '', sport: '', message: '' })
   const [formStatus, setFormStatus] = useState(null)
   const statsRef = useRef(null)
@@ -134,15 +135,8 @@ export default function LandingPage() {
     return () => observer.disconnect()
   }, [])
 
-  const handleProgramCTA = (program) => {
-    if (program.ctaType === 'glofox') {
-      window.open(GLOFOX_URL, '_blank')
-    } else if (program.ctaType === 'inquiry') {
-      setInquiryType(program.title)
-      setInquiryOpen(true)
-    } else if (program.ctaType === 'scroll') {
-      document.getElementById('seasonal-programs')?.scrollIntoView({ behavior: 'smooth' })
-    }
+  const handleProgramCTA = () => {
+    setShowInquireModal(true)
   }
 
   const handleInquirySubmit = async (e) => {
@@ -221,11 +215,26 @@ export default function LandingPage() {
             Elite performance is built on the basics executed relentlessly with intensity, precision, and purpose. At PFA, we develop athletes who don't chase trends — they set standards.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href={GLOFOX_URL} target="_blank" rel="noreferrer" className="bg-[#3fae52] text-white font-black uppercase tracking-wider px-8 py-4 rounded text-lg hover:bg-[#35963f] transition-colors">
-              Start Training
-            </a>
-            <a href="#programs" className="border border-white/20 text-white font-bold uppercase tracking-wider px-8 py-4 rounded text-lg hover:border-white/50 transition-colors">
-              View Programs
+            <a
+              href="https://calendly.com/peakfitnessdieppe-info/peak-athletics"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-block',
+                padding: '14px 32px',
+                background: '#3fae52',
+                color: '#0a0f0a',
+                fontWeight: 700,
+                fontSize: '16px',
+                borderRadius: '12px',
+                textDecoration: 'none',
+                letterSpacing: '0.02em',
+                boxShadow: '0 14px 35px rgba(63,174,82,0.35)',
+                border: '1px solid rgba(63,174,82,0.6)'
+              }}
+              className="transition-transform duration-200 hover:-translate-y-0.5"
+            >
+              Get in Touch →
             </a>
           </div>
         </div>
@@ -289,15 +298,15 @@ export default function LandingPage() {
                 <div className="text-sm text-gray-500 mb-4">{p.subtitle}</div>
                 <p className="text-gray-400 text-sm leading-relaxed flex-1 mb-6">{p.description}</p>
                 <button
-                  onClick={() => handleProgramCTA(p)}
+                  onClick={() => handleProgramCTA()}
                   className="w-full py-3 rounded font-bold uppercase tracking-wider text-sm transition-colors"
                   style={{
-                    background: p.ctaType === 'glofox' ? '#3fae52' : 'transparent',
-                    color: 'white',
-                    border: p.ctaType === 'glofox' ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                    background: '#3fae52',
+                    color: '#0a0f0a',
+                    border: '1px solid rgba(63,174,82,0.6)',
                   }}
                 >
-                  {p.cta}
+                  Inquire Now
                 </button>
               </div>
             ))}
@@ -326,12 +335,26 @@ export default function LandingPage() {
                 <a href="#programs" className="bg-[#3fae52] text-white font-bold uppercase tracking-wider px-6 py-3 rounded text-sm hover:bg-[#35963f] transition-colors text-center">
                   See Programs
                 </a>
-                <button
-                  onClick={() => { setInquiryType('General Inquiry'); setInquiryOpen(true) }}
-                  className="border border-white/20 text-white font-bold uppercase tracking-wider px-6 py-3 rounded text-sm hover:border-white/50 transition-colors"
+                <a
+                  href="https://calendly.com/peakfitnessdieppe-info/peak-athletics"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-block',
+                    padding: '12px 22px',
+                    background: 'linear-gradient(135deg, rgba(63,174,82,0.18), rgba(63,174,82,0.08))',
+                    color: '#d7ffe0',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    borderRadius: '10px',
+                    textDecoration: 'none',
+                    border: '1px solid rgba(63,174,82,0.5)',
+                    boxShadow: '0 12px 30px rgba(0,0,0,0.25)'
+                  }}
+                  className="transition-transform duration-200 hover:-translate-y-0.5"
                 >
                   Get in Touch
-                </button>
+                </a>
               </div>
             </div>
             <div className="bg-[#0a0f0a] border border-white/10 rounded-xl overflow-hidden aspect-[4/3] flex items-center justify-center">
@@ -399,15 +422,12 @@ export default function LandingPage() {
           <h2 className="text-4xl md:text-5xl font-black uppercase text-white mb-4">Ready to Get Started?</h2>
           <p className="text-white/80 text-lg mb-8">Join 197 athletes already training at Peak Fitness Athletics in Dieppe.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href={GLOFOX_URL} target="_blank" rel="noreferrer" className="bg-white text-[#3fae52] font-black uppercase tracking-wider px-8 py-4 rounded text-lg hover:bg-gray-100 transition-colors">
-              Register Now
+            <a href="https://calendly.com/peakfitnessdieppe-info/peak-athletics" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', padding: '14px 32px', background: '#ffffff', color: '#0a0f0a', fontWeight: 800, fontSize: '16px', borderRadius: '14px', textDecoration: 'none', boxShadow: '0 18px 45px rgba(10,15,10,0.25)', border: '1px solid rgba(10,15,10,0.12)' }} className="transition-transform duration-200 hover:-translate-y-0.5">
+              Speak with Rick →
             </a>
-            <button
-              onClick={() => { setInquiryType('General Inquiry'); setInquiryOpen(true) }}
-              className="border-2 border-white text-white font-bold uppercase tracking-wider px-8 py-4 rounded text-lg hover:bg-white/10 transition-colors"
-            >
-              Ask a Question
-            </button>
+            <a href="mailto:info@peakfitnessdieppe.ca" style={{ display: 'inline-block', padding: '14px 32px', background: '#0a0f0a', color: '#3fae52', fontWeight: 800, fontSize: '16px', borderRadius: '14px', textDecoration: 'none', border: '1px solid rgba(10,15,10,0.45)', boxShadow: '0 12px 32px rgba(0,0,0,0.25)' }} className="transition-transform duration-200 hover:-translate-y-0.5">
+              Send Us An Email
+            </a>
           </div>
         </div>
       </section>
@@ -457,6 +477,56 @@ export default function LandingPage() {
                 {formStatus === 'error' && <div className="text-red-400 text-xs text-center">Something went wrong. Please try again or email us directly.</div>}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showInquireModal && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowInquireModal(false) }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.75)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
+          }}
+        >
+          <div style={{
+            background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)',
+            borderRadius: '20px', padding: '40px', maxWidth: '420px', width: '100%',
+            textAlign: 'center', position: 'relative'
+          }}>
+            <button
+              onClick={() => setShowInquireModal(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '8px', color: '#3fae52', cursor: 'pointer', padding: '6px 12px', fontSize: '13px' }}
+            >
+              Close
+            </button>
+            <h3 style={{ color: '#f4fff6', fontSize: '22px', fontWeight: 700, marginBottom: '8px' }}>Get in Touch</h3>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', marginBottom: '28px' }}>Choose how you'd like to connect with us.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <a
+                href="https://calendly.com/peakfitnessdieppe-info/peak-athletics"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: 'block', padding: '14px 24px', background: '#3fae52', color: '#0a0f0a', fontWeight: 700, fontSize: '15px', borderRadius: '12px', textDecoration: 'none' }}
+              >
+                Speak with Rick →
+              </a>
+              <a
+                href="mailto:info@peakfitnessdieppe.ca"
+                onClick={(e) => {
+                  e.preventDefault()
+                  const mailtoLink = 'mailto:info@peakfitnessdieppe.ca'
+                  const newWindow = window.open(mailtoLink, '_blank')
+                  if (!newWindow) {
+                    window.location.href = mailtoLink
+                  }
+                }}
+                style={{ display: 'block', padding: '14px 24px', background: 'transparent', color: '#3fae52', fontWeight: 700, fontSize: '15px', borderRadius: '12px', textDecoration: 'none', border: '1px solid rgba(63,174,82,0.4)' }}
+              >
+                Send Us An Email
+              </a>
+            </div>
           </div>
         </div>
       )}
