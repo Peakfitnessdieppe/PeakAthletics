@@ -31,6 +31,13 @@ exports.handler = async (event) => {
       .eq('athlete_id', athleteId)
       .single()
 
+    const { data: benchmarks } = await supabase
+      .from('pfa_benchmarks')
+      .select('*')
+      .eq('sport', profile.sport)
+      .eq('age_category', profile.age_category)
+      .eq('gender', profile.gender)
+
     // Check cache — skip regeneration if insights exist and scores haven't changed
     if (!force && compScore) {
       const { data: cached } = await supabase
@@ -135,6 +142,83 @@ exports.handler = async (event) => {
         ? (!current || val < current)
         : (!current || val > current)
       if (isBetter) athleteBestByTest[r.test_type] = val
+    }
+
+    const trendByTest = {}
+    for (const testType of [...new Set((results || []).map(r => r.test_type))]) {
+      const testResults = (results || [])
+        .filter(r => r.test_type === testType)
+        .sort((a, b) => new Date(b.date_tested) - new Date(a.date_tested))
+      
+      if (testResults.length >= 2) {
+        const latest = parseFloat(testResults[0].value)
+        const previous = parseFloat(testResults[1].value)
+        const isLower = ['10m_sprint', '25m_sprint', '30m_sprint', 'pro_agility_shuttle', 'illinois_agility', 't_test'].includes(testType)
+        const delta = isLower ? previous - latest : latest - previous
+        const pct = Math.abs((delta / previous) * 100).toFixed(1)
+        const improved = delta > 0
+        trendByTest[testType] = {
+          latest,
+          previous,
+          delta: Math.abs(delta).toFixed(2),
+          pct,
+          improved,
+          latestDate: testResults[0].date_tested,
+          previousDate: testResults[1].date_tested,
+        }
+      }
+    }
+
+    const trendSummary = Object.entries(trendByTest).map(([test, t]) => {
+      const label = test.replaceAll('_', ' ')
+      const direction = t.improved ? 'improved' : 'declined'
+      return `${label}: ${direction} from ${t.previous} to ${t.latest} (${t.improved ? '+' : '-'}${t.pct}%) since ${new Date(t.previousDate).toLocaleDateString()}` 
+    }).join('\n') || 'Insufficient data for trend analysis (only one test session)'
+
+    const mostRecentTestDate = results?.[0]?.date_tested ? new Date(results[0].date_tested) : null
+    const now = new Date()
+    const month = mostRecentTestDate ? mostRecentTestDate.getMonth() + 1 : now.getMonth() + 1
+
+    const sportSeasonPhase = {
+      Hockey: () => {
+        if (month >= 5 && month <= 7) return 'Off-season — prime development window for NB hockey players. No ice commitments until August tryouts. This is the most important training period of the year for physical gains.'
+        if (month === 8) return 'Pre-tryout / Training camp prep — August is crunch time for NB AAA hockey. Physical testing results now directly impact roster decisions. Every gain matters.'
+        if (month >= 9 && month <= 10) return 'Early season (NB hockey) — season underway, athletes balancing games and practice load. Physical qualities from summer should be showing on the ice.'
+        if (month >= 11 || month <= 2) return 'Mid-season (NB hockey) — full competitive schedule. In-season fatigue is normal and may affect testing numbers. Maintenance of key physical qualities is the priority.'
+        if (month >= 3 && month <= 4) return 'Playoffs / Post-season (NB hockey) — season winding down or complete. Good time to identify development priorities for the upcoming summer window.'
+      },
+      Ringette: () => {
+        if (month >= 4 && month <= 8) return 'Off-season (NB ringette) — prime development window. No ice commitments, ideal time for significant physical gains before the October season start.'
+        if (month === 9) return 'Pre-season (NB ringette) — season starts in October. Final preparation phase, physical qualities should be peaking.'
+        if (month >= 10 || month <= 3) return 'In-season (NB ringette) — competing regularly through to March. In-season fatigue may affect testing numbers. Maintenance focus.'
+      },
+      Soccer: () => {
+        if (month >= 5 && month <= 8) return 'Outdoor season (NB soccer) — actively competing. Testing reflects in-season physical state. Gains during this period are harder to achieve due to game load.'
+        if (month >= 9 && month <= 10) return 'Post-outdoor / Pre-indoor transition (NB soccer) — outdoor season wrapping up, indoor season approaching in November. Good window for physical development work.'
+        if (month >= 11 || month <= 3) return 'Indoor season (NB soccer) — competing indoors through March. Maintenance of physical qualities while managing game load.'
+        if (month === 4) return 'Off-season transition (NB soccer) — between indoor and outdoor seasons. Short but important window for targeted physical development before outdoor season.'
+      },
+      Basketball: () => {
+        if (month >= 4 && month <= 9) return 'Off-season (NB basketball) — prime development window. No league commitments until November. Longest opportunity for physical gains in the yearly cycle.'
+        if (month === 10) return 'Pre-season (NB basketball) — season starts in November. Final preparation phase.'
+        if (month >= 11 || month <= 3) return 'In-season (NB basketball) — competing regularly through March. Maintenance focus, in-season fatigue is normal.'
+      },
+      Volleyball: () => {
+        if (month >= 4 && month <= 8) return 'Off-season (NB volleyball) — prime development window before the fall season.'
+        if (month === 9) return 'Pre-season (NB volleyball) — season starting soon. Final physical preparation.'
+        if (month >= 10 || month <= 3) return 'In-season (NB volleyball) — competing regularly. Maintenance of physical qualities.'
+      },
+    }
+
+    const getSeasonPhase = sportSeasonPhase[profile.sport]
+    let seasonPhase
+    if (getSeasonPhase) {
+      seasonPhase = getSeasonPhase() || 'Competitive season — maintaining physical qualities while managing game load.'
+    } else {
+      if (month >= 5 && month <= 8) seasonPhase = 'Off-season — prime development window.'
+      else if (month >= 9 && month <= 10) seasonPhase = 'Pre-season — ramping up for the competitive season.'
+      else if (month >= 11 || month <= 2) seasonPhase = 'In-season — competing regularly, maintenance focus.'
+      else seasonPhase = 'Post-season — planning next development cycle.'
     }
 
     // Calculate rank tiers for each test
@@ -246,6 +330,30 @@ exports.handler = async (event) => {
       return profile.position || 'athlete'
     })()
 
+    const LEVEL_TIERS = ['Developing', 'On Track', 'Advanced', 'Elite Trajectory']
+
+    const getLevelReadiness = (score) => {
+      if (!score || score === 0) return 'Untested'
+      if (score >= 85) return 'Elite Trajectory'
+      if (score >= 70) return 'Advanced'
+      if (score >= 50) return 'On Track'
+      return 'Developing'
+    }
+
+    const levelReadiness = {
+      overall: getLevelReadiness(compScore?.overall_score),
+      speed: getLevelReadiness(compScore?.speed_score),
+      strength: getLevelReadiness(compScore?.strength_score),
+      power: getLevelReadiness(compScore?.power_score),
+      agility: getLevelReadiness(compScore?.agility_score),
+      endurance: getLevelReadiness(compScore?.endurance_score),
+    }
+
+    const levelSummary = Object.entries(levelReadiness)
+      .filter(([, tier]) => tier !== 'Untested')
+      .map(([cat, tier]) => `${cat}: ${tier}`)
+      .join(', ')
+
     const testedCategories = {
       speed: (results || []).some(r => ['10m_sprint', '25m_sprint', '30m_sprint'].includes(r.test_type)),
       strength: (results || []).some(r => ['push_ups', 'pull_ups', 'squat', 'bench_press', 'trap_bar_deadlift', 'imtp'].includes(r.test_type)),
@@ -268,6 +376,11 @@ IMPORTANT RULES:
 - Use the athlete's first name (${firstName}) throughout. Pronouns: ${pronoun} / ${pronounCap}.
 - DATA INTEGRITY RULE — CRITICAL: Never make claims about in-game performance that our testing cannot confirm. We test in a controlled setting — we do not observe games. Always frame game observations as what the data SUGGESTS, not what we have confirmed. For example: "${firstName}'s 10m sprint suggests ${pronoun} first-step acceleration off a stop should be noticeable" or "at 2.33x bodyweight in relative strength, ${firstName} has the physical profile to win contact situations." Never say an athlete "dominates" or "is remarkable" at something we have not observed. Use "suggests", "indicates", "points to", "profiles as".
 - RANKING RULE: Use tier language not raw numbers. Say 'Top 3', 'Top 25%', '#1' etc. If athlete holds a record say 'holds the [gender] [age_category] [sport] record'. If athlete is chasing a record and the gap is small (within 15% of record value), mention they are chasing it. Never say 'ranks X of Y'.
+- TREND RULE: When trend data is available for a test, always reference whether the athlete improved or declined since their last session. Use specific numbers and percentages. "Cullen's IMTP improved from 32.5 to 37.1 N/kg (+14%) since June" is the target format. This is the most motivating data point for parents and athletes.
+- SEASON PHASE RULE: Frame all training recommendations in the context of the current season phase. Off-season insights should emphasize development opportunity. In-season insights should emphasize maintenance and not alarm parents about scores that may be lower due to fatigue. Post-season insights should frame this as a reset and planning moment.
+- LEVEL READINESS RULE: Reference Level Readiness tiers when describing an athlete's standing. 'Elite Trajectory' should trigger genuinely celebratory language. 'Developing' should be framed as early stage with clear upside, never as failure. Use the tier name naturally — 'Cullen is On Track in strength' or 'Audrée has reached Elite Trajectory in speed.'
+- LANGUAGE RULE: Never use these words or phrases: 'metrics', 'composite', 'normalization', 'cohort', 'data points', 'quantitative', 'benchmarking', 'leverage', 'optimize', 'utilize'. Write like a knowledgeable coach talking to a proud parent, not a data scientist writing a report.
+- CELEBRATION RULE: When an athlete is at Elite Trajectory tier, holds a record, or ranks #1 among peers — use genuinely celebratory language. These are real achievements worth celebrating. Do not be clinical or reserved. 'Audrée is one of the fastest players we have ever tested in her age group' is the right energy. Match the achievement to the tone.
 - Frame development areas as training priorities, not weaknesses.
 - TESTING COVERAGE — READ BEFORE WRITING ANYTHING:
 ${categoryStatus}
@@ -276,6 +389,12 @@ ${categoryStatus}
 
 ATHLETE: ${profile.full_name}
 Sport: ${profile.sport} | Position: ${profile.position || 'N/A'} | Age Group: ${profile.age_category} | Level: ${profile.competition_level || 'N/A'} | Gender: ${profile.gender}
+
+SEASON PHASE (context for interpreting results and recommendations):
+${seasonPhase}
+
+LEVEL READINESS TIERS (Developing → On Track → Advanced → Elite Trajectory):
+${levelSummary}
 
 COMPOSITE SCORES (0-100, relative to ${profile.gender} ${profile.age_category} peers):
 Overall: ${compScore?.overall_score || 'N/A'}
@@ -298,8 +417,8 @@ ${rankingSummary}
 TEST RESULTS (personal bests):
 ${resultsSummary}
 
-GAME STATISTICS (${profile.sport}):
-${gameContext}
+PERFORMANCE TRENDS (change since last test session):
+${trendSummary}
 
 REQUIRED KEYS — these must always appear:
 this_season, physical_standouts, scores_summary, what_to_watch, next_steps
