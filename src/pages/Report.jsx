@@ -309,7 +309,7 @@ function LineChartCanvas({ testType, history }) {
 
 const Report = () => {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const athleteId = (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('id') : null) || user?.id
 
   const [reportData, setReportData] = useState({ profile: null, results: [], benchmarks: [] })
@@ -322,7 +322,7 @@ const Report = () => {
   const [error, setError] = useState(null)
   const [compScore, setCompScore] = useState(null)
   const [latestMeasurement, setLatestMeasurement] = useState(null)
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false)
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
   const [insights, setInsights] = useState(null)
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState(null)
@@ -335,6 +335,13 @@ const Report = () => {
   const tooltipStyle = {
     position: 'relative',
     display: 'inline-flex',
+  }
+  const TEST_UNITS = {
+    '10m_sprint': 's', '25m_sprint': 's', '30m_sprint': 's',
+    'vertical_jump': ' in', 'broad_jump': ' m', 'triple_jump': ' m',
+    'pull_ups': ' reps', 'push_ups': ' reps', 'beep_test': ' lvl',
+    'plank': 's', 'pro_agility_shuttle': 's', 'illinois_agility': 's',
+    'imtp': ' N/kg'
   }
   const tooltipTextStyle = {
     visibility: 'hidden',
@@ -523,7 +530,7 @@ const Report = () => {
   }
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640)
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', handleResize)
       return () => window.removeEventListener('resize', handleResize)
@@ -744,12 +751,12 @@ const Report = () => {
       </div>
     )
   }
-  const { profile, benchmarks } = reportData
-  const hasBenchmarks = SPORTS_WITH_BENCHMARKS.includes(profile?.sport?.toLowerCase())
-  const age = calcAge(profile?.date_of_birth || profile?.dob)
-  const initials = (profile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
-  const firstName = (profile?.full_name || 'Athlete').split(' ')[0]
-  const pronoun = profile?.gender === 'female' ? 'her' : 'his'
+  const { profile: athleteProfile, benchmarks } = reportData
+  const hasBenchmarks = SPORTS_WITH_BENCHMARKS.includes(athleteProfile?.sport?.toLowerCase())
+  const age = calcAge(athleteProfile?.date_of_birth || athleteProfile?.dob)
+  const initials = (athleteProfile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+  const firstName = (athleteProfile?.full_name || 'Athlete').split(' ')[0]
+  const pronoun = athleteProfile?.gender === 'female' ? 'her' : 'his'
 
   const formatHeight = (inches) => {
     if (inches == null) return '—'
@@ -758,8 +765,8 @@ const Report = () => {
     return `${ft}'${inch}"`
   }
 
-  const heroHeight = formatHeight(latestMeasurement?.height ?? profile?.height ?? profile?.height_inches)
-  const heroWeightValue = latestMeasurement?.weight ?? profile?.weight
+  const heroHeight = formatHeight(latestMeasurement?.height ?? athleteProfile?.height ?? athleteProfile?.height_inches)
+  const heroWeightValue = latestMeasurement?.weight ?? athleteProfile?.weight
   const heroWeight = heroWeightValue != null ? `${Math.round(heroWeightValue)} lbs` : '—'
 
   const displayScores = {
@@ -776,12 +783,49 @@ const Report = () => {
 
       {/* BACK BUTTON + LIGHT MODE TOGGLE */}
       <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button
-          onClick={() => navigate(-1)}
-          style={{ background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '8px', color: '#3fae52', padding: '8px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
-        >
-          ← Back
-        </button>
+        {(() => {
+          const role = profile?.role
+          if (role === 'pfa_admin' || role === 'staff') {
+            return (
+              <button
+                onClick={() => { window.location.href = '/admin' }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#3fae52',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  padding: '0',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                ← Back to Athletes
+              </button>
+            )
+          }
+          return (
+            <button
+              onClick={() => { window.location.href = '/card' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#3fae52',
+                cursor: 'pointer',
+                fontSize: '14px',
+                padding: '0',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              ← Back to My Card
+            </button>
+          )
+        })()}
         <button
           onClick={() => setLightMode(lm => !lm)}
           style={{ background: lightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)'}`, borderRadius: '8px', color: lightMode ? '#333' : '#ccc', padding: '8px 14px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -828,7 +872,7 @@ const Report = () => {
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
-                  alt={profile?.full_name}
+                  alt={athleteProfile?.full_name}
                   style={{
                     width: '100%',
                     height: '100%',
@@ -862,7 +906,7 @@ const Report = () => {
                     fontSize: '24px',
                     fontWeight: 800,
                   }}>
-                    {(profile?.full_name || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    {(athleteProfile?.full_name || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                   </div>
                   <button
                     type="button"
@@ -968,11 +1012,11 @@ const Report = () => {
                 margin: '0 0 12px 0',
                 lineHeight: 1.1
               }}>
-                {profile?.full_name || 'Athlete'}
+                {athleteProfile?.full_name || 'Athlete'}
               </h1>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                {profile?.position && (
+                {athleteProfile?.position && (
                   <span
                     style={{
                       background: '#3fae52',
@@ -985,12 +1029,12 @@ const Report = () => {
                       textTransform: 'uppercase',
                     }}
                   >
-                    {profile.position}
+                    {athleteProfile.position}
                   </span>
                 )}
-                {(profile?.pfa_teams?.name || profile?.team_name) && (
+                {(athleteProfile?.pfa_teams?.name || athleteProfile?.team_name) && (
                   <span style={{ color: '#9ce6a8', fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    {profile?.pfa_teams?.name || profile?.team_name}
+                    {athleteProfile?.pfa_teams?.name || athleteProfile?.team_name}
                   </span>
                 )}
               </div>
@@ -1009,8 +1053,8 @@ const Report = () => {
                   { label: 'HT', value: heroHeight },
                   { label: 'WT', value: heroWeight },
                   { label: 'AGE', value: age },
-                  { label: 'LEVEL', value: profile?.competition_level || '—' },
-                  { label: 'SPORT', value: profile?.sport || '—' },
+                  { label: 'LEVEL', value: athleteProfile?.competition_level || '—' },
+                  { label: 'SPORT', value: athleteProfile?.sport || '—' },
                 ].map((item, idx, arr) => (
                   <div
                     key={item.label}
@@ -1391,7 +1435,7 @@ const Report = () => {
           </div>
 
           {/* Block 3: Hockey Career Stats */}
-          {profile?.sport === 'Hockey' && hockeyCareerRows.length > 0 && (
+          {athleteProfile?.sport === 'Hockey' && hockeyCareerRows.length > 0 && (
             <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(63,174,82,0.15)', borderRadius: '12px', padding: '16px' }}>
               <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>Hockey Career</div>
               <div style={{ overflowX: 'auto' }}>
@@ -1450,7 +1494,7 @@ const Report = () => {
                 const latestPpg = latest.ppg || 0
                 if (latestPpg <= earliestPpg) return null
                 const growth = ((latestPpg - earliestPpg) / (earliestPpg || 1)) * 100
-                const firstName = (profile?.full_name || 'Athlete').split(' ')[0]
+                const firstName = (athleteProfile?.full_name || 'Athlete').split(' ')[0]
                 return (
                   <div style={{ marginTop: '12px', color: '#3fae52', fontSize: '12px', fontStyle: 'italic' }}>
                     {firstName}'s points per game has grown from {earliestPpg.toFixed(2)} ({earliest.season || '—'}) to {latestPpg.toFixed(2)} ({latest.season || '—'}) — a {growth.toFixed(1)}% increase.
@@ -1539,9 +1583,9 @@ const Report = () => {
                   if (!athleteScore || !peerAverage) return null
 
                   const ratio = athleteScore / peerAverage
-                  const firstName = profile?.full_name?.split(' ')[0] || 'This athlete'
-                  const ageCategory = profile?.age_category || ''
-                  const sport = profile?.sport || 'athletes'
+                  const firstName = athleteProfile?.full_name?.split(' ')[0] || 'This athlete'
+                  const ageCategory = athleteProfile?.age_category || ''
+                  const sport = athleteProfile?.sport || 'athletes'
 
                   let rankText, colorStyle
                   if (ratio >= 1.4) {
@@ -1627,9 +1671,9 @@ const Report = () => {
                           {pb ? formatVal(tt, pb.value) : '—'}
                         </div>
                         {(() => {
-                          const sport = profile?.sport || ''
-                          const gender = profile?.gender === 'female' ? 'female' : 'male'
-                          const ageCategory = profile?.age_category || ''
+                          const sport = athleteProfile?.sport || ''
+                          const gender = athleteProfile?.gender === 'female' ? 'female' : 'male'
+                          const ageCategory = athleteProfile?.age_category || ''
                           const isRingette = sport === 'Ringette'
                           const benchKey = isRingette ? 'ringette' : gender
                           const ladder = isRingette ? LEVEL_LADDERS['ringette'] : LEVEL_LADDERS[gender]
@@ -1739,7 +1783,7 @@ const Report = () => {
                               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
                                 {hasBenchmarks && (
                                 <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#3fae52' }}>
-                                  {profile?.sport?.toLowerCase().includes('hockey') ? 'Hockey Development Benchmarks' : profile?.sport?.toLowerCase().includes('soccer') ? 'Soccer Development Benchmarks' : 'Hockey Development Benchmarks'}
+                                  {athleteProfile?.sport?.toLowerCase().includes('hockey') ? 'Hockey Development Benchmarks' : athleteProfile?.sport?.toLowerCase().includes('soccer') ? 'Soccer Development Benchmarks' : 'Hockey Development Benchmarks'}
                                 </div>
                               )}
                               </div>
@@ -1774,7 +1818,25 @@ const Report = () => {
                                               onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
                                             >
                                               <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>✓ {shortName}</div>
-                                              <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName}</div>
+                                              <div className="chip-tooltip" style={tooltipTextStyle}>{(() => {
+                                                const tooltipText = CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName
+                                                const levelItem = (bench.levels || []).find(l => {
+                                                  if (!l.level) return false
+                                                  const ln = l.level
+                                                    .replace('HC ', '')
+                                                    .replace('/Pro', '')
+                                                    .replace('Olympic/', '')
+                                                    .replace('-age', '')
+                                                    .replace('CHL-age', 'CHL')
+                                                  return ln === shortName
+                                                })
+                                                const benchValue = levelItem?.value
+                                                const unit = TEST_UNITS?.[tt] || ''
+                                                if (benchValue != null) {
+                                                  return `${tooltipText} — ${benchValue}${unit}`
+                                                }
+                                                return tooltipText
+                                              })()}</div>
                                             </div>
                                           ) : isFirstUnbeaten ? (
                                             <>
@@ -1787,7 +1849,25 @@ const Report = () => {
                                                 onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
                                               >
                                                 <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>→ {shortName}</div>
-                                                <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName}</div>
+                                                <div className="chip-tooltip" style={tooltipTextStyle}>{(() => {
+                                                  const tooltipText = CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName
+                                                  const levelItem = (bench.levels || []).find(l => {
+                                                    if (!l.level) return false
+                                                    const ln = l.level
+                                                      .replace('HC ', '')
+                                                      .replace('/Pro', '')
+                                                      .replace('Olympic/', '')
+                                                      .replace('-age', '')
+                                                      .replace('CHL-age', 'CHL')
+                                                    return ln === shortName
+                                                  })
+                                                  const benchValue = levelItem?.value
+                                                  const unit = TEST_UNITS?.[tt] || ''
+                                                  if (benchValue != null) {
+                                                    return `${tooltipText} — ${benchValue}${unit}`
+                                                  }
+                                                  return tooltipText
+                                                })()}</div>
                                               </div>
                                             </>
                                           ) : isYouAfterAll ? (
@@ -1803,7 +1883,25 @@ const Report = () => {
                                               onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
                                             >
                                               <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'}`, color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>{shortName}</div>
-                                              <div className="chip-tooltip" style={tooltipTextStyle}>{CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName}</div>
+                                              <div className="chip-tooltip" style={tooltipTextStyle}>{(() => {
+                                                const tooltipText = CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName
+                                                const levelItem = (bench.levels || []).find(l => {
+                                                  if (!l.level) return false
+                                                  const ln = l.level
+                                                    .replace('HC ', '')
+                                                    .replace('/Pro', '')
+                                                    .replace('Olympic/', '')
+                                                    .replace('-age', '')
+                                                    .replace('CHL-age', 'CHL')
+                                                  return ln === shortName
+                                                })
+                                                const benchValue = levelItem?.value
+                                                const unit = TEST_UNITS?.[tt] || ''
+                                                if (benchValue != null) {
+                                                  return `${tooltipText} — ${benchValue}${unit}`
+                                                }
+                                                return tooltipText
+                                              })()}</div>
                                             </div>
                                           )}
                                         </React.Fragment>
@@ -2038,7 +2136,12 @@ const Report = () => {
             </p>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : '1.5fr 1fr 1fr 1fr 1fr 1fr',
+            gap: '10px',
+            marginBottom: '16px'
+          }}>
             {[
               { label: 'Overall', key: 'overall', score: compScore?.overall_score },
               { label: 'Speed', key: 'speed', score: compScore?.speed_score },
@@ -2052,7 +2155,16 @@ const Report = () => {
               const zoneColor = s >= 75 ? '#3fae52' : s >= 50 ? '#f59e0b' : '#ef4444'
               const zoneLabel = s >= 75 ? 'Strong' : s >= 50 ? 'Above avg' : 'Developing'
               return (
-                <div key={key} style={{ background: '#0d1a0d', border: `1px solid ${isOverall ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '10px', padding: isOverall ? '16px 18px' : '14px 16px' }}>
+                <div
+                  key={key}
+                  style={{
+                    background: '#0d1a0d',
+                    border: `1px solid ${isOverall ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)'}`,
+                    borderRadius: '10px',
+                    padding: isOverall ? '16px 18px' : '14px 16px',
+                    gridColumn: isMobile && isOverall ? '1 / span 2' : undefined,
+                  }}
+                >
                   <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '6px' }}>{label}</div>
                   <div style={{ fontSize: isOverall ? '52px' : '36px', fontWeight: '900', lineHeight: '1', marginBottom: '10px', color: zoneColor }}>{s}</div>
                   <div style={{ position: 'relative', height: '8px', background: lightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', borderRadius: '999px', marginBottom: '6px', overflow: 'visible' }}>
