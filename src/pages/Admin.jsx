@@ -255,6 +255,7 @@ const Admin = () => {
   const [recalcStatus, setRecalcStatus] = useState('')
   const [defaultCatWeights, setDefaultCatWeights] = useState({ speed: 25, strength: 25, power: 25, agility: 15, endurance: 10 })
   const [defaultTestWeights, setDefaultTestWeights] = useState({})
+  const [activeTestWeights, setActiveTestWeights] = useState({})
   const [customWeightSets, setCustomWeightSets] = useState([])
   const [newCustom, setNewCustom] = useState({ sport: '', age_category: '', gender: '', speed: 25, strength: 25, power: 25, agility: 15, endurance: 10 })
   const [newCustomTestWeights, setNewCustomTestWeights] = useState({})
@@ -1085,6 +1086,22 @@ const Admin = () => {
             grouped[row.category][row.test_type] = { weight: Math.round(row.weight * 100), is_active: row.is_active, id: row.id }
           }
           setDefaultTestWeights(grouped)
+        }
+
+        const { data: allActiveTestWeights } = await supabase
+          .from('pfa_test_weights')
+          .select('*')
+          .eq('is_active', true)
+
+        if (allActiveTestWeights) {
+          const groupedBySet = {}
+          for (const row of allActiveTestWeights) {
+            const key = `${row.sport}|${row.age_category}|${row.gender || 'all'}`
+            if (!groupedBySet[key]) groupedBySet[key] = {}
+            if (!groupedBySet[key][row.category]) groupedBySet[key][row.category] = {}
+            groupedBySet[key][row.category][row.test_type] = { weight: Math.round(row.weight * 100), id: row.id }
+          }
+          setActiveTestWeights(groupedBySet)
         }
 
         const { data: allTests } = await supabase
@@ -2895,6 +2912,17 @@ const Admin = () => {
               }, { onConflict: 'category,test_type,sport,age_category,gender' })
             }
           }
+          const setKey = `${data.sport}|${data.age_category}|${data.gender}`
+          setActiveTestWeights((prev) => {
+            const next = { ...(prev[setKey] || {}) }
+            for (const [category, tests] of Object.entries(newCustomTestWeights)) {
+              next[category] = { ...(next[category] || {}) }
+              for (const [testType, tData] of Object.entries(tests)) {
+                next[category][testType] = { weight: tData.weight || 0, id: null }
+              }
+            }
+            return { ...prev, [setKey]: next }
+          })
         }
         setNewCustom({ sport: '', age_category: '', gender: '', speed: 25, strength: 25, power: 25, agility: 15, endurance: 10 })
         setNewCustomTestWeights({})
@@ -3389,7 +3417,10 @@ const Admin = () => {
                         <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                           {['speed', 'strength', 'power', 'agility', 'endurance'].map((cat) => {
                             const catPct = Math.round((row[`${cat}_weight`] || 0) * 100)
-                            const catTests = defaultTestWeights[cat] || {}
+                            const setKey = row.is_default ? 'default|default|all' : `${row.sport}|${row.age_category}|${row.gender || 'all'}`
+                            const catTests = row.is_default
+                              ? defaultTestWeights[cat] || {}
+                              : (activeTestWeights[setKey]?.[cat] || {})
                             const hasTests = ['strength', 'power'].includes(cat) && Object.keys(catTests).length > 0
                             return (
                               <div key={cat} style={{ minWidth: '120px' }}>
