@@ -87,7 +87,7 @@ const Session = () => {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [results, setResults] = useState([])
   const [inputValue, setInputValue] = useState('')
-  const [anthropoForm, setAnthropoForm] = useState({ weight: '', bodyFat: '', height: '' })
+  const [anthropoForm, setAnthropoForm] = useState({ weight: '', bodyFat: '', muscleMass: '', height: '' })
   const [startError, setStartError] = useState('')
   const [starting, setStarting] = useState(false)
   const [sessionHistory, setSessionHistory] = useState([])
@@ -98,6 +98,7 @@ const Session = () => {
   const [loadValue, setLoadValue] = useState('')
   const [repsValue, setRepsValue] = useState('')
   const [latestBodyweight, setLatestBodyweight] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
   const [trialValues, setTrialValues] = useState(['', '', ''])
   const [trialLoads, setTrialLoads] = useState(['', '', ''])
   const [trialReps, setTrialReps] = useState(['', '', ''])
@@ -109,6 +110,7 @@ const Session = () => {
   const [availableTests, setAvailableTests] = useState({})
   const [testMeta, setTestMeta] = useState({})
   const inputRef = useRef(null)
+  const [bodyMeasurementCount, setBodyMeasurementCount] = useState(0)
 
   const currentAthlete = participants[currentIndex] || null
   const currentTest = useMemo(() => testMeta[selectedTestId] || getTest(selectedTestId), [selectedTestId, testMeta])
@@ -344,23 +346,28 @@ const Session = () => {
   }
 
   const handleSaveResult = async (flagged = false) => {
-    if (!currentAthlete || !sessionId || !selectedTestId) return
+    if (isSaving) return
+    setIsSaving(true)
+    if (!currentAthlete || !sessionId || !selectedTestId) { setIsSaving(false); return }
     try {
       if (selectedCategory === 'anthropometrics') {
-        await supabase.from('pfa_body_measurements').insert({
+        const { data: bmData, error: bmError } = await supabase.from('pfa_body_measurements').insert({
           athlete_id: currentAthlete.id,
           measurement_date: new Date().toISOString().split('T')[0],
           weight: parseFloat(anthropoForm.weight) || null,
           body_fat_percentage: parseFloat(anthropoForm.bodyFat) || null,
+          muscle_mass: parseFloat(anthropoForm.muscleMass) || null,
           height: parseFloat(anthropoForm.height) || null,
         })
-        setAnthropoForm({ weight: '', bodyFat: '', height: '' })
+        setAnthropoForm({ weight: '', bodyFat: '', muscleMass: '', height: '' })
         setSaveConfirm('✓ Measurements saved')
         setTimeout(() => { setSaveConfirm(''); setCurrentIndex(idx => Math.min(idx + 1, participants.length)) }, 1500)
+        setBodyMeasurementCount(prev => prev + 1)
+        setIsSaving(false)
         return
       }
 
-      if (!currentTest) return
+      if (!currentTest) { setIsSaving(false); return }
 
       const isLoadBased = isLoadBasedTest(selectedTestId)
       const isLower = isLowerBetter(selectedTestId)
@@ -478,6 +485,8 @@ const Session = () => {
 
     } catch (err) {
       console.error('Save failed', err)
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -762,11 +771,13 @@ const Session = () => {
                   {[
                     { key: 'weight', label: 'Weight (lbs)', step: '0.1' },
                     { key: 'bodyFat', label: 'Body Fat %', step: '0.1' },
+                    { key: 'muscleMass', label: 'Muscle Mass (lbs)', step: '0.1', min: '0' },
                     { key: 'height', label: 'Height (inches)', step: '0.5' },
                   ].map(field => (
                     <div key={field.key}>
                       <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>{field.label}</div>
-                      <input type="number" step={field.step} value={anthropoForm[field.key]}
+                      <input type="number" step={field.step} min={field.min}
+                        value={anthropoForm[field.key]}
                         onChange={e => setAnthropoForm(prev => ({ ...prev, [field.key]: e.target.value }))}
                         style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', padding: '14px 16px', color: 'white', fontSize: '20px', boxSizing: 'border-box' }} />
                     </div>
@@ -836,9 +847,9 @@ const Session = () => {
 
               {/* Save / Skip / Flag */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', paddingTop: '8px' }}>
-                <button onClick={() => handleSaveResult(false)} disabled={!hasAnyTrial() && !isAnthro}
-                  style={{ width: '100%', background: (hasAnyTrial() || isAnthro) ? '#3fae52' : 'rgba(63,174,82,0.2)', color: 'black', fontWeight: '800', fontSize: '17px', padding: '18px', borderRadius: '14px', border: 'none', cursor: (hasAnyTrial() || isAnthro) ? 'pointer' : 'not-allowed', letterSpacing: '0.03em' }}>
-                  Save Best & Next
+                <button onClick={() => handleSaveResult(false)} disabled={(!hasAnyTrial() && !isAnthro) || isSaving}
+                  style={{ width: '100%', background: (hasAnyTrial() || isAnthro) ? '#3fae52' : 'rgba(63,174,82,0.2)', color: 'black', fontWeight: '800', fontSize: '17px', padding: '18px', borderRadius: '14px', border: 'none', cursor: (hasAnyTrial() || isAnthro) && !isSaving ? 'pointer' : 'not-allowed', letterSpacing: '0.03em', opacity: isSaving ? 0.7 : 1 }}>
+                  {isSaving ? 'Saving...' : 'Save Best & Next'}
                 </button>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={handleSkip}
@@ -871,7 +882,7 @@ const Session = () => {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', textAlign: 'center' }}>
               <div style={{ fontSize: '48px' }}>🏁</div>
               <div style={{ fontSize: '22px', fontWeight: '800', color: 'white' }}>All Done!</div>
-              <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)' }}>{completedCount} results recorded</div>
+              <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)' }}>{completedCount + bodyMeasurementCount} results recorded</div>
               <button onClick={handleEndSession}
                 style={{ background: 'rgba(63,174,82,0.15)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '12px', color: '#3fae52', padding: '14px 32px', fontSize: '15px', fontWeight: '700', cursor: 'pointer' }}>
                 End Session

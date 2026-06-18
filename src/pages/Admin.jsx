@@ -229,6 +229,7 @@ const Admin = () => {
   const [athleteTeamsMap, setAthleteTeamsMap] = useState({})
   const [athleteTeamSelect, setAthleteTeamSelect] = useState({})
   const [athleteResultsMap, setAthleteResultsMap] = useState({})
+  const [athleteBodyMap, setAthleteBodyMap] = useState({})
   const [editingAthleteId, setEditingAthleteId] = useState(null)
   const [editingAthleteData, setEditingAthleteData] = useState({})
   const [editingResultId, setEditingResultId] = useState(null)
@@ -395,6 +396,22 @@ const Admin = () => {
       loadRecentBodyMeasurements(selectedMeasurementAthlete.id)
     } catch (err) {
       setMeasurementMessage(err.message || 'Failed to save measurement')
+    }
+  }
+
+  const loadAthleteBodyMeasurements = async (athleteId) => {
+    try {
+      const { data, error } = await supabase
+        .from('pfa_body_measurements')
+        .select('id, measurement_date, weight, body_fat_percentage, muscle_mass, height')
+        .eq('athlete_id', athleteId)
+        .order('measurement_date', { ascending: false })
+        .limit(5)
+      if (!error) {
+        setAthleteBodyMap((prev) => ({ ...prev, [athleteId]: data || [] }))
+      }
+    } catch (err) {
+      console.error('Athlete body measurements load error', err)
     }
   }
 
@@ -2236,6 +2253,7 @@ const Admin = () => {
                       if (nextId) {
                         loadAthleteTeams(a.id)
                         loadAthleteResults(a.id)
+                        loadAthleteBodyMeasurements(a.id)
                       }
                     }}
                   >
@@ -2296,6 +2314,7 @@ const Admin = () => {
                   </tr>
                   {expandedAthleteId === a.id && (() => {
                     const results = athleteResults[a.id] || []
+                    const bodyRows = athleteBodyMap[expandedAthleteId] || []
                     const isEditingThis = editingAthleteId === a.id
                     const isUnder18 = a.date_of_birth && ((new Date() - new Date(a.date_of_birth)) / (1000 * 60 * 60 * 24 * 365)) < 18
 
