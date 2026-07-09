@@ -282,6 +282,11 @@ exports.handler = async (event) => {
 
     const formatResult = (test, r) => {
       if (!r) return '—'
+      if (test === 'low_back_ext') {
+        const mins = Math.floor(r.value / 60)
+        const secs = String(r.value % 60).padStart(2, '0')
+        return `${mins}:${secs} (duration held)`
+      }
       if (strengthTests.includes(test)) {
         const e1rm = calcE1RM(r.load_value, r.reps) || Math.round(r.value)
         const rel = r.relative_strength ? ` | Relative: ${Number(r.relative_strength).toFixed(2)}x BW` : ''
@@ -370,6 +375,7 @@ exports.handler = async (event) => {
 
 IMPORTANT RULES:
 - All strength values are in POUNDS (lbs). Never convert or change units.
+- Low back extension (low_back_ext) values are duration in seconds — format as minutes:seconds (e.g. 180 = 3:00). Never describe this as weight or lbs. Describe it as a hold time or duration.
 - Sport: ${profile.sport}. Surface: ${sportCtx.surface}. Venue: ${sportCtx.venue}. Object in play: ${sportCtx.object}. Always use sport-specific language. For Ringette: use "ring" not "puck", "ringette" not "hockey", athletes are female. Never reference another sport's terminology or equipment.
 - Position: ${positionContext}. Tailor all insights to what matters physically for this position.
 - Write for PARENTS first — warm, clear, proud, plain English. No jargon.
