@@ -234,6 +234,8 @@ const Admin = () => {
   const [editingAthleteData, setEditingAthleteData] = useState({})
   const [editingResultId, setEditingResultId] = useState(null)
   const [editingResultData, setEditingResultData] = useState({})
+  const [editingBodyId, setEditingBodyId] = useState(null)
+  const [editingBodyData, setEditingBodyData] = useState({})
   const [athleteSaveStatus, setAthleteSaveStatus] = useState('')
   const [showAllResults, setShowAllResults] = useState({})
 
@@ -407,6 +409,7 @@ const Admin = () => {
         .eq('athlete_id', athleteId)
         .order('measurement_date', { ascending: false })
         .limit(5)
+      console.log('[PFA DEBUG] body measurements fetch', { athleteId, data, error })
       if (!error) {
         setAthleteBodyMap((prev) => ({ ...prev, [athleteId]: data || [] }))
       }
@@ -458,6 +461,24 @@ const Admin = () => {
       }))
       setEditingResultId(null)
       setEditingResultData({})
+    }
+  }
+
+  const saveBodyMeasurement = async () => {
+    const { error } = await supabase
+      .from('pfa_body_measurements')
+      .update({
+        measurement_date: editingBodyData.measurement_date,
+        weight: editingBodyData.weight ? parseFloat(editingBodyData.weight) : null,
+        body_fat_percentage: editingBodyData.body_fat_percentage ? parseFloat(editingBodyData.body_fat_percentage) : null,
+        muscle_mass: editingBodyData.muscle_mass ? parseFloat(editingBodyData.muscle_mass) : null,
+        height: editingBodyData.height ? parseFloat(editingBodyData.height) : null
+      })
+      .eq('id', editingBodyId)
+    if (!error) {
+      setEditingBodyId(null)
+      setEditingBodyData({})
+      loadAthleteBodyMeasurements(editingBodyData.athlete_id)
     }
   }
 
@@ -2314,7 +2335,7 @@ const Admin = () => {
                   </tr>
                   {expandedAthleteId === a.id && (() => {
                     const results = athleteResults[a.id] || []
-                    const bodyRows = athleteBodyMap[expandedAthleteId] || []
+                    const bodyRows = athleteBodyMap[a.id] || []
                     const isEditingThis = editingAthleteId === a.id
                     const isUnder18 = a.date_of_birth && ((new Date() - new Date(a.date_of_birth)) / (1000 * 60 * 60 * 24 * 365)) < 18
 
@@ -2601,6 +2622,78 @@ const Admin = () => {
                                   </div>
                                 )
                               })}
+                            </div>
+
+                            {/* BODY MEASUREMENTS */}
+                            <div style={{ paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                              <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '14px' }}>Body Measurements</div>
+                              {bodyRows.length === 0 ? (
+                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>No body measurements recorded.</div>
+                              ) : (
+                                <div style={{ border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden' }}>
+                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                    <thead>
+                                      <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                                        {['Date', 'Weight (lbs)', 'Body Fat %', 'Muscle Mass (lbs)', 'Height (in)'].map(h => (
+                                          <th key={h} style={{ padding: '7px 10px', textAlign: 'left', color: 'rgba(255,255,255,0.35)', fontWeight: '600', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {bodyRows.map(row => (
+                                        <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                          {editingBodyId === row.id ? (
+                                            <>
+                                              <td style={{ padding: '7px 10px' }}>
+                                                <input type="date" value={editingBodyData.measurement_date?.slice(0,10) || ''} onChange={e => setEditingBodyData(p => ({ ...p, measurement_date: e.target.value }))}
+                                                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: 'white', padding: '3px 6px', fontSize: '11px', width: '120px' }} />
+                                              </td>
+                                              <td style={{ padding: '7px 10px' }}>
+                                                <input type="number" step="0.1" value={editingBodyData.weight || ''} onChange={e => setEditingBodyData(p => ({ ...p, weight: e.target.value }))}
+                                                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: 'white', padding: '3px 6px', fontSize: '11px', width: '90px' }} />
+                                              </td>
+                                              <td style={{ padding: '7px 10px' }}>
+                                                <input type="number" step="0.1" value={editingBodyData.body_fat_percentage || ''} onChange={e => setEditingBodyData(p => ({ ...p, body_fat_percentage: e.target.value }))}
+                                                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: 'white', padding: '3px 6px', fontSize: '11px', width: '90px' }} />
+                                              </td>
+                                              <td style={{ padding: '7px 10px' }}>
+                                                <input type="number" step="0.1" value={editingBodyData.muscle_mass || ''} onChange={e => setEditingBodyData(p => ({ ...p, muscle_mass: e.target.value }))}
+                                                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: 'white', padding: '3px 6px', fontSize: '11px', width: '90px' }} />
+                                              </td>
+                                              <td style={{ padding: '7px 10px' }}>
+                                                <input type="number" step="0.5" value={editingBodyData.height || ''} onChange={e => setEditingBodyData(p => ({ ...p, height: e.target.value }))}
+                                                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.3)', borderRadius: '4px', color: 'white', padding: '3px 6px', fontSize: '11px', width: '90px' }} />
+                                              </td>
+                                              <td style={{ padding: '7px 10px' }}>
+                                                <div style={{ display: 'flex', gap: '5px' }}>
+                                                  <button onClick={saveBodyMeasurement}
+                                                    style={{ background: 'rgba(63,174,82,0.2)', border: '1px solid rgba(63,174,82,0.4)', borderRadius: '4px', color: '#3fae52', padding: '3px 9px', fontSize: '11px', cursor: 'pointer' }}>Save</button>
+                                                  <button onClick={() => { setEditingBodyId(null); setEditingBodyData({}) }}
+                                                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'rgba(255,255,255,0.4)', padding: '3px 7px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
+                                                </div>
+                                              </td>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <td style={{ padding: '7px 10px', color: 'rgba(255,255,255,0.6)' }}>{row.measurement_date ? new Date(row.measurement_date).toLocaleDateString() : '—'}</td>
+                                              <td style={{ padding: '7px 10px', color: 'white', fontWeight: '600' }}>{row.weight ?? '—'}</td>
+                                              <td style={{ padding: '7px 10px', color: 'rgba(255,255,255,0.8)' }}>{row.body_fat_percentage ?? '—'}</td>
+                                              <td style={{ padding: '7px 10px', color: 'rgba(255,255,255,0.8)' }}>{row.muscle_mass != null ? Number(row.muscle_mass).toFixed(2) : '—'}</td>
+                                              <td style={{ padding: '7px 10px', color: 'rgba(255,255,255,0.8)' }}>{row.height ?? '—'}</td>
+                                              <td style={{ padding: '7px 10px' }}>
+                                                <button onClick={() => { setEditingBodyId(row.id); setEditingBodyData({ ...row, athlete_id: a.id }) }}
+                                                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '4px', color: 'rgba(255,255,255,0.5)', padding: '3px 9px', fontSize: '11px', cursor: 'pointer' }}>
+                                                  Edit
+                                                </button>
+                                              </td>
+                                            </>
+                                          )}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
                             </div>
 
                           </div>

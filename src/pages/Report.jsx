@@ -638,6 +638,10 @@ const Report = () => {
   const groupedResults = useMemo(() => {
     const map = { speed: [], strength: [], power: [], agility: [], endurance: [] }
     for (const r of (reportData?.results ?? [])) {
+      if (r.test_type === 'low_back_ext') {
+        map.strength.push(r)
+        continue
+      }
       if (map[r.category]) map[r.category].push(r)
     }
     return map
@@ -1665,11 +1669,33 @@ const Report = () => {
                             squat: 'Squat *',
                             bench_press: 'Bench Press *',
                             trap_bar_deadlift: 'Trap Bar Deadlift *',
+                            low_back_ext: 'Low Back Ext',
                           }[tt] || tt.replaceAll('_', ' ')}
                         </div>
                         <div style={{ fontSize: '22px', fontWeight: '900', color: 'white', marginBottom: '8px' }}>
-                          {pb ? formatVal(tt, pb.value) : '—'}
+                          {tt === 'low_back_ext'
+                            ? (pb ? `${Math.floor(pb.value / 60)}:${String(pb.value % 60).padStart(2, '0')}` : '—')
+                            : (pb ? formatVal(tt, pb.value) : '—')}
                         </div>
+                        {tt === 'low_back_ext' && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(63,174,82,0.15)', borderRadius: '8px', padding: '8px 10px', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#3fae52' }}>PFA Standard</span>
+                              <span style={{ fontSize: '13px', fontWeight: '800', color: 'white' }}>3:00</span>
+                            </div>
+                            {(() => {
+                              const target = 180
+                              const hasPb = pb && pb.value != null
+                              const met = hasPb && pb.value >= target
+                              if (met) {
+                                return <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>✓ Met</div>
+                              }
+                              const remaining = hasPb ? Math.max(0, target - pb.value) : null
+                              const remainingFmt = remaining != null ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}` : '—'
+                              return <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.6)' }}>{remainingFmt} to go</div>
+                            })()}
+                          </div>
+                        )}
                         {(() => {
                           const sport = athleteProfile?.sport || ''
                           const gender = athleteProfile?.gender === 'female' ? 'female' : 'male'
@@ -2010,7 +2036,7 @@ const Report = () => {
                                     if (clearedLevels.length > 0) {
                                       return (
                                         <span>
-                                          {profile?.full_name?.split(' ')[0]} has already cleared the <strong style={{ color: 'white' }}>{clearedNames.join(', ')}</strong> benchmark{clearedLevels.length > 1 ? 's' : ''}. The next target is the <strong style={{ color: 'white' }}>{nextName} standard</strong> — just <strong style={{ color: '#3fae52' }}>{gapFormatted} away</strong>.
+                                          {firstName} has already cleared the <strong style={{ color: 'white' }}>{clearedNames.join(', ')}</strong> benchmark{clearedLevels.length > 1 ? 's' : ''}. The next target is the <strong style={{ color: 'white' }}>{nextName} standard</strong> — just <strong style={{ color: '#3fae52' }}>{gapFormatted} away</strong>.
                                         </span>
                                       )
                                     } else {
@@ -2044,6 +2070,17 @@ const Report = () => {
                           )
                         })()}
                         {history.length > 1 && <LineChartCanvas testType={tt} history={history} />}
+                        {tt === 'imtp' && (
+                          <p style={{
+                            fontSize: '11px',
+                            color: 'rgba(255,255,255,0.4)',
+                            fontStyle: 'italic',
+                            marginTop: '12px',
+                            lineHeight: '1.5'
+                          }}>
+                            * IMTP values prior to 2026 were measured using force plate technology. Beginning in 2026, Peak Fitness Athletics standardized testing with a calibrated muscle meter and validated formula to calculate relative force output (N/kg). Results across testing periods reflect this methodology change and should be interpreted accordingly.
+                          </p>
+                        )}
                         {(pfaBench || hnbBench || hcBench) && (
                           <div style={{ marginTop: '12px', borderTop: '1px solid rgba(63,174,82,0.1)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             {pfaBench && (
@@ -2132,7 +2169,7 @@ const Report = () => {
 
           {compScore && (
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginBottom: '24px', maxWidth: '680px' }}>
-              {`These scores reflect ${firstName}'s physical development relative to other ${profile?.gender} ${profile?.age_category} athletes tested at Peak Fitness Athletics. Each score is calculated from standardized testing and normalized against ${pronoun} peer group — a score of 50 represents the peer average. ${firstName}'s overall score of ${compScore?.overall_score} places ${pronoun} ${compScore?.overall_score > 50 ? 'above' : 'below'} the average for ${pronoun} age group and level.`}
+              {`These scores reflect ${firstName}'s physical development relative to other ${athleteProfile?.gender} ${athleteProfile?.age_category} athletes tested at Peak Fitness Athletics. Each score is calculated from standardized testing and normalized against ${pronoun} peer group — a score of 50 represents the peer average. ${firstName}'s overall score of ${compScore?.overall_score} places ${pronoun} ${compScore?.overall_score > 50 ? 'above' : 'below'} the average for ${pronoun} age group and level.`}
             </p>
           )}
 
