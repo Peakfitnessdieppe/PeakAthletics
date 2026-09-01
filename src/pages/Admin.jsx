@@ -168,6 +168,7 @@ const Admin = () => {
   const [roleFilter, setRoleFilter] = useState('All')
   const [userModalOpen, setUserModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
+  const [editingUserPassword, setEditingUserPassword] = useState('')
   const [userForm, setUserForm] = useState({
     full_name: '',
     email: '',
@@ -1198,6 +1199,7 @@ const Admin = () => {
       team_id: '',
       linked_athlete_id: '',
     })
+    setEditingUserPassword('')
     setUserModalOpen(true)
   }
 
@@ -1216,6 +1218,7 @@ const Admin = () => {
       team_id: userRow.team_id || '',
       linked_athlete_id: userRow.linked_athlete_id || '',
     })
+    setEditingUserPassword('')
     setUserModalOpen(true)
   }
 
@@ -1231,7 +1234,20 @@ const Admin = () => {
       }
 
       if (editingUser) {
-        await updateAdminUser(editingUser.id, sanitizedUser)
+        const { password, ...updateData } = sanitizedUser
+        await updateAdminUser(editingUser.id, updateData)
+        if (editingUserPassword) {
+          const res = await fetch('/.netlify/functions/admin-set-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: editingUser.id, password: editingUserPassword })
+          })
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            throw new Error(data.error || 'Failed to update password')
+          }
+        }
+        setEditingUserPassword('')
         setUserActionMessage('User updated')
       } else {
         const newUser = await createAdminUser(sanitizedUser)
@@ -1760,6 +1776,17 @@ const Admin = () => {
                   placeholder="Linked Athlete ID"
                   className="bg-[#0a0f0a] border border-pfa-border rounded-lg px-3 py-2 text-white"
                 />
+              )}
+              {editingUser && (
+                <div className="md:col-span-2">
+                  <input
+                    type="password"
+                    placeholder="New password (optional)"
+                    value={editingUserPassword || ''}
+                    onChange={e => setEditingUserPassword(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(63,174,82,0.25)', borderRadius: '8px', color: 'white', fontSize: '14px' }}
+                  />
+                </div>
               )}
               <div className="md:col-span-2 flex justify-end gap-3 mt-2">
                 <button

@@ -39,7 +39,9 @@ export const getAthleteReport = async (athleteId) => {
     })
     Object.keys(grouped).forEach(tt => {
       const vals = grouped[tt]
-      peerAvgMap[tt] = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100
+      if (vals.length >= 3) {
+        peerAvgMap[tt] = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100
+      }
     })
   }
 

@@ -1836,14 +1836,14 @@ const Report = () => {
                               })
                               return bestTier
                             }
-                            const levels = (bench.levels || []).filter(l => l.value != null)
+                            const levels = (bench.levels || []).filter(l => l.value != null && (athleteLadderIdx < 0 || ladder.indexOf(l.level) >= athleteLadderIdx))
                             if (levels.length === 0) return null
                             const beats = (val, bmark) => isLower ? val <= bmark : val >= bmark
                             const beaten = levels.filter(l => beats(athleteValue, l.value))
                             if (beaten.length === 0) return 'Developing'
                             const getIdx = lvl => ladder.indexOf(lvl)
                             const highest = beaten.reduce((best, l) => getIdx(l.level) > getIdx(best.level) ? l : best, beaten[0])
-                            const gap = getIdx(highest.level) - athleteLadderIdx
+                            const gap = athleteLadderIdx >= 0 ? getIdx(highest.level) - athleteLadderIdx : 0
                             if (gap >= 2) return 'Elite Trajectory'
                             if (gap >= 1) return 'Advanced'
                             if (gap >= 0) return 'On Track'
@@ -1863,7 +1863,8 @@ const Report = () => {
                           }
                           const levelMap = {}
                           const levelOrder = []
-                          ladder.forEach(lvl => {
+                          ladder.forEach((lvl, idx) => {
+                            if (athleteLadderIdx >= 0 && idx < athleteLadderIdx) return
                             const entries = (bench.levels || []).filter(l => l.level === lvl && l.value != null)
                             if (entries.length) {
                               levelMap[lvl] = entries
@@ -1959,63 +1960,6 @@ const Report = () => {
                               )}
                               </div>
 
-                              {/* Chip track — standard tests */}
-                              {hasBenchmarks && !hideBenchmarkChips && !isRelativeOnly && !bench.tieredTargets && !bench.relativeTargets && visibleLevels.length > 0 && (
-                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
-                                  {(() => {
-                                    const chipTooltip = (lvlBench, shortName) => {
-                                      const tooltipText = CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName
-                                      const unit = TEST_UNITS?.[tt] || ''
-                                      return `${tooltipText} — ${lvlBench.value}${unit}`
-                                    }
-                                    const targetChipStyle = { padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }
-                                    return visibleLevels.map(({ lvl, idx: i, bench: lvlBench }) => {
-                                      const shortName = lvl.replace('HC ', '').replace('/Pro', '').replace('Olympic/', '').replace('-age', '').replace('CHL-age', 'CHL')
-                                      const beats = isLower ? athleteValue <= lvlBench.value : athleteValue >= lvlBench.value
-                                      const isCurrent = i === currentLevelIdx
-                                      const isNext = i === currentLevelIdx + 1
-                                      return (
-                                        <React.Fragment key={lvl}>
-                                          {i > 0 && <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>}
-                                          {isCurrent ? (
-                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
-                                          ) : beats ? (
-                                            <div
-                                              style={tooltipStyle}
-                                              onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
-                                              onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
-                                              onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
-                                            >
-                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>✓ {shortName}</div>
-                                              <div className="chip-tooltip" style={tooltipTextStyle}>{chipTooltip(lvlBench, shortName)}</div>
-                                            </div>
-                                          ) : isNext ? (
-                                            <div
-                                              style={tooltipStyle}
-                                              onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
-                                              onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
-                                              onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
-                                            >
-                                              <div style={targetChipStyle}>→ {shortName}</div>
-                                              <div className="chip-tooltip" style={tooltipTextStyle}>{chipTooltip(lvlBench, shortName)}</div>
-                                            </div>
-                                          ) : (
-                                            <div
-                                              style={tooltipStyle}
-                                              onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
-                                              onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
-                                              onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
-                                            >
-                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'}`, color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>{shortName}</div>
-                                              <div className="chip-tooltip" style={tooltipTextStyle}>{chipTooltip(lvlBench, shortName)}</div>
-                                            </div>
-                                          )}
-                                        </React.Fragment>
-                                      )
-                                    })
-                                  })()}
-                                </div>
-                              )}
 
                               {/* Chip track — relative targets */}
                               {hasBenchmarks && !hideBenchmarkChips && (isRelativeOnly || (bench.relativeTargets && bodyweightLbs)) && !bench.tieredTargets && (
