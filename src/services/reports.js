@@ -22,7 +22,28 @@ export const getAthleteReport = async (athleteId) => {
     console.warn('Benchmarks fetch failed (table may not exist):', benchError.message)
   }
 
-  return { profile, results: results || [], benchmarks: benchmarks || [] }
+  const { data: peerAverages } = await supabase
+    .from('pfa_test_results')
+    .select('test_type, value, profiles!inner(gender, age_category)')
+    .eq('profiles.gender', profile.gender)
+    .eq('profiles.age_category', profile.age_category)
+    .in('test_type', ['push_ups', 'squat', 'bench_press', 'trap_bar_deadlift'])
+    .not('value', 'is', null)
+
+  const peerAvgMap = {}
+  if (peerAverages) {
+    const grouped = {}
+    peerAverages.forEach(r => {
+      if (!grouped[r.test_type]) grouped[r.test_type] = []
+      grouped[r.test_type].push(r.value)
+    })
+    Object.keys(grouped).forEach(tt => {
+      const vals = grouped[tt]
+      peerAvgMap[tt] = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100
+    })
+  }
+
+  return { profile, results: results || [], benchmarks: benchmarks || [], peerAvgMap }
 }
 
 export const getPfaAverageScores = async (sport, ageCategory, gender) => {

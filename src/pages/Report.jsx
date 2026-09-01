@@ -755,7 +755,7 @@ const Report = () => {
       </div>
     )
   }
-  const { profile: athleteProfile, benchmarks } = reportData
+  const { profile: athleteProfile, benchmarks, peerAvgMap = {} } = reportData
   const hasBenchmarks = SPORTS_WITH_BENCHMARKS.includes(athleteProfile?.sport?.toLowerCase())
   const age = calcAge(athleteProfile?.date_of_birth || athleteProfile?.dob)
   const initials = (athleteProfile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
@@ -1120,13 +1120,19 @@ const Report = () => {
             {(() => {
               const series = speedSeries
               if (!series.length) return null
-              const first = series[0]
-              const last = series[series.length - 1]
-              const hasComparison = series.length > 1
-              const diff = hasComparison ? (Number(first.value) - Number(last.value)) : null // lower is better
+              const CURRENT_CUTOFF = new Date('2026-05-01')
+              const PREV_CUTOFF_END = new Date('2025-09-10')
+              const currentResults = series.filter(r => new Date(r.date_tested) >= CURRENT_CUTOFF)
+              const prevResults = series.filter(r => new Date(r.date_tested) <= PREV_CUTOFF_END)
+              const last = currentResults.length > 0 ? currentResults[currentResults.length - 1] : null
+              const prev = prevResults.length > 0 ? prevResults[prevResults.length - 1] : (series.length > 1 ? series[0] : null)
+              const hasComparison = last !== null && prev !== null
+              const notTestedThisCycle = last === null
+              const displayResult = last || series[series.length - 1]
+              const diff = hasComparison ? (Number(prev.value) - Number(last.value)) : null // lower is better
               const improved = hasComparison && diff > 0
               const regressed = hasComparison && diff < 0
-              let displayVal = `${Number(last.value).toFixed(2)}s`
+              let displayVal = `${Number(displayResult.value).toFixed(2)}s`
               if (improved) displayVal = `${Math.abs(diff || 0).toFixed(2)}s faster`
               if (regressed) displayVal = `${Math.abs(diff || 0).toFixed(2)}s slower`
               const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
@@ -1141,7 +1147,12 @@ const Report = () => {
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>Sprint Speed</div>
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                  {notTestedThisCycle && (
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                      This metric was not re-tested in the current training cycle. Prior result shown for reference.
+                    </p>
+                  )}
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
                 </div>
@@ -1160,14 +1171,23 @@ const Report = () => {
                 subtitleImprove = 'Vertical jump improvement at Peak Fitness'
               }
               if (!series.length) return null
-              const first = series[0]
-              const last = series[series.length - 1]
-              const hasComparison = series.length > 1
-              const diff = hasComparison ? (Number(last.value) - Number(first.value)) : null
+              const CURRENT_CUTOFF = new Date('2026-05-01')
+              const PREV_CUTOFF_END = new Date('2025-09-10')
+              const currentResults = series.filter(r => new Date(r.date_tested) >= CURRENT_CUTOFF)
+              const prevResults = series.filter(r => new Date(r.date_tested) <= PREV_CUTOFF_END)
+              const last = currentResults.length > 0 ? currentResults[currentResults.length - 1] : null
+              const prev = prevResults.length > 0 ? prevResults[prevResults.length - 1] : (series.length > 1 ? series[0] : null)
+              const hasComparison = last !== null && prev !== null
+              const notTestedThisCycle = last === null
+              const displayResult = last || series[series.length - 1]
+              const diff = hasComparison ? (Number(last.value) - Number(prev.value)) : null
               const improved = hasComparison && diff > 0
               const regressed = hasComparison && diff < 0
               const magnitude = Math.abs(diff || 0)
-              const displayVal = hasComparison ? `${regressed ? '-' : '+'}${magnitude.toFixed(0)} cm` : `${Number(last.value).toFixed(0)} cm`
+              const isBroadJump = label === 'Broad Jump'
+              const displayVal = hasComparison
+                ? `${regressed ? '-' : '+'}${isBroadJump ? magnitude.toFixed(2) : magnitude.toFixed(1)} ${isBroadJump ? 'm' : 'in'}`
+                : `${Number(displayResult.value).toFixed(isBroadJump ? 2 : 1)} ${isBroadJump ? 'm' : 'in'}`
               const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
               const subtitle = improved
                 ? 'Explosive power trending up'
@@ -1180,7 +1200,12 @@ const Report = () => {
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>{label}</div>
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                  {notTestedThisCycle && (
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                      This metric was not re-tested in the current training cycle. Prior result shown for reference.
+                    </p>
+                  )}
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
                 </div>
@@ -1200,15 +1225,24 @@ const Report = () => {
                 subtitlePB = 'Estimated 1-rep max'
               }
               if (!series.length) return null
-              const e1s = series.map((r) => calcE1RM(r.load_value, r.reps)).filter((v) => v != null)
-              if (!e1s.length) return null
-              const first = e1s[0]
-              const last = e1s[e1s.length - 1]
-              const hasComparison = e1s.length > 1
-              const diff = hasComparison ? (last - first) : null
+              const CURRENT_CUTOFF = new Date('2026-05-01')
+              const PREV_CUTOFF_END = new Date('2025-09-10')
+              const currentResults = series.filter(r => new Date(r.date_tested) >= CURRENT_CUTOFF)
+              const prevResults = series.filter(r => new Date(r.date_tested) <= PREV_CUTOFF_END)
+              const last = currentResults.length > 0 ? currentResults[currentResults.length - 1] : null
+              const prev = prevResults.length > 0 ? prevResults[prevResults.length - 1] : (series.length > 1 ? series[0] : null)
+              const hasComparison = last !== null && prev !== null
+              const notTestedThisCycle = last === null
+              const displayResult = last || series[series.length - 1]
+              const e1rm = (r) => calcE1RM(r.load_value, r.reps)
+              const lastE1RM = last ? e1rm(last) : e1rm(displayResult)
+              const prevE1RM = prev ? e1rm(prev) : null
+              const diff = hasComparison ? (lastE1RM - prevE1RM) : null
               const improved = hasComparison && diff > 0
               const regressed = hasComparison && diff < 0
-              const displayVal = hasComparison ? `${regressed ? '-' : '+'}${Math.round(Math.abs(diff || 0))} lbs` : `${Math.round(last)} lbs`
+              const displayVal = hasComparison
+                ? `${regressed ? '-' : '+'}${Math.round(Math.abs(diff || 0))} lbs`
+                : `${Math.round(lastE1RM)} lbs`
               const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
               const subtitle = improved
                 ? 'Strength trending up'
@@ -1221,9 +1255,22 @@ const Report = () => {
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>{label}</div>
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
+                  {notTestedThisCycle && (
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                      This metric was not re-tested in the current training cycle. Prior result shown for reference.
+                    </p>
+                  )}
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
+                  {displayResult?.load_value && displayResult?.reps && (
+                    <div style={{ fontSize: 'clamp(9px, 1.8vw, 11px)', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
+                      {displayResult.load_value} lbs × {displayResult.reps} reps
+                      {latestMeasurement?.weight || athleteProfile?.weight
+                        ? ` · ${((displayResult.load_value) / (latestMeasurement?.weight || athleteProfile?.weight)).toFixed(2)}× BW`
+                        : ''}
+                    </div>
+                  )}
                 </div>
               )
             })()}
@@ -1232,44 +1279,42 @@ const Report = () => {
             {(() => {
               const series = agilitySeries
               if (!series.length) return null
-              if (series.length >= 2) {
-                const first = series[0]
-                const last = series[series.length - 1]
-                const improvement = Number(first.value) - Number(last.value)
-                const improved = improvement > 0
-                const regressed = improvement < 0
-                const displayVal = improved
-                  ? `${Math.abs(improvement).toFixed(2)}s faster`
-                  : regressed
-                    ? `${Math.abs(improvement).toFixed(2)}s slower`
-                    : 'No change'
-                const numberColor = regressed ? '#f59e0b' : improved ? '#3fae52' : 'white'
-                const subtitle = improved
-                  ? 'Change of direction improving'
-                  : regressed
-                    ? 'Agility has declined since last test — flagged for attention'
-                    : 'No change since last test'
-                return (
-                  <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                    <div style={{ color: numberColor, fontSize: 'clamp(1.2rem, 3.5vw, 2rem)', fontWeight: 900, lineHeight: 1 }}>
-                      {displayVal}
-                    </div>
-                    <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>AGILITY</div>
-                    <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                      {subtitle}
-                    </div>
-                  </div>
-                )
-              }
-              const best = series[series.length - 1]
+              const CURRENT_CUTOFF = new Date('2026-05-01')
+              const PREV_CUTOFF_END = new Date('2025-09-10')
+              const currentResults = series.filter(r => new Date(r.date_tested) >= CURRENT_CUTOFF)
+              const prevResults = series.filter(r => new Date(r.date_tested) <= PREV_CUTOFF_END)
+              const last = currentResults.length > 0 ? currentResults[currentResults.length - 1] : null
+              const prev = prevResults.length > 0 ? prevResults[prevResults.length - 1] : (series.length > 1 ? series[0] : null)
+              const hasComparison = last !== null && prev !== null
+              const notTestedThisCycle = last === null
+              const displayResult = last || series[series.length - 1]
+              const diff = hasComparison ? (Number(prev.value) - Number(last.value)) : null // lower is better
+              const improved = hasComparison && diff > 0
+              const regressed = hasComparison && diff < 0
+              const displayVal = improved
+                ? `${Math.abs(diff || 0).toFixed(2)}s faster`
+                : regressed
+                  ? `${Math.abs(diff || 0).toFixed(2)}s slower`
+                  : `${Number(displayResult.value).toFixed(2)}s`
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const subtitle = improved
+                ? 'Change of direction improving'
+                : regressed
+                  ? 'Agility has declined since last test — flagged for attention'
+                  : (hasComparison ? 'No change since last test' : 'Current agility benchmark')
               return (
                 <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                  <div style={{ color: 'white', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                    {`${Number(best.value).toFixed(2)}s`}
+                  <div style={{ color: numberColor, fontSize: 'clamp(1.2rem, 3.5vw, 2rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {displayVal}
                   </div>
-                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>PRO AGILITY</div>
-                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                    Current agility benchmark
+                  <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>AGILITY</div>
+                  {notTestedThisCycle && (
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                      This metric was not re-tested in the current training cycle. Prior result shown for reference.
+                    </p>
+                  )}
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                    {subtitle}
                   </div>
                 </div>
               )
@@ -1279,32 +1324,49 @@ const Report = () => {
             {(() => {
               const series = benchSeries
               if (!series.length) return null
-              if (series.length >= 2) {
-                const first = series[0]
-                const last = series[series.length - 1]
-                const diff = Number(last.value) - Number(first.value)
-                return (
-                  <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                    <div style={{ color: '#3fae52', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                      {`${diff >= 0 ? '+' : ''}${Math.round(diff)} lbs`}
-                    </div>
-                    <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BENCH PRESS</div>
-                    <div style={{ color: diff < 0 ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                      {diff > 0 ? 'Upper body strength improving' : diff < 0 ? 'Bench press declined since last test — flagged for attention' : 'No change since last test'}
-                    </div>
-                  </div>
-                )
-              }
-              const best = series[series.length - 1]
+              const CURRENT_CUTOFF = new Date('2026-05-01')
+              const PREV_CUTOFF_END = new Date('2025-09-10')
+              const currentResults = series.filter(r => new Date(r.date_tested) >= CURRENT_CUTOFF)
+              const prevResults = series.filter(r => new Date(r.date_tested) <= PREV_CUTOFF_END)
+              const last = currentResults.length > 0 ? currentResults[currentResults.length - 1] : null
+              const prev = prevResults.length > 0 ? prevResults[prevResults.length - 1] : (series.length > 1 ? series[0] : null)
+              const hasComparison = last !== null && prev !== null
+              const notTestedThisCycle = last === null
+              const displayResult = last || series[series.length - 1]
+              const diff = hasComparison ? (Number(last.value) - Number(prev.value)) : null
+              const improved = hasComparison && diff > 0
+              const regressed = hasComparison && diff < 0
+              const displayVal = hasComparison
+                ? `${regressed ? '-' : '+'}${Math.round(Math.abs(diff || 0))} lbs`
+                : `${Math.round(Number(displayResult.value))} lbs`
+              const numberColor = hasComparison ? '#3fae52' : 'white'
+              const subtitle = improved
+                ? 'Upper body strength improving'
+                : regressed
+                  ? 'Bench press declined since last test — flagged for attention'
+                  : (hasComparison ? 'No change since last test' : 'Estimated 1-rep max')
               return (
                 <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                  <div style={{ color: 'white', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                    {`${Math.round(Number(best.value))} lbs`}
+                  <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BENCH PRESS</div>
-                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                    Estimated 1-rep max
+                  {notTestedThisCycle && (
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                      This metric was not re-tested in the current training cycle. Prior result shown for reference.
+                    </p>
+                  )}
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                    {subtitle}
                   </div>
+                  {displayResult?.load_value && displayResult?.reps && (
+                    <div style={{ fontSize: 'clamp(9px, 1.8vw, 11px)', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
+                      {displayResult.load_value} lbs × {displayResult.reps} reps
+                      {latestMeasurement?.weight || athleteProfile?.weight
+                        ? ` · ${((displayResult.load_value) / (latestMeasurement?.weight || athleteProfile?.weight)).toFixed(2)}× BW`
+                        : ''}
+                    </div>
+                  )}
                 </div>
               )
             })()}
@@ -1313,32 +1375,49 @@ const Report = () => {
             {(() => {
               const series = trapSeries
               if (!series.length) return null
-              if (series.length >= 2) {
-                const first = series[0]
-                const last = series[series.length - 1]
-                const diff = Number(last.value) - Number(first.value)
-                return (
-                  <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                    <div style={{ color: '#3fae52', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                      {`${diff >= 0 ? '+' : ''}${Math.round(diff)} lbs`}
-                    </div>
-                    <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>TRAP BAR DL</div>
-                    <div style={{ color: diff < 0 ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                      {diff > 0 ? 'Posterior chain strength improving' : diff < 0 ? 'Trap bar declined since last test — flagged for attention' : 'No change since last test'}
-                    </div>
-                  </div>
-                )
-              }
-              const best = series[series.length - 1]
+              const CURRENT_CUTOFF = new Date('2026-05-01')
+              const PREV_CUTOFF_END = new Date('2025-09-10')
+              const currentResults = series.filter(r => new Date(r.date_tested) >= CURRENT_CUTOFF)
+              const prevResults = series.filter(r => new Date(r.date_tested) <= PREV_CUTOFF_END)
+              const last = currentResults.length > 0 ? currentResults[currentResults.length - 1] : null
+              const prev = prevResults.length > 0 ? prevResults[prevResults.length - 1] : (series.length > 1 ? series[0] : null)
+              const hasComparison = last !== null && prev !== null
+              const notTestedThisCycle = last === null
+              const displayResult = last || series[series.length - 1]
+              const diff = hasComparison ? (Number(last.value) - Number(prev.value)) : null
+              const improved = hasComparison && diff > 0
+              const regressed = hasComparison && diff < 0
+              const displayVal = hasComparison
+                ? `${regressed ? '-' : '+'}${Math.round(Math.abs(diff || 0))} lbs`
+                : `${Math.round(Number(displayResult.value))} lbs`
+              const numberColor = hasComparison ? '#3fae52' : 'white'
+              const subtitle = improved
+                ? 'Posterior chain strength improving'
+                : regressed
+                  ? 'Trap bar declined since last test — flagged for attention'
+                  : (hasComparison ? 'No change since last test' : 'Estimated 1-rep max')
               return (
                 <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                  <div style={{ color: 'white', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                    {`${Math.round(Number(best.value))} lbs`}
+                  <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>TRAP BAR DL</div>
-                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                    Estimated 1-rep max
+                  {notTestedThisCycle && (
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                      This metric was not re-tested in the current training cycle. Prior result shown for reference.
+                    </p>
+                  )}
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                    {subtitle}
                   </div>
+                  {displayResult?.load_value && displayResult?.reps && (
+                    <div style={{ fontSize: 'clamp(9px, 1.8vw, 11px)', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
+                      {displayResult.load_value} lbs × {displayResult.reps} reps
+                      {latestMeasurement?.weight || athleteProfile?.weight
+                        ? ` · ${((displayResult.load_value) / (latestMeasurement?.weight || athleteProfile?.weight)).toFixed(2)}× BW`
+                        : ''}
+                    </div>
+                  )}
                 </div>
               )
             })()}
@@ -1347,44 +1426,42 @@ const Report = () => {
             {(() => {
               const series = verticalJumpSeries
               if (!series.length) return null
-              if (series.length >= 2) {
-                const first = series[0]
-                const last = series[series.length - 1]
-                const diff = Number(last.value) - Number(first.value)
-                const improved = diff > 0
-                const regressed = diff < 0
-                const displayVal = improved
-                  ? `+${Math.round(diff)} cm`
-                  : regressed
-                    ? `${Math.round(diff)} cm`
-                    : 'No change'
-                const numberColor = regressed ? '#f59e0b' : improved ? '#3fae52' : 'white'
-                const subtitle = improved
-                  ? 'Explosive power trending up'
-                  : regressed
-                    ? 'Vertical jump declined since last test — flagged for attention'
-                    : 'No change since last test'
-                return (
-                  <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                    <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                      {displayVal}
-                    </div>
-                    <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>VERTICAL JUMP</div>
-                    <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                      {subtitle}
-                    </div>
-                  </div>
-                )
-              }
-              const best = series[series.length - 1]
+              const CURRENT_CUTOFF = new Date('2026-05-01')
+              const PREV_CUTOFF_END = new Date('2025-09-10')
+              const currentResults = series.filter(r => new Date(r.date_tested) >= CURRENT_CUTOFF)
+              const prevResults = series.filter(r => new Date(r.date_tested) <= PREV_CUTOFF_END)
+              const last = currentResults.length > 0 ? currentResults[currentResults.length - 1] : null
+              const prev = prevResults.length > 0 ? prevResults[prevResults.length - 1] : (series.length > 1 ? series[0] : null)
+              const hasComparison = last !== null && prev !== null
+              const notTestedThisCycle = last === null
+              const displayResult = last || series[series.length - 1]
+              const diff = hasComparison ? (Number(last.value) - Number(prev.value)) : null
+              const improved = hasComparison && diff > 0
+              const regressed = hasComparison && diff < 0
+              const displayVal = improved
+                ? `+${diff.toFixed(1)} in`
+                : regressed
+                  ? `${diff.toFixed(1)} in`
+                  : `${Number(displayResult.value).toFixed(1)} in`
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const subtitle = improved
+                ? 'Explosive power trending up'
+                : regressed
+                  ? 'Vertical jump declined since last test — flagged for attention'
+                  : (hasComparison ? 'No change since last test' : 'Current power benchmark')
               return (
                 <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                  <div style={{ color: 'white', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                    {`${Math.round(Number(best.value))} cm`}
+                  <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>VERTICAL JUMP</div>
-                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                    Current power benchmark
+                  {notTestedThisCycle && (
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                      This metric was not re-tested in the current training cycle. Prior result shown for reference.
+                    </p>
+                  )}
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                    {subtitle}
                   </div>
                 </div>
               )
@@ -1394,44 +1471,42 @@ const Report = () => {
             {(() => {
               const series = beepSeries
               if (!series.length) return null
-              if (series.length >= 2) {
-                const first = series[0]
-                const last = series[series.length - 1]
-                const diff = Number(last.value) - Number(first.value)
-                const improved = diff > 0
-                const regressed = diff < 0
-                const displayVal = improved
-                  ? `+${diff.toFixed(1)} levels`
-                  : regressed
-                    ? `${diff.toFixed(1)} levels`
-                    : 'No change'
-                const numberColor = regressed ? '#f59e0b' : improved ? '#3fae52' : 'white'
-                const subtitle = improved
-                  ? 'Aerobic capacity improving'
-                  : regressed
-                    ? 'Endurance declined since last test — flagged for attention'
-                    : 'No change since last test'
-                return (
-                  <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                    <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                      {displayVal}
-                    </div>
-                    <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BEEP TEST</div>
-                    <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                      {subtitle}
-                    </div>
-                  </div>
-                )
-              }
-              const best = series[series.length - 1]
+              const CURRENT_CUTOFF = new Date('2026-05-01')
+              const PREV_CUTOFF_END = new Date('2025-09-10')
+              const currentResults = series.filter(r => new Date(r.date_tested) >= CURRENT_CUTOFF)
+              const prevResults = series.filter(r => new Date(r.date_tested) <= PREV_CUTOFF_END)
+              const last = currentResults.length > 0 ? currentResults[currentResults.length - 1] : null
+              const prev = prevResults.length > 0 ? prevResults[prevResults.length - 1] : (series.length > 1 ? series[0] : null)
+              const hasComparison = last !== null && prev !== null
+              const notTestedThisCycle = last === null
+              const displayResult = last || series[series.length - 1]
+              const diff = hasComparison ? (Number(last.value) - Number(prev.value)) : null
+              const improved = hasComparison && diff > 0
+              const regressed = hasComparison && diff < 0
+              const displayVal = improved
+                ? `+${diff.toFixed(1)} levels`
+                : regressed
+                  ? `${diff.toFixed(1)} levels`
+                  : `Level ${Number(displayResult.value).toFixed(1)}`
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const subtitle = improved
+                ? 'Aerobic capacity improving'
+                : regressed
+                  ? 'Endurance declined since last test — flagged for attention'
+                  : (hasComparison ? 'No change since last test' : 'Current endurance benchmark')
               return (
                 <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
-                  <div style={{ color: 'white', fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
-                    {`Level ${Number(best.value).toFixed(1)}`}
+                  <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
+                    {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BEEP TEST</div>
-                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px)', marginTop: '6px', fontStyle: 'italic' }}>
-                    Current endurance benchmark
+                  {notTestedThisCycle && (
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                      This metric was not re-tested in the current training cycle. Prior result shown for reference.
+                    </p>
+                  )}
+                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                    {subtitle}
                   </div>
                 </div>
               )
@@ -1650,6 +1725,9 @@ const Report = () => {
                   {catTestTypes.map((tt) => {
                     const pb = personalBests[tt]
                     const history = testHistories[tt] || []
+                    const CURRENT_CUTOFF = new Date('2026-05-01')
+                    const mostRecentResult = history[history.length - 1]
+                    const notTestedThisCycle = mostRecentResult && new Date(mostRecentResult.date_tested) < CURRENT_CUTOFF
                     const relevant = (benchmarks || []).filter((b) => b.test_type === tt)
                     const pfaBench = relevant.find((b) => b.source === 'pfa_internal')
                     const hnbBench = relevant.find((b) => b.source === 'hnb')
@@ -1672,6 +1750,21 @@ const Report = () => {
                             low_back_ext: 'Low Back Ext',
                           }[tt] || tt.replaceAll('_', ' ')}
                         </div>
+                        {notTestedThisCycle && (
+                          <div style={{
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            padding: '10px 14px',
+                            marginBottom: '16px',
+                            fontSize: '12px',
+                            color: 'rgba(255,255,255,0.55)',
+                            fontStyle: 'italic',
+                            lineHeight: '1.5'
+                          }}>
+                            ⚠ This test was not performed during the current training cycle (May–September 2026). The result shown reflects the athlete's most recent prior assessment and remains on file for longitudinal tracking.
+                          </div>
+                        )}
                         <div style={{ fontSize: '22px', fontWeight: '900', color: 'white', marginBottom: '8px' }}>
                           {tt === 'low_back_ext'
                             ? (pb ? `${Math.floor(pb.value / 60)}:${String(pb.value % 60).padStart(2, '0')}` : '—')
@@ -1761,6 +1854,51 @@ const Report = () => {
                           if (!tier) return null
                           const tierColor = TIER_COLORS[tier]
 
+                          // HNB tier-aware milestone helpers
+                          const tierRank = (source = '') => {
+                            if (source.includes('Gold')) return 2
+                            if (source.includes('Silver')) return 1
+                            if (source.includes('Bronze')) return 0
+                            return -1
+                          }
+                          const levelMap = {}
+                          const levelOrder = []
+                          ladder.forEach(lvl => {
+                            const entries = (bench.levels || []).filter(l => l.level === lvl && l.value != null)
+                            if (entries.length) {
+                              levelMap[lvl] = entries
+                              levelOrder.push(lvl)
+                            }
+                          })
+                          const bronzeByLevel = {}
+                          levelOrder.forEach(lvl => {
+                            const entries = levelMap[lvl]
+                            bronzeByLevel[lvl] = entries.length > 1
+                              ? (entries.find(l => /HNB Bronze/i.test(l.source)) || entries[0])
+                              : entries[0]
+                          })
+                          const allMilestones = []
+                          levelOrder.forEach(lvl => {
+                            const entries = levelMap[lvl]
+                            if (entries.length > 1) {
+                              entries.slice().sort((a, b) => tierRank(a.source) - tierRank(b.source)).forEach(entry => {
+                                const tierLabel = /HNB (Bronze|Silver|Gold)/i.exec(entry.source)?.[1] || ''
+                                allMilestones.push({ level: lvl, tier: tierLabel, value: entry.value, confidence: entry.confidence, source: entry.source })
+                              })
+                            } else {
+                              allMilestones.push({ level: lvl, tier: '', value: entries[0].value, confidence: entries[0].confidence, source: entries[0].source })
+                            }
+                          })
+                          const visibleLevels = levelOrder.map((lvl, i) => ({ lvl, idx: i, ladderIdx: ladder.indexOf(lvl), bench: bronzeByLevel[lvl] }))
+                          const currentLevelIdx = (() => {
+                            let idx = -1
+                            visibleLevels.forEach(({ lvl, idx: i }) => {
+                              const b = bronzeByLevel[lvl]
+                              if (b && (isLower ? athleteValue <= b.value : athleteValue >= b.value)) idx = i
+                            })
+                            return idx
+                          })()
+
                           // Find next target
                           const getNextTarget = () => {
                             if (isRelativeOnly) {
@@ -1778,15 +1916,22 @@ const Report = () => {
                               ]
                               return tiers.find(t => athleteValue < t.val)
                             }
-                            const levels = (bench.levels || []).filter(l => l.value != null)
-                            const remaining = levels.filter(l => isLower ? athleteValue > l.value : athleteValue < l.value)
-                            if (remaining.length === 0) return null
-                            const next = isLower
-                              ? remaining.reduce((a, b) => a.value > b.value ? a : b)
-                              : remaining.reduce((a, b) => a.value < b.value ? a : b)
-                            return { level: next.level, value: next.value, confidence: next.confidence }
+                            if (allMilestones.length === 0) return null
+                            const beats = val => isLower ? athleteValue <= val : athleteValue >= val
+                            return allMilestones.find(m => !beats(m.value)) || null
                           }
                           const nextTarget = getNextTarget()
+                          const hideBenchmarkChips = ['squat','bench_press','trap_bar_deadlift'].includes(tt)
+
+                          const remainingMilestonesText = (() => {
+                            if (!nextTarget) return ''
+                            const idx = allMilestones.findIndex(m => m.level === nextTarget.level && m.tier === nextTarget.tier && m.value === nextTarget.value)
+                            if (idx < 0) return ''
+                            return allMilestones.slice(idx + 1).map(m => {
+                              const label = m.tier ? `${m.level} ${m.tier}` : m.level
+                              return `${label} (${formatVal(tt, m.value)})`
+                            }).join(' → ')
+                          })()
 
                           return (
                             <div style={{ marginBottom: '10px' }}>
@@ -1807,7 +1952,7 @@ const Report = () => {
                               </div>
 
                               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                                {hasBenchmarks && (
+                                {hasBenchmarks && !hideBenchmarkChips && (
                                 <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#3fae52' }}>
                                   {athleteProfile?.sport?.toLowerCase().includes('hockey') ? 'Hockey Development Benchmarks' : athleteProfile?.sport?.toLowerCase().includes('soccer') ? 'Soccer Development Benchmarks' : 'Hockey Development Benchmarks'}
                                 </div>
@@ -1815,28 +1960,26 @@ const Report = () => {
                               </div>
 
                               {/* Chip track — standard tests */}
-                              {hasBenchmarks && !isRelativeOnly && !bench.tieredTargets && !bench.relativeTargets && (bench.levels || []).some(l => l.value != null) && (
+                              {hasBenchmarks && !hideBenchmarkChips && !isRelativeOnly && !bench.tieredTargets && !bench.relativeTargets && visibleLevels.length > 0 && (
                                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
                                   {(() => {
-                                    const visibleLevels = ladder
-                                      .map((lvl, idx) => ({ lvl, idx, bench: (bench.levels || []).find(l => l.level === lvl) }))
-                                      .filter(({ bench: b }) => b?.value != null)
-
-                                    const beatenIdxs = visibleLevels.filter(({ bench: b }) => isLower ? athleteValue <= b.value : athleteValue >= b.value).map(({ idx }) => idx)
-                                    const highestBeatenIdx = beatenIdxs.length > 0 ? Math.max(...beatenIdxs) : -1
-                                    const youInserted = { done: false }
-
-                                    return visibleLevels.map(({ lvl, idx, bench: lvlBench }, i) => {
+                                    const chipTooltip = (lvlBench, shortName) => {
+                                      const tooltipText = CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName
+                                      const unit = TEST_UNITS?.[tt] || ''
+                                      return `${tooltipText} — ${lvlBench.value}${unit}`
+                                    }
+                                    const targetChipStyle = { padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }
+                                    return visibleLevels.map(({ lvl, idx: i, bench: lvlBench }) => {
                                       const shortName = lvl.replace('HC ', '').replace('/Pro', '').replace('Olympic/', '').replace('-age', '').replace('CHL-age', 'CHL')
                                       const beats = isLower ? athleteValue <= lvlBench.value : athleteValue >= lvlBench.value
-                                      const isFirstUnbeaten = !beats && highestBeatenIdx < idx && !youInserted.done
-                                      if (isFirstUnbeaten) youInserted.done = true
-                                      const isYouAfterAll = i === visibleLevels.length - 1 && !youInserted.done && highestBeatenIdx === -1
-
+                                      const isCurrent = i === currentLevelIdx
+                                      const isNext = i === currentLevelIdx + 1
                                       return (
                                         <React.Fragment key={lvl}>
                                           {i > 0 && <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>}
-                                          {beats ? (
+                                          {isCurrent ? (
+                                            <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
+                                          ) : beats ? (
                                             <div
                                               style={tooltipStyle}
                                               onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
@@ -1844,63 +1987,18 @@ const Report = () => {
                                               onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
                                             >
                                               <div style={{ padding: '4px 10px', borderRadius: '999px', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>✓ {shortName}</div>
-                                              <div className="chip-tooltip" style={tooltipTextStyle}>{(() => {
-                                                const tooltipText = CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName
-                                                const levelItem = (bench.levels || []).find(l => {
-                                                  if (!l.level) return false
-                                                  const ln = l.level
-                                                    .replace('HC ', '')
-                                                    .replace('/Pro', '')
-                                                    .replace('Olympic/', '')
-                                                    .replace('-age', '')
-                                                    .replace('CHL-age', 'CHL')
-                                                  return ln === shortName
-                                                })
-                                                const benchValue = levelItem?.value
-                                                const unit = TEST_UNITS?.[tt] || ''
-                                                if (benchValue != null) {
-                                                  return `${tooltipText} — ${benchValue}${unit}`
-                                                }
-                                                return tooltipText
-                                              })()}</div>
+                                              <div className="chip-tooltip" style={tooltipTextStyle}>{chipTooltip(lvlBench, shortName)}</div>
                                             </div>
-                                          ) : isFirstUnbeaten ? (
-                                            <>
-                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
-                                              <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>
-                                              <div
-                                                style={tooltipStyle}
-                                                onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
-                                                onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
-                                                onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
-                                              >
-                                                <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1.5px solid #3fae52', color: '#3fae52', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>→ {shortName}</div>
-                                                <div className="chip-tooltip" style={tooltipTextStyle}>{(() => {
-                                                  const tooltipText = CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName
-                                                  const levelItem = (bench.levels || []).find(l => {
-                                                    if (!l.level) return false
-                                                    const ln = l.level
-                                                      .replace('HC ', '')
-                                                      .replace('/Pro', '')
-                                                      .replace('Olympic/', '')
-                                                      .replace('-age', '')
-                                                      .replace('CHL-age', 'CHL')
-                                                    return ln === shortName
-                                                  })
-                                                  const benchValue = levelItem?.value
-                                                  const unit = TEST_UNITS?.[tt] || ''
-                                                  if (benchValue != null) {
-                                                    return `${tooltipText} — ${benchValue}${unit}`
-                                                  }
-                                                  return tooltipText
-                                                })()}</div>
-                                              </div>
-                                            </>
-                                          ) : isYouAfterAll ? (
-                                            <>
-                                              <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>
-                                              <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
-                                            </>
+                                          ) : isNext ? (
+                                            <div
+                                              style={tooltipStyle}
+                                              onMouseEnter={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'visible'; t.style.opacity = '1' } }}
+                                              onMouseLeave={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = 'hidden'; t.style.opacity = '0' } }}
+                                              onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
+                                            >
+                                              <div style={targetChipStyle}>→ {shortName}</div>
+                                              <div className="chip-tooltip" style={tooltipTextStyle}>{chipTooltip(lvlBench, shortName)}</div>
+                                            </div>
                                           ) : (
                                             <div
                                               style={tooltipStyle}
@@ -1909,25 +2007,7 @@ const Report = () => {
                                               onClick={e => { const t = e.currentTarget.querySelector('.chip-tooltip'); if (t) { t.style.visibility = t.style.visibility === 'visible' ? 'hidden' : 'visible'; t.style.opacity = t.style.opacity === '1' ? '0' : '1' } }}
                                             >
                                               <div style={{ padding: '4px 10px', borderRadius: '999px', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'}`, color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.2)', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', cursor: 'help' }}>{shortName}</div>
-                                              <div className="chip-tooltip" style={tooltipTextStyle}>{(() => {
-                                                const tooltipText = CHIP_TOOLTIPS[gender]?.[tt]?.[shortName] || shortName
-                                                const levelItem = (bench.levels || []).find(l => {
-                                                  if (!l.level) return false
-                                                  const ln = l.level
-                                                    .replace('HC ', '')
-                                                    .replace('/Pro', '')
-                                                    .replace('Olympic/', '')
-                                                    .replace('-age', '')
-                                                    .replace('CHL-age', 'CHL')
-                                                  return ln === shortName
-                                                })
-                                                const benchValue = levelItem?.value
-                                                const unit = TEST_UNITS?.[tt] || ''
-                                                if (benchValue != null) {
-                                                  return `${tooltipText} — ${benchValue}${unit}`
-                                                }
-                                                return tooltipText
-                                              })()}</div>
+                                              <div className="chip-tooltip" style={tooltipTextStyle}>{chipTooltip(lvlBench, shortName)}</div>
                                             </div>
                                           )}
                                         </React.Fragment>
@@ -1938,7 +2018,7 @@ const Report = () => {
                               )}
 
                               {/* Chip track — relative targets */}
-                              {hasBenchmarks && (isRelativeOnly || (bench.relativeTargets && bodyweightLbs)) && !bench.tieredTargets && (
+                              {hasBenchmarks && !hideBenchmarkChips && (isRelativeOnly || (bench.relativeTargets && bodyweightLbs)) && !bench.tieredTargets && (
                                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
                                   {(bench.relativeTargets || []).map((target, idx) => {
                                     const relVal = bodyweightLbs ? athleteValue / bodyweightLbs : 0
@@ -1989,7 +2069,7 @@ const Report = () => {
                               )}
 
                               {/* Chip track — tiered targets (push-ups etc) */}
-                              {hasBenchmarks && bench.tieredTargets && (
+                              {hasBenchmarks && !hideBenchmarkChips && bench.tieredTargets && (
                                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
                                   {(() => {
                                     const currentTierData = bench.tieredTargets.find(t => t.levels.some(l => l === ageCategory || ladder.indexOf(l) >= athleteLadderIdx))
@@ -2024,12 +2104,13 @@ const Report = () => {
                               )}
 
                               {/* Comparison card — next target */}
-                              {hasBenchmarks && nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
+                              {hasBenchmarks && !hideBenchmarkChips && nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
                                 <div style={{ background: 'rgba(255,255,255,0.02)', borderLeft: '2px solid rgba(255,255,255,0.08)', borderRadius: '0 6px 6px 0', padding: '10px 12px', fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.7', marginBottom: '12px' }}>
                                   {(() => {
-                                    const clearedLevels = (bench.levels || []).filter(l => l.value != null && (isLower ? athleteValue <= l.value : athleteValue >= l.value))
-                                    const clearedNames = clearedLevels.map(l => l.level.replace('HC ', '').replace('/Pro','').replace('Olympic/','').replace('-age','').replace('CHL-age','CHL'))
-                                    const nextName = nextTarget.level.replace('HC ', '').replace('/Pro','').replace('Olympic/','').replace('-age','').replace('CHL-age','CHL')
+                                    const clearedLevels = visibleLevels.filter(({ idx }) => idx <= currentLevelIdx)
+                                    const clearedNames = clearedLevels.map(({ lvl }) => lvl.replace('HC ', '').replace('/Pro','').replace('Olympic/','').replace('-age','').replace('CHL-age','CHL'))
+                                    const nextNameRaw = nextTarget.tier ? `${nextTarget.level} ${nextTarget.tier}` : nextTarget.level
+                                    const nextName = nextNameRaw.replace('HC ', '').replace('/Pro','').replace('Olympic/','').replace('-age','').replace('CHL-age','CHL')
                                     const gapFormatted = isLower
                                       ? `${(athleteValue - nextTarget.value).toFixed(3)}s`
                                       : formatVal(tt, Math.abs(nextTarget.value - athleteValue))
@@ -2049,7 +2130,7 @@ const Report = () => {
                                   })()}
                                 </div>
                               )}
-                              {hasBenchmarks && nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
+                              {hasBenchmarks && !hideBenchmarkChips && nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px' }}>
                                   <div style={{ padding: '10px 14px' }}>
                                     <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Today</div>
@@ -2057,7 +2138,7 @@ const Report = () => {
                                   </div>
                                   <div style={{ background: 'rgba(255,255,255,0.07)' }} />
                                   <div style={{ padding: '10px 14px' }}>
-                                    <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>{nextTarget.level}</div>
+                                    <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>{nextTarget.tier ? `${nextTarget.level} ${nextTarget.tier}` : nextTarget.level}</div>
                                     <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.2)' }}>{formatVal(tt, nextTarget.value)}</div>
                                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', marginTop: '3px' }}>
                                       {isLower ? `${(athleteValue - nextTarget.value).toFixed(3)}s to go` : `${formatVal(tt, Math.abs(nextTarget.value - athleteValue))} to go`}
@@ -2132,6 +2213,35 @@ const Report = () => {
                             }}>
                               {insightText}
                             </div>
+                          )
+                        })()}
+                        {peerAvgMap[tt] && pb && (() => {
+                          const unit = ['squat', 'bench_press', 'trap_bar_deadlift'].includes(tt) ? 'lbs' : TEST_UNITS?.[tt] || ''
+                          const isStrength = ['squat', 'bench_press', 'trap_bar_deadlift'].includes(tt)
+                          return (
+                            <>
+                              {isStrength && pb.load_value && pb.reps && (
+                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '8px', marginBottom: '4px' }}>
+                                  {pb.load_value} lbs × {pb.reps} reps
+                                  {latestMeasurement?.weight ? ` · ${(pb.load_value / latestMeasurement.weight).toFixed(2)}× BW` : ''}
+                                </div>
+                              )}
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: 'rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden', marginTop: '16px' }}>
+                                <div style={{ background: '#0d1a0e', padding: '12px 16px' }}>
+                                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>TODAY</div>
+                                  <div style={{ fontSize: '22px', fontWeight: '800', color: 'white' }}>{pb.value} <span style={{ fontSize: '14px' }}>{unit}</span></div>
+                                </div>
+                                <div style={{ background: '#0d1a0e', padding: '12px 16px' }}>
+                                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>PEER AVG · {athleteProfile?.age_category?.toUpperCase()}</div>
+                                  <div style={{ fontSize: '22px', fontWeight: '800', color: 'rgba(255,255,255,0.35)' }}>{Number(peerAvgMap[tt]).toFixed(1)} <span style={{ fontSize: '14px' }}>{unit}</span></div>
+                                  <div style={{ fontSize: '11px', color: pb.value >= peerAvgMap[tt] ? '#3fae52' : '#f59e0b', marginTop: '2px' }}>
+                                    {pb.value >= peerAvgMap[tt]
+                                      ? `+${(pb.value - peerAvgMap[tt]).toFixed(1)} above avg`
+                                      : `${(peerAvgMap[tt] - pb.value).toFixed(1)} below avg`}
+                                  </div>
+                                </div>
+                              </div>
+                            </>
                           )
                         })()}
                       </div>
