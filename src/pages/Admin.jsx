@@ -1236,6 +1236,17 @@ const Admin = () => {
       if (editingUser) {
         const { password, ...updateData } = sanitizedUser
         await updateAdminUser(editingUser.id, updateData)
+        if (editingUser.email !== updateData.email) {
+          const res = await fetch('/.netlify/functions/admin-update-user-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: editingUser.id, email: updateData.email })
+          })
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            throw new Error(data.error || 'Failed to update email')
+          }
+        }
         if (editingUserPassword) {
           const res = await fetch('/.netlify/functions/admin-set-password', {
             method: 'POST',
