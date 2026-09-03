@@ -62,7 +62,7 @@ const Card = () => {
       })()
       setApplicableTests(applicable)
       console.log('[Card] profile:', profile)
-      console.log('[Card] latest results:', latest)
+      console.log('[Card] latest results:', results)
     } catch (err) {
       console.error('Failed to load results', err)
     }
