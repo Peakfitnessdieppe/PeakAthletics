@@ -12,6 +12,7 @@ exports.handler = async (event) => {
 
   const body = JSON.parse(event.body || '{}')
   const { athleteIds } = body
+  const season = body.season || new Date().getFullYear()
 
   // Test definitions
   const LOWER_IS_BETTER = ['10m_sprint', 'pro_agility_shuttle']
@@ -229,7 +230,6 @@ exports.handler = async (event) => {
     const overallScore = weightedTotal > 0
       ? Math.round(weightedSum / weightedTotal)
       : null
-    const season = body.season || new Date().getFullYear()
     upsertRows.push({
       athlete_id: athlete.id,
       season: season,
