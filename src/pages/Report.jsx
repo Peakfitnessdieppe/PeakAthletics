@@ -756,8 +756,18 @@ const Report = () => {
       </div>
     )
   }
-  const { profile: athleteProfile, benchmarks, peerAvgMap = {}, peerRelStrengthMap = {} } = reportData
-  console.log('[PFA DEBUG] peerRelStrengthMap', peerRelStrengthMap)
+  const { profile: athleteProfile, benchmarks, peerAvgMap = {} } = reportData
+  const peerRelStrengthMap = (() => {
+    const map = {}
+    const bw = latestMeasurement?.weight
+    if (!bw) return map
+    for (const tt of ['squat', 'bench_press', 'trap_bar_deadlift']) {
+      if (peerAvgMap[tt]) {
+        map[tt] = Math.round((peerAvgMap[tt] / bw) * 100) / 100
+      }
+    }
+    return map
+  })()
   const hasBenchmarks = SPORTS_WITH_BENCHMARKS.includes(athleteProfile?.sport?.toLowerCase())
   const age = calcAge(athleteProfile?.date_of_birth || athleteProfile?.dob)
   const initials = (athleteProfile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
@@ -2207,9 +2217,11 @@ const Report = () => {
                                       )}
                                     </div>
                                   </div>
-                                  <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginTop: '6px', lineHeight: '1.5' }}>
-                                    Relative strength compares how much an athlete lifts relative to their bodyweight — a higher multiplier means greater strength-to-weight ratio, which is a key indicator of athletic performance.
-                                  </p>
+                                  {tt === 'bench_press' && (
+                                    <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginTop: '6px', lineHeight: '1.5' }}>
+                                      Relative strength compares how much an athlete lifts relative to their bodyweight — a higher multiplier means greater strength-to-weight ratio, which is a key indicator of athletic performance.
+                                    </p>
+                                  )}
                                 </div>
                               )}
                             </>

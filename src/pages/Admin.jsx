@@ -2643,6 +2643,14 @@ const Admin = () => {
                                                       style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '4px', color: 'rgba(255,255,255,0.5)', padding: '3px 9px', fontSize: '11px', cursor: 'pointer' }}>
                                                       Edit
                                                     </button>
+                                                    <button onClick={async () => {
+                                                      if (!window.confirm('Delete this result?')) return
+                                                      const { error } = await supabase.from('pfa_test_results').delete().eq('id', result.id)
+                                                      if (!error) loadAthleteResults(a.id)
+                                                    }}
+                                                      style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '4px', color: '#ef4444', padding: '3px 9px', fontSize: '11px', cursor: 'pointer', marginLeft: '5px' }}>
+                                                      Delete
+                                                    </button>
                                                   </td>
                                                 </>
                                               )}
