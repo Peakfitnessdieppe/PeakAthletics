@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import useAuth from '../hooks/useAuth'
 import CardLayout from '../components/layout/CardLayout'
 import { supabase } from '../services/supabase'
-import { getLatestResults, getBaselineResults } from '../services/testResults'
 import { getAthleteTestRankings, getAthleteBodyMeasurements } from '../services/reports'
 
 const STRENGTH_LOAD_TESTS = ['squat', 'bench_press', 'trap_bar_deadlift']
@@ -16,6 +15,7 @@ const Card = () => {
   const [flipped, setFlipped] = useState(false)
   const [loading, setLoading] = useState(true)
   const [latestResults, setLatestResults] = useState([])
+  const [allResults, setAllResults] = useState([])
   const [baselineResults, setBaselineResults] = useState([])
   const [testRankings, setTestRankings] = useState([])
   const [measurements, setMeasurements] = useState([])
@@ -30,13 +30,18 @@ const Card = () => {
     if (!profile?.id) return
     setLoading(true)
     try {
-      const [latest, baseline, bodyMeasurements] = await Promise.all([
-        getLatestResults(profile.id, { select: '*, load_value, reps, relative_strength' }),
-        getBaselineResults(profile.id, { select: '*, load_value, reps, relative_strength' }),
+      const [bodyMeasurements] = await Promise.all([
         getAthleteBodyMeasurements(profile.id),
       ])
-      setLatestResults(latest || [])
-      setBaselineResults(baseline || [])
+      const { data: allResultsData } = await supabase
+        .from('pfa_test_results')
+        .select('*, load_value, reps, relative_strength')
+        .eq('athlete_id', profile.id)
+        .order('date_tested', { ascending: false })
+      const results = allResultsData || []
+      setAllResults(results)
+      setLatestResults(results)
+      setBaselineResults([])
       setMeasurements(bodyMeasurements || [])
       const { data: allTestWeights } = await supabase
         .from('pfa_test_weights')
@@ -201,6 +206,7 @@ const Card = () => {
         load2026: f2026.load,
         reps2026: f2026.reps,
         hasAnyData: !!(byTestBySeason[testType]?.[2025] || byTestBySeason[testType]?.[2026]),
+        notTested2026: !byTestBySeason[testType]?.[2026] && !!byTestBySeason[testType]?.[2025],
       }
     })
   }
@@ -221,7 +227,9 @@ const Card = () => {
     const bySeason = {}
     for (const m of measurements) {
       const season = getSeasonYear(m.measurement_date)
-      if (!bySeason[season]) bySeason[season] = m
+      if (!bySeason[season] || new Date(m.measurement_date) > new Date(bySeason[season].measurement_date)) {
+        bySeason[season] = m
+      }
     }
 
     const fmt = (val, suffix) => (val != null ? `${val}${suffix}` : '—')
@@ -659,12 +667,9 @@ const Card = () => {
                 </div>
 
                 {(() => {
-                  const resultTestTypes = Array.from(new Set([
-                    ...latestResults.map(r => r.test_type),
-                    ...baselineResults.map(r => r.test_type)
-                  ]))
+                  const resultTestTypes = Array.from(new Set(allResults.map(r => r.test_type)))
                   const backTestTypes = Array.from(new Set([...applicableTests, ...resultTestTypes]))
-                  const seasonStats = buildSeasonStats(latestResults, backTestTypes)
+                  const seasonStats = buildSeasonStats(allResults, backTestTypes)
                   const measurementRows = buildMeasurementSeasons(measurements)
                   return (
                     <>
@@ -735,7 +740,12 @@ const Card = () => {
                               opacity: stat.hasAnyData ? 1 : 0.35,
                             }}
                           >
-                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{stat.label}</div>
+                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>
+                              {stat.label}
+                              {stat.notTested2026 && (
+                                <span style={{ color: 'rgba(255,255,255,0.35)', marginLeft: '2px' }}>*</span>
+                              )}
+                            </div>
                             <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>
                               <div>{stat.season2025}</div>
                               {STRENGTH_LOAD_TESTS.includes(stat.testType) && stat.load2025 && stat.reps2025 && (
@@ -774,6 +784,11 @@ const Card = () => {
                         >
                           * Squat, Bench Press, and Trap Bar Deadlift values represent an estimated one-repetition maximum (1RM), calculated from the load and repetitions completed during testing using a validated predictive formula.
                         </div>
+                        {seasonStats.some(stat => stat.notTested2026) && (
+                          <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginTop: '6px', lineHeight: '1.4' }}>
+                            * Not re-tested in the current training cycle (2026)
+                          </p>
+                        )}
                       </div>
 
                       {/* STANDARDIZED SCORES */}
