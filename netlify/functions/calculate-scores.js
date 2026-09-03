@@ -100,6 +100,8 @@ exports.handler = async (event) => {
       .from('pfa_test_results')
       .select('athlete_id, test_type, value, date_tested')
       .in('athlete_id', athleteIdList)
+      .gte('date_tested', `${season}-01-01`)
+      .lte('date_tested', `${season}-12-31`)
       .range(from, from + pageSize - 1)
 
     if (pageError) {
