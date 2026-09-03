@@ -1617,27 +1617,6 @@ const Report = () => {
           <div style={{ color: '#3fae52', fontWeight: '800', fontSize: '13px', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '20px', borderBottom: '1px solid rgba(63,174,82,0.2)', paddingBottom: '8px' }}>
             Development Testing
           </div>
-          {hasBenchmarks && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '24px', marginTop: '8px' }}>
-              <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.25)', marginRight: '4px' }}>Benchmarks:</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(63,174,82,0.12)', border: '1px solid rgba(63,174,82,0.25)', color: '#3fae52' }}>✓</span>
-                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>cleared</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: 'rgba(168,85,247,0.15)', border: '1px solid #a855f7', color: '#a855f7' }}>YOU</span>
-                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>you are here</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: lightMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', border: '1px solid #3fae52', color: '#3fae52' }}>→</span>
-                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>next target</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ padding: '2px 7px', borderRadius: '999px', fontSize: '9px', fontWeight: '700', background: lightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.03)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'}`, color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.2)' }}>···</span>
-                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>future milestone</span>
-              </div>
-            </div>
-          )}
           {CATEGORIES.map((cat) => {
             const results = groupedResults[cat] || []
             const catTestTypes = [...new Set(results.map((r) => r.test_type))]
@@ -2391,7 +2370,7 @@ const Report = () => {
           </>
         )}
 
-        {insights?.next_steps && (
+        {false && (
           <>
             <div style={{
               fontSize: '11px',
