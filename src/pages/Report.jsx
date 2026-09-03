@@ -559,6 +559,7 @@ const Report = () => {
           .from('pfa_composite_scores')
           .select('overall_score, speed_score, power_score, strength_score, agility_score, endurance_score, calculated_at')
           .eq('athlete_id', athleteId)
+          .eq('season', 2026)
           .order('calculated_at', { ascending: false })
           .limit(1)
         setCompScore(compScoreData?.[0] || null)
@@ -755,7 +756,8 @@ const Report = () => {
       </div>
     )
   }
-  const { profile: athleteProfile, benchmarks, peerAvgMap = {} } = reportData
+  const { profile: athleteProfile, benchmarks, peerAvgMap = {}, peerRelStrengthMap = {} } = reportData
+  console.log('[PFA DEBUG] peerRelStrengthMap', peerRelStrengthMap)
   const hasBenchmarks = SPORTS_WITH_BENCHMARKS.includes(athleteProfile?.sport?.toLowerCase())
   const age = calcAge(athleteProfile?.date_of_birth || athleteProfile?.dob)
   const initials = (athleteProfile?.full_name || 'NA').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
@@ -2164,27 +2166,52 @@ const Report = () => {
                           const isStrength = ['squat', 'bench_press', 'trap_bar_deadlift'].includes(tt)
                           return (
                             <>
-                              {isStrength && pb.load_value && pb.reps && (
-                                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '8px', marginBottom: '4px' }}>
-                                  {pb.load_value} lbs × {pb.reps} reps
-                                  {latestMeasurement?.weight ? ` · ${(pb.load_value / latestMeasurement.weight).toFixed(2)}× BW` : ''}
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden', marginTop: '12px' }}>
+                                <div style={{ padding: '10px 14px' }}>
+                                  <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Today</div>
+                                  <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? '#111' : 'white' }}>{pb.value} <span style={{ fontSize: '13px', fontWeight: '400' }}>{unit}</span></div>
                                 </div>
-                              )}
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: 'rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden', marginTop: '16px' }}>
-                                <div style={{ background: '#0d1a0e', padding: '12px 16px' }}>
-                                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>TODAY</div>
-                                  <div style={{ fontSize: '22px', fontWeight: '800', color: 'white' }}>{pb.value} <span style={{ fontSize: '14px' }}>{unit}</span></div>
-                                </div>
-                                <div style={{ background: '#0d1a0e', padding: '12px 16px' }}>
-                                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>PEER AVG · {athleteProfile?.age_category?.toUpperCase()}</div>
-                                  <div style={{ fontSize: '22px', fontWeight: '800', color: 'rgba(255,255,255,0.35)' }}>{Number(peerAvgMap[tt]).toFixed(1)} <span style={{ fontSize: '14px' }}>{unit}</span></div>
-                                  <div style={{ fontSize: '11px', color: pb.value >= peerAvgMap[tt] ? '#3fae52' : '#f59e0b', marginTop: '2px' }}>
-                                    {pb.value >= peerAvgMap[tt]
-                                      ? `+${(pb.value - peerAvgMap[tt]).toFixed(1)} above avg`
-                                      : `${(peerAvgMap[tt] - pb.value).toFixed(1)} below avg`}
-                                  </div>
+                                <div style={{ background: 'rgba(255,255,255,0.07)' }} />
+                                <div style={{ padding: '10px 14px' }}>
+                                  <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>PEER AVG · {athleteProfile?.age_category?.toUpperCase()}</div>
+                                  <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.2)' }}>{Number(peerAvgMap[tt]).toFixed(1)} <span style={{ fontSize: '13px', fontWeight: '400' }}>{unit}</span></div>
+                                  {!isStrength && (
+                                    <div style={{ fontSize: '11px', fontWeight: '700', color: pb.value >= peerAvgMap[tt] ? '#3fae52' : '#f59e0b', marginTop: '3px' }}>
+                                      {pb.value >= peerAvgMap[tt] ? `+${(pb.value - peerAvgMap[tt]).toFixed(1)} above avg` : `${(peerAvgMap[tt] - pb.value).toFixed(1)} below avg`}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
+                              {['squat', 'bench_press', 'trap_bar_deadlift'].includes(tt) && latestMeasurement?.weight && pb?.value && (
+                                <div style={{ marginTop: '10px' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden' }}>
+                                    <div style={{ padding: '10px 14px' }}>
+                                      <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Relative Strength</div>
+                                      <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? '#111' : 'white' }}>{(pb.value / latestMeasurement.weight).toFixed(2)}<span style={{ fontSize: '13px', fontWeight: '400' }}>× BW</span></div>
+                                      {pb.load_value && pb.reps && (
+                                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '3px' }}>
+                                          {pb.load_value} lbs × {pb.reps} reps
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div style={{ background: 'rgba(255,255,255,0.07)' }} />
+                                    <div style={{ padding: '10px 14px' }}>
+                                      <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>PEER AVG · {athleteProfile?.age_category?.toUpperCase()}</div>
+                                      <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.2)' }}>{peerRelStrengthMap[tt] ? peerRelStrengthMap[tt].toFixed(2) : '—'}<span style={{ fontSize: '13px', fontWeight: '400' }}>× BW</span></div>
+                                      {peerRelStrengthMap[tt] && (
+                                        <div style={{ fontSize: '11px', fontWeight: '700', color: (pb.value / latestMeasurement.weight) >= peerRelStrengthMap[tt] ? '#3fae52' : '#f59e0b', marginTop: '3px' }}>
+                                          {(pb.value / latestMeasurement.weight) >= peerRelStrengthMap[tt]
+                                            ? `+${((pb.value / latestMeasurement.weight) - peerRelStrengthMap[tt]).toFixed(2)}× above avg`
+                                            : `${(peerRelStrengthMap[tt] - (pb.value / latestMeasurement.weight)).toFixed(2)}× below avg`}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginTop: '6px', lineHeight: '1.5' }}>
+                                    Relative strength compares how much an athlete lifts relative to their bodyweight — a higher multiplier means greater strength-to-weight ratio, which is a key indicator of athletic performance.
+                                  </p>
+                                </div>
+                              )}
                             </>
                           )
                         })()}

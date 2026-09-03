@@ -7,6 +7,7 @@ export const getAthleteReport = async (athleteId) => {
     .eq('id', athleteId)
     .single()
   if (profileError) throw profileError
+  console.log('[PFA DEBUG] 1 profile fetched', profile?.id)
 
   const { data: results, error: resultsError } = await supabase
     .from('pfa_test_results')
@@ -14,6 +15,7 @@ export const getAthleteReport = async (athleteId) => {
     .eq('athlete_id', athleteId)
     .order('date_tested', { ascending: true })
   if (resultsError) throw resultsError
+  console.log('[PFA DEBUG] 2 results fetched', results?.length)
 
   const { data: benchmarks, error: benchError } = await supabase
     .from('pfa_benchmarks')
@@ -24,11 +26,12 @@ export const getAthleteReport = async (athleteId) => {
 
   const { data: peerAverages } = await supabase
     .from('pfa_test_results')
-    .select('test_type, value, profiles!inner(gender, age_category)')
+    .select('athlete_id, test_type, value, profiles!inner(gender, age_category)')
     .eq('profiles.gender', profile.gender)
     .eq('profiles.age_category', profile.age_category)
     .in('test_type', ['push_ups', 'squat', 'bench_press', 'trap_bar_deadlift'])
     .not('value', 'is', null)
+  console.log('[PFA DEBUG] 3 peerAverages fetched', peerAverages?.length)
 
   const peerAvgMap = {}
   if (peerAverages) {
@@ -44,8 +47,41 @@ export const getAthleteReport = async (athleteId) => {
       }
     })
   }
+  const peerAthleteIds = [...new Set((peerAverages || []).map(r => r.athlete_id))]
+  console.log('[REL] peerAthleteIds count', peerAthleteIds.length)
 
-  return { profile, results: results || [], benchmarks: benchmarks || [], peerAvgMap }
+  const { data: peerWeights } = await supabase
+    .from('pfa_body_measurements')
+    .select('athlete_id, weight, measurement_date')
+    .in('athlete_id', peerAthleteIds)
+    .not('weight', 'is', null)
+    .order('measurement_date', { ascending: false })
+  console.log('[REL] peerWeights count', peerWeights?.length)
+
+  const latestWeightByAthlete = {}
+  for (const bm of peerWeights || []) {
+    if (!latestWeightByAthlete[bm.athlete_id]) {
+      latestWeightByAthlete[bm.athlete_id] = bm.weight
+    }
+  }
+
+  const avgPeerWeight = Object.values(latestWeightByAthlete).length >= 3
+    ? Object.values(latestWeightByAthlete).reduce((a, b) => a + b, 0) / Object.values(latestWeightByAthlete).length
+    : null
+  console.log('[REL] latestWeightByAthlete count', Object.keys(latestWeightByAthlete).length)
+  console.log('[REL] avgPeerWeight', avgPeerWeight)
+
+  const peerRelStrengthMap = {}
+  if (avgPeerWeight) {
+    for (const tt of ['squat', 'bench_press', 'trap_bar_deadlift']) {
+      if (peerAvgMap[tt]) {
+        peerRelStrengthMap[tt] = Math.round((peerAvgMap[tt] / avgPeerWeight) * 100) / 100
+      }
+    }
+  }
+  console.log('[REL] peerRelStrengthMap', peerRelStrengthMap)
+
+  return { profile, results: results || [], benchmarks: benchmarks || [], peerAvgMap, peerRelStrengthMap }
 }
 
 export const getPfaAverageScores = async (sport, ageCategory, gender) => {
