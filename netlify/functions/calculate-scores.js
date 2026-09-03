@@ -10,7 +10,8 @@ exports.handler = async (event) => {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
-  const { athleteIds } = JSON.parse(event.body || '{}')
+  const body = JSON.parse(event.body || '{}')
+  const { athleteIds } = body
 
   // Test definitions
   const LOWER_IS_BETTER = ['10m_sprint', 'pro_agility_shuttle']
