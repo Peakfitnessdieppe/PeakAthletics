@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js')
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { autoRefreshToken: false, persistSession: false } }
 )
@@ -20,7 +20,17 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'athleteId, email, and fullName are required' }) }
     }
 
-    // Generate recovery link
+    // Look up the athlete's current auth email
+    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(athleteId)
+    if (userError) throw userError
+
+    // If auth email differs from the invite email, update auth.users first
+    if (userData.user.email !== email) {
+      const { error: updateError } = await supabase.auth.admin.updateUserById(athleteId, { email })
+      if (updateError) throw updateError
+    }
+
+    // Generate recovery link using the (now-updated) email
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'recovery',
       email,
