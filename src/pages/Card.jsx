@@ -118,7 +118,7 @@ const Card = () => {
 
   const getSeasonYear = (dateStr) => {
     const d = new Date(dateStr)
-    return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear()
+    return d.getMonth() >= 9 ? d.getFullYear() + 1 : d.getFullYear()
   }
 
   const buildSeasonStats = (results, testList) => {
@@ -215,7 +215,7 @@ const Card = () => {
   const buildMeasurementSeasons = (measurements) => {
     const getSeasonYear = (dateStr) => {
       const d = new Date(dateStr)
-      return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear()
+      return d.getMonth() >= 9 ? d.getFullYear() + 1 : d.getFullYear()
     }
 
     const bySeason = {}
@@ -659,7 +659,12 @@ const Card = () => {
                 </div>
 
                 {(() => {
-                  const seasonStats = buildSeasonStats(latestResults, applicableTests)
+                  const resultTestTypes = Array.from(new Set([
+                    ...latestResults.map(r => r.test_type),
+                    ...baselineResults.map(r => r.test_type)
+                  ]))
+                  const backTestTypes = Array.from(new Set([...applicableTests, ...resultTestTypes]))
+                  const seasonStats = buildSeasonStats(latestResults, backTestTypes)
                   const measurementRows = buildMeasurementSeasons(measurements)
                   return (
                     <>
