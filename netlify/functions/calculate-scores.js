@@ -226,8 +226,10 @@ exports.handler = async (event) => {
     const overallScore = weightedTotal > 0
       ? Math.round(weightedSum / weightedTotal)
       : null
+    const season = body.season || new Date().getFullYear()
     upsertRows.push({
       athlete_id: athlete.id,
+      season: season,
       overall_score: overallScore !== null && !isNaN(overallScore) ? overallScore : 0,
       speed_score: categoryScores.speed || 0,
       power_score: categoryScores.power || 0,
@@ -244,7 +246,7 @@ exports.handler = async (event) => {
   if (upsertRows.length > 0) {
     const { error: upsertError } = await supabaseAdmin
       .from('pfa_composite_scores')
-      .upsert(upsertRows, { onConflict: 'athlete_id' })
+      .upsert(upsertRows, { onConflict: 'athlete_id,season' })
 
     console.log('[CalcScores] Upsert error:', upsertError)
     

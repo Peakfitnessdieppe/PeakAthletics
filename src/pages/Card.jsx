@@ -224,31 +224,40 @@ const Card = () => {
       return d.getMonth() >= 9 ? d.getFullYear() + 1 : d.getFullYear()
     }
 
-    const bySeason = {}
-    for (const m of measurements) {
+    const bySeasonField = { 2025: {}, 2026: {} }
+
+    const sortedDesc = [...(measurements || [])].sort(
+      (a, b) => new Date(b.measurement_date) - new Date(a.measurement_date)
+    )
+
+    for (const m of sortedDesc) {
       const season = getSeasonYear(m.measurement_date)
-      if (!bySeason[season] || new Date(m.measurement_date) > new Date(bySeason[season].measurement_date)) {
-        bySeason[season] = m
-      }
+      if (season !== 2025 && season !== 2026) continue
+      const s = bySeasonField[season]
+      if (m.height != null && s.height == null) s.height = m.height
+      if (m.weight != null && s.weight == null) s.weight = m.weight
+      if (m.body_fat_percentage != null && s.body_fat_percentage == null) s.body_fat_percentage = m.body_fat_percentage
     }
 
     const fmt = (val, suffix) => (val != null ? `${val}${suffix}` : '—')
+    const s25 = bySeasonField[2025]
+    const s26 = bySeasonField[2026]
 
     return [
       {
         label: 'Height',
-        season2025: bySeason[2025] ? inchesToFtIn(bySeason[2025].height) : '—',
-        season2026: bySeason[2026] ? inchesToFtIn(bySeason[2026].height) : '—',
+        season2025: s25.height != null ? inchesToFtIn(s25.height) : '—',
+        season2026: s26.height != null ? inchesToFtIn(s26.height) : '—',
       },
       {
         label: 'Weight',
-        season2025: bySeason[2025] ? fmt(bySeason[2025].weight, ' lbs') : '—',
-        season2026: bySeason[2026] ? fmt(bySeason[2026].weight, ' lbs') : '—',
+        season2025: s25.weight != null ? fmt(s25.weight, ' lbs') : '—',
+        season2026: s26.weight != null ? fmt(s26.weight, ' lbs') : '—',
       },
       {
         label: 'Body Fat',
-        season2025: bySeason[2025] ? fmt(bySeason[2025].body_fat_percentage, '%') : '—',
-        season2026: bySeason[2026] ? fmt(bySeason[2026].body_fat_percentage, '%') : '—',
+        season2025: s25.body_fat_percentage != null ? fmt(s25.body_fat_percentage, '%') : '—',
+        season2026: s26.body_fat_percentage != null ? fmt(s26.body_fat_percentage, '%') : '—',
       },
     ]
   }
@@ -268,12 +277,11 @@ const Card = () => {
       try {
         const { data: compScores, error } = await supabase
           .from('pfa_composite_scores')
-          .select('overall_score, speed_score, power_score, strength_score, agility_score, endurance_score, calculated_at')
+          .select('*')
           .eq('athlete_id', profileId)
-          .order('calculated_at', { ascending: false })
-          .limit(1)
+          .in('season', [2025, 2026])
         console.log('[Card] compScore fetch result:', compScores, error)
-        setCompScore(compScores?.[0] || null)
+        setCompScore(compScores || [])
       } catch (err) {
         console.error('Failed to load composite scores', err)
       }
@@ -762,7 +770,13 @@ const Card = () => {
                                 textAlign: 'center',
                               }}
                             >
-                              <div>{stat.season2026}</div>
+                              <div>
+                                {stat.notTested2026 ? (
+                                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>N/A</span>
+                                ) : (
+                                  stat.season2026
+                                )}
+                              </div>
                               {STRENGTH_LOAD_TESTS.includes(stat.testType) && stat.load2026 && stat.reps2026 && (
                                 <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 'clamp(6px, 1.6vw, 8px)', marginTop: '1px' }}>
                                   {stat.load2026} × {stat.reps2026}
@@ -823,13 +837,15 @@ const Card = () => {
                           console.log('[Card] latestTestDate:', latestTestDate)
                           console.log('[Card] scoreSeasonYear:', scoreSeasonYear)
                           console.log('[Card] compScore:', compScore)
+                          const score2025Row = compScore?.find(s => s.season === 2025)
+                          const score2026Row = compScore?.find(s => s.season === 2026)
                           const score2025 =
-                            scoreSeasonYear === 2025 && compScore && compScore[row.key] != null
-                              ? Math.round(compScore[row.key])
+                            score2025Row && score2025Row[row.key] != null
+                              ? Math.round(score2025Row[row.key])
                               : null
                           const score2026 =
-                            scoreSeasonYear === 2026 && compScore && compScore[row.key] != null
-                              ? Math.round(compScore[row.key])
+                            score2026Row && score2026Row[row.key] != null
+                              ? Math.round(score2026Row[row.key])
                               : null
 
                           return (
@@ -844,7 +860,7 @@ const Card = () => {
                             >
                               <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{row.label}</div>
                               <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>
-                                {score2025 !== null && compScore?.[row.key] != null ? score2025 : '—'}
+                                {score2025 !== null ? score2025 : '—'}
                               </div>
                               <div
                                 style={{
@@ -854,7 +870,7 @@ const Card = () => {
                                   textAlign: 'center',
                                 }}
                               >
-                                {score2026 !== null && compScore?.[row.key] != null ? score2026 : '—'}
+                                {score2026 !== null ? score2026 : '—'}
                               </div>
                             </div>
                           )
