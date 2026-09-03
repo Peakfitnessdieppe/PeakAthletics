@@ -210,7 +210,7 @@ const RADAR_DEFAULTS = (label, data, color, fill, pointColor) => ({
   pointRadius: 3,
 })
 
-function RadarChartCanvas({ title, athleteScores, compScores, compLabel }) {
+function RadarChartCanvas({ title, athleteScores, compScores, compLabel, lightMode }) {
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
 
@@ -228,7 +228,7 @@ function RadarChartCanvas({ title, athleteScores, compScores, compLabel }) {
         labels: ['Speed', 'Strength', 'Power', 'Agility', 'Endurance'],
         datasets: [
           RADAR_DEFAULTS('Athlete', CATEGORIES.map((c) => athleteScores[c] ?? 0), '#3fae52', 'rgba(63,174,82,0.15)'),
-          RADAR_DEFAULTS(compLabel, CATEGORIES.map((c) => compScores[c] ?? 0), 'rgba(255,255,255,0.3)', 'rgba(255,255,255,0.08)', '#ffffff'),
+          RADAR_DEFAULTS(compLabel, CATEGORIES.map((c) => compScores[c] ?? 0), lightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)', lightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)', lightMode ? '#000000' : '#ffffff'),
         ],
       },
       options: {
@@ -238,29 +238,29 @@ function RadarChartCanvas({ title, athleteScores, compScores, compLabel }) {
             min: 0,
             max: 100,
             ticks: { display: false, stepSize: 20 },
-            grid: { color: 'rgba(255,255,255,0.1)' },
-            angleLines: { color: 'rgba(255,255,255,0.1)' },
-            pointLabels: { color: 'rgba(255,255,255,0.7)', font: { size: 11 } },
+            grid: { color: lightMode ? '#d5d5d5' : 'rgba(255,255,255,0.1)' },
+            angleLines: { color: lightMode ? '#d5d5d5' : 'rgba(255,255,255,0.1)' },
+            pointLabels: { color: lightMode ? '#666666' : 'rgba(255,255,255,0.7)', font: { size: 11 } },
           },
         },
         plugins: {
-          legend: { labels: { color: 'rgba(255,255,255,0.7)', font: { size: 11 } } },
+          legend: { labels: { color: lightMode ? '#666666' : 'rgba(255,255,255,0.7)', font: { size: 11 } } },
           tooltip: { enabled: true },
         },
       },
     })
     return () => chartRef.current?.destroy()
-  }, [athleteScores, compScores, compLabel, title])
+  }, [athleteScores, compScores, compLabel, title, lightMode])
 
   return (
-    <div style={{ background: '#0d1a0e', border: '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px' }}>
+    <div style={{ background: lightMode ? '#f7f9f7' : '#0d1a0e', border: lightMode ? '1px solid #e0e5e0' : '1px solid rgba(63,174,82,0.2)', borderRadius: '12px', padding: '16px' }}>
       <div style={{ color: '#3fae52', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>{title}</div>
       <canvas ref={canvasRef} style={{ height: '350px', maxHeight: '350px', background: 'transparent' }} />
     </div>
   )
 }
 
-function LineChartCanvas({ testType, history }) {
+function LineChartCanvas({ testType, history, lightMode }) {
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
 
@@ -286,14 +286,14 @@ function LineChartCanvas({ testType, history }) {
       options: {
         animation: false,
         scales: {
-          x: { ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
-          y: { ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          x: { ticks: { color: lightMode ? '#666666' : 'rgba(255,255,255,0.5)', font: { size: 10 } }, grid: { color: lightMode ? '#d5d5d5' : 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { color: lightMode ? '#666666' : 'rgba(255,255,255,0.5)', font: { size: 10 } }, grid: { color: lightMode ? '#d5d5d5' : 'rgba(255,255,255,0.05)' } },
         },
         plugins: { legend: { display: false } },
       },
     })
     return () => chartRef.current?.destroy()
-  }, [testType, history])
+  }, [testType, history, lightMode])
 
   if (!history.length) return null
   if (history.length === 1) {
@@ -946,7 +946,7 @@ const Report = () => {
                       <path d="M12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4zm7-11.2h-1.8l-1.4-2H8.2L6.8 4H5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3z" />
                     </svg>
                   </button>
-                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>
+                  <div style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontSize: '12px' }}>
                     {uploading ? 'Uploading...' : 'Tap to add photo'}
                   </div>
                 </div>
@@ -1079,8 +1079,8 @@ const Report = () => {
                       alignItems: 'center',
                       gap: '10px',
                       padding: '8px 10px',
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.05)',
+                      background: lightMode ? '#f7f9f7' : 'rgba(255,255,255,0.02)',
+                      border: lightMode ? '1px solid #e0e5e0' : '1px solid rgba(255,255,255,0.05)',
                       borderLeft: '3px solid rgba(63,174,82,0.6)',
                       flex: isMobile ? (item.label === 'SPORT' ? '0 0 100%' : '0 0 calc(50% - 8px)') : '0 0 auto',
                       overflow: 'hidden',
@@ -1109,7 +1109,7 @@ const Report = () => {
           lineHeight: 1.7,
           borderLeft: '3px solid #3fae52',
           paddingLeft: '16px',
-          background: lightMode ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)',
+          background: lightMode ? '#eef6ef' : 'rgba(255,255,255,0.03)',
           borderRadius: '6px'
         }}>
           {insights.this_season}
@@ -1147,24 +1147,24 @@ const Report = () => {
               let displayVal = `${Number(displayResult.value).toFixed(2)}s`
               if (improved) displayVal = `${Math.abs(diff || 0).toFixed(2)}s faster`
               if (regressed) displayVal = `${Math.abs(diff || 0).toFixed(2)}s slower`
-              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : lightMode ? '#1a1a1a' : 'white'
               const subtitle = improved
                 ? 'Sprint speed improving — trending in the right direction'
                 : regressed
                   ? 'Sprint speed has slowed since last test — flagged for attention'
                   : 'Current acceleration benchmark'
               return (
-                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                <div style={{ background: lightMode ? '#f7f9f7' : '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
                   <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>Sprint Speed</div>
                   {notTestedThisCycle && (
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                    <p style={{ fontSize: '11px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
                       This metric was not re-tested in the current training cycle. Prior result shown for reference.
                     </p>
                   )}
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                  <div style={{ color: regressed ? '#f59e0b' : lightMode ? '#5a615a' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
                 </div>
@@ -1200,24 +1200,24 @@ const Report = () => {
               const displayVal = hasComparison
                 ? `${regressed ? '-' : '+'}${isBroadJump ? magnitude.toFixed(2) : magnitude.toFixed(1)} ${isBroadJump ? 'm' : 'in'}`
                 : `${Number(displayResult.value).toFixed(isBroadJump ? 2 : 1)} ${isBroadJump ? 'm' : 'in'}`
-              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : lightMode ? '#1a1a1a' : 'white'
               const subtitle = improved
                 ? 'Explosive power trending up'
                 : regressed
                   ? `${label} declined since last test — flagged for attention`
                   : subtitlePB
               return (
-                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                <div style={{ background: lightMode ? '#f7f9f7' : '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
                   <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>{label}</div>
                   {notTestedThisCycle && (
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                    <p style={{ fontSize: '11px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
                       This metric was not re-tested in the current training cycle. Prior result shown for reference.
                     </p>
                   )}
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                  <div style={{ color: regressed ? '#f59e0b' : lightMode ? '#5a615a' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
                 </div>
@@ -1255,28 +1255,28 @@ const Report = () => {
               const displayVal = hasComparison
                 ? `${regressed ? '-' : '+'}${Math.round(Math.abs(diff || 0))} lbs`
                 : `${Math.round(lastE1RM)} lbs`
-              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : lightMode ? '#1a1a1a' : 'white'
               const subtitle = improved
                 ? 'Strength trending up'
                 : regressed
                   ? 'Strength output declined since last test — flagged for attention'
                   : subtitlePB
               return (
-                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                <div style={{ background: lightMode ? '#f7f9f7' : '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
                   <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>{label}</div>
                   {notTestedThisCycle && (
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                    <p style={{ fontSize: '11px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
                       This metric was not re-tested in the current training cycle. Prior result shown for reference.
                     </p>
                   )}
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                  <div style={{ color: regressed ? '#f59e0b' : lightMode ? '#5a615a' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
                   {displayResult?.load_value && displayResult?.reps && (
-                    <div style={{ fontSize: 'clamp(9px, 1.8vw, 11px)', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
+                    <div style={{ fontSize: 'clamp(9px, 1.8vw, 11px)', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
                       {displayResult.load_value} lbs × {displayResult.reps} reps
                       {latestMeasurement?.weight || athleteProfile?.weight
                         ? ` · ${((displayResult.load_value) / (latestMeasurement?.weight || athleteProfile?.weight)).toFixed(2)}× BW`
@@ -1308,24 +1308,24 @@ const Report = () => {
                 : regressed
                   ? `${Math.abs(diff || 0).toFixed(2)}s slower`
                   : `${Number(displayResult.value).toFixed(2)}s`
-              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : lightMode ? '#1a1a1a' : 'white'
               const subtitle = improved
                 ? 'Change of direction improving'
                 : regressed
                   ? 'Agility has declined since last test — flagged for attention'
                   : (hasComparison ? 'No change since last test' : 'Current agility benchmark')
               return (
-                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                <div style={{ background: lightMode ? '#f7f9f7' : '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
                   <div style={{ color: numberColor, fontSize: 'clamp(1.2rem, 3.5vw, 2rem)', fontWeight: 900, lineHeight: 1 }}>
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>AGILITY</div>
                   {notTestedThisCycle && (
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                    <p style={{ fontSize: '11px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
                       This metric was not re-tested in the current training cycle. Prior result shown for reference.
                     </p>
                   )}
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                  <div style={{ color: regressed ? '#f59e0b' : lightMode ? '#5a615a' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
                 </div>
@@ -1358,21 +1358,21 @@ const Report = () => {
                   ? 'Bench press declined since last test — flagged for attention'
                   : (hasComparison ? 'No change since last test' : 'Estimated 1-rep max')
               return (
-                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                <div style={{ background: lightMode ? '#f7f9f7' : '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
                   <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BENCH PRESS</div>
                   {notTestedThisCycle && (
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                    <p style={{ fontSize: '11px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
                       This metric was not re-tested in the current training cycle. Prior result shown for reference.
                     </p>
                   )}
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                  <div style={{ color: regressed ? '#f59e0b' : lightMode ? '#5a615a' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
                   {displayResult?.load_value && displayResult?.reps && (
-                    <div style={{ fontSize: 'clamp(9px, 1.8vw, 11px)', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
+                    <div style={{ fontSize: 'clamp(9px, 1.8vw, 11px)', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
                       {displayResult.load_value} lbs × {displayResult.reps} reps
                       {latestMeasurement?.weight || athleteProfile?.weight
                         ? ` · ${((displayResult.load_value) / (latestMeasurement?.weight || athleteProfile?.weight)).toFixed(2)}× BW`
@@ -1409,21 +1409,21 @@ const Report = () => {
                   ? 'Trap bar declined since last test — flagged for attention'
                   : (hasComparison ? 'No change since last test' : 'Estimated 1-rep max')
               return (
-                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                <div style={{ background: lightMode ? '#f7f9f7' : '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
                   <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>TRAP BAR DL</div>
                   {notTestedThisCycle && (
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                    <p style={{ fontSize: '11px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
                       This metric was not re-tested in the current training cycle. Prior result shown for reference.
                     </p>
                   )}
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                  <div style={{ color: regressed ? '#f59e0b' : lightMode ? '#5a615a' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
                   {displayResult?.load_value && displayResult?.reps && (
-                    <div style={{ fontSize: 'clamp(9px, 1.8vw, 11px)', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
+                    <div style={{ fontSize: 'clamp(9px, 1.8vw, 11px)', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', marginTop: '4px' }}>
                       {displayResult.load_value} lbs × {displayResult.reps} reps
                       {latestMeasurement?.weight || athleteProfile?.weight
                         ? ` · ${((displayResult.load_value) / (latestMeasurement?.weight || athleteProfile?.weight)).toFixed(2)}× BW`
@@ -1455,24 +1455,24 @@ const Report = () => {
                 : regressed
                   ? `${diff.toFixed(1)} in`
                   : `${Number(displayResult.value).toFixed(1)} in`
-              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : lightMode ? '#1a1a1a' : 'white'
               const subtitle = improved
                 ? 'Explosive power trending up'
                 : regressed
                   ? 'Vertical jump declined since last test — flagged for attention'
                   : (hasComparison ? 'No change since last test' : 'Current power benchmark')
               return (
-                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                <div style={{ background: lightMode ? '#f7f9f7' : '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
                   <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>VERTICAL JUMP</div>
                   {notTestedThisCycle && (
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                    <p style={{ fontSize: '11px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
                       This metric was not re-tested in the current training cycle. Prior result shown for reference.
                     </p>
                   )}
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                  <div style={{ color: regressed ? '#f59e0b' : lightMode ? '#5a615a' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
                 </div>
@@ -1500,24 +1500,24 @@ const Report = () => {
                 : regressed
                   ? `${diff.toFixed(1)} levels`
                   : `Level ${Number(displayResult.value).toFixed(1)}`
-              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : 'white'
+              const numberColor = regressed ? '#f59e0b' : diff != null ? '#3fae52' : lightMode ? '#1a1a1a' : 'white'
               const subtitle = improved
                 ? 'Aerobic capacity improving'
                 : regressed
                   ? 'Endurance declined since last test — flagged for attention'
                   : (hasComparison ? 'No change since last test' : 'Current endurance benchmark')
               return (
-                <div style={{ background: '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
+                <div style={{ background: lightMode ? '#f7f9f7' : '#0d1a0d', borderLeft: '3px solid #3fae52', padding: '16px', borderRadius: '10px', flex: '1 1 160px', minWidth: '140px', maxWidth: 'calc(50% - 8px)', wordBreak: 'break-word', overflow: 'hidden' }}>
                   <div style={{ color: numberColor, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', fontWeight: 900, lineHeight: 1 }}>
                     {displayVal}
                   </div>
                   <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '6px' }}>BEEP TEST</div>
                   {notTestedThisCycle && (
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
+                    <p style={{ fontSize: '11px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: '8px', lineHeight: '1.5' }}>
                       This metric was not re-tested in the current training cycle. Prior result shown for reference.
                     </p>
                   )}
-                  <div style={{ color: regressed ? '#f59e0b' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
+                  <div style={{ color: regressed ? '#f59e0b' : lightMode ? '#5a615a' : 'rgba(255,255,255,0.65)', fontSize: 'clamp(10px, 2vw, 13px', marginTop: '6px', fontStyle: 'italic' }}>
                     {subtitle}
                   </div>
                 </div>
@@ -1527,14 +1527,14 @@ const Report = () => {
 
           {/* Block 3: Hockey Career Stats */}
           {athleteProfile?.sport === 'Hockey' && hockeyCareerRows.length > 0 && (
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(63,174,82,0.15)', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ background: lightMode ? '#f7f9f7' : 'rgba(255,255,255,0.02)', border: lightMode ? '1px solid #e0e5e0' : '1px solid rgba(63,174,82,0.15)', borderRadius: '12px', padding: '16px' }}>
               <div style={{ color: 'rgba(63,174,82,0.8)', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>Hockey Career</div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
                   <thead>
                     <tr style={{ color: lightMode ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                       {['Season', 'Team', 'League', 'GP', 'G', 'A', 'PTS', 'PIM'].map((h) => (
-                        <th key={h} style={{ textAlign: 'left', padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>{h}</th>
+                        <th key={h} style={{ textAlign: 'left', padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.12)' : '1px solid rgba(255,255,255,0.08)' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1543,27 +1543,27 @@ const Report = () => {
                       const isGoalie = row.position === 'G'
                       return (
                         <tr key={`${row.season}-${row.league}-${idx}`} style={{ background: idx === 0 ? 'rgba(63,174,82,0.05)' : 'transparent' }}>
-                          <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)', borderLeft: idx === 0 ? '3px solid #3fae52' : 'none' }}>{row.season || '—'}</td>
-                          <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                          <td style={{ padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)', borderLeft: idx === 0 ? '3px solid #3fae52' : 'none' }}>{row.season || '—'}</td>
+                          <td style={{ padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)' }}>
                             {(() => {
                               const team = row.team_name || row.teamName
                               if (!team || team === '—') return row.league || ''
                               return team
                             })()}
                           </td>
-                          <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.league || '—'}</td>
-                          <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.games_played ?? '—'}</td>
+                          <td style={{ padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)' }}>{row.league || '—'}</td>
+                          <td style={{ padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)' }}>{row.games_played ?? '—'}</td>
                           {isGoalie ? (
                             <>
-                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.gaa != null ? Number(row.gaa).toFixed(2) : '—'}</td>
-                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.save_pct != null ? Number(row.save_pct).toFixed(3) : '—'}</td>
+                              <td style={{ padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)' }}>{row.gaa != null ? Number(row.gaa).toFixed(2) : '—'}</td>
+                              <td style={{ padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)' }}>{row.save_pct != null ? Number(row.save_pct).toFixed(3) : '—'}</td>
                             </>
                           ) : (
                             <>
-                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.goals ?? 0}</td>
-                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.assists ?? 0}</td>
-                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.points ?? 0}</td>
-                              <td style={{ padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{row.pim ?? 0}</td>
+                              <td style={{ padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)' }}>{row.goals ?? 0}</td>
+                              <td style={{ padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)' }}>{row.assists ?? 0}</td>
+                              <td style={{ padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)' }}>{row.points ?? 0}</td>
+                              <td style={{ padding: '8px 6px', borderBottom: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)' }}>{row.pim ?? 0}</td>
                             </>
                           )}
                         </tr>
@@ -1606,7 +1606,9 @@ const Report = () => {
             fontStyle: 'italic',
             lineHeight: 1.7,
             borderLeft: '3px solid #3fae52',
-            paddingLeft: '16px'
+            paddingLeft: '16px',
+            background: lightMode ? '#eef6ef' : 'transparent',
+            borderRadius: '6px'
           }}>
             {insights.physical_standouts}
           </div>
@@ -1679,20 +1681,20 @@ const Report = () => {
                     <div style={{ marginBottom: '16px' }}>
                       <div style={{
                         padding: '10px 14px',
-                        background: 'rgba(63,174,82,0.05)',
+                        background: lightMode ? '#eef6ef' : 'rgba(63,174,82,0.05)',
                         borderLeft: `3px solid ${colorStyle}`,
                         borderRadius: '4px',
                         marginBottom: showAiInsight ? '8px' : '0'
                       }}>
-                        <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', fontStyle: 'italic' }}>
+                        <span style={{ fontSize: '13px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.75)', fontStyle: 'italic' }}>
                           {rankText}
                         </span>
                       </div>
                       {showAiInsight && (
                         <div style={{
                           padding: '10px 14px',
-                          background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
-                          borderLeft: lightMode ? '3px solid rgba(0,0,0,0.15)' : '3px solid rgba(255,255,255,0.15)',
+                          background: lightMode ? '#eef6ef' : 'rgba(255,255,255,0.03)',
+                          borderLeft: '3px solid rgba(63,174,82,0.3)',
                           borderRadius: '4px',
                         }}>
                           <span style={{ fontSize: '13px', color: lightMode ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
@@ -1704,7 +1706,7 @@ const Report = () => {
                   )
                 })()}
                 {catTestTypes.length === 0 && (
-                  <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px', padding: '16px', background: '#0d1a0e', borderRadius: '8px' }}>No results recorded yet</div>
+                  <div style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', fontSize: '13px', padding: '16px', background: lightMode ? '#f7f9f7' : '#0d1a0e', borderRadius: '8px' }}>No results recorded yet</div>
                 )}
                 <div
                   style={{
@@ -1727,8 +1729,8 @@ const Report = () => {
                       <div
                         key={tt}
                         style={{
-                          background: '#0d1a0e',
-                          border: '1px solid rgba(63,174,82,0.15)',
+                          background: lightMode ? '#f7f9f7' : '#0d1a0e',
+                          border: lightMode ? '1px solid #e0e5e0' : '1px solid rgba(63,174,82,0.15)',
                           borderRadius: '12px',
                           padding: '16px',
                         }}
@@ -1743,29 +1745,29 @@ const Report = () => {
                         </div>
                         {notTestedThisCycle && (
                           <div style={{
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid rgba(255,255,255,0.1)',
+                            background: lightMode ? '#fffbe6' : 'rgba(255,255,255,0.04)',
+                            border: lightMode ? '1px solid #f0e6b3' : '1px solid rgba(255,255,255,0.1)',
                             borderRadius: '8px',
                             padding: '10px 14px',
                             marginBottom: '16px',
                             fontSize: '12px',
-                            color: 'rgba(255,255,255,0.55)',
+                            color: lightMode ? '#665c00' : 'rgba(255,255,255,0.55)',
                             fontStyle: 'italic',
                             lineHeight: '1.5'
                           }}>
                             ⚠ This test was not performed during the current training cycle (May–September 2026). The result shown reflects the athlete's most recent prior assessment and remains on file for longitudinal tracking.
                           </div>
                         )}
-                        <div style={{ fontSize: '22px', fontWeight: '900', color: 'white', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '22px', fontWeight: '900', color: lightMode ? '#1a1a1a' : 'white', marginBottom: '8px' }}>
                           {tt === 'low_back_ext'
                             ? (pb ? `${Math.floor(pb.value / 60)}:${String(pb.value % 60).padStart(2, '0')}` : '—')
                             : (pb ? formatVal(tt, pb.value) : '—')}
                         </div>
                         {tt === 'low_back_ext' && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(63,174,82,0.15)', borderRadius: '8px', padding: '8px 10px', marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: lightMode ? '#f7f9f7' : 'rgba(255,255,255,0.02)', border: lightMode ? '1px solid #e0e5e0' : '1px solid rgba(63,174,82,0.15)', borderRadius: '8px', padding: '8px 10px', marginBottom: '8px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                               <span style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#3fae52' }}>PFA Standard</span>
-                              <span style={{ fontSize: '13px', fontWeight: '800', color: 'white' }}>3:00</span>
+                              <span style={{ fontSize: '13px', fontWeight: '800', color: lightMode ? '#1a1a1a' : 'white' }}>3:00</span>
                             </div>
                             {(() => {
                               const target = 180
@@ -1776,7 +1778,7 @@ const Report = () => {
                               }
                               const remaining = hasPb ? Math.max(0, target - pb.value) : null
                               const remainingFmt = remaining != null ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}` : '—'
-                              return <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.6)' }}>{remainingFmt} to go</div>
+                              return <div style={{ fontSize: '11px', fontWeight: '700', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.6)' }}>{remainingFmt} to go</div>
                             })()}
                           </div>
                         )}
@@ -1933,13 +1935,13 @@ const Report = () => {
                                 <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: tierColor, flexShrink: 0 }} />
                                 <div style={{ fontSize: '11px', fontWeight: '700', color: tierColor, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{tier}</div>
                                 {isRelativeOnly && bodyweightLbs && (
-                                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginLeft: 'auto' }}>
+                                  <div style={{ fontSize: '10px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.35)', marginLeft: 'auto' }}>
                                     {(athleteValue / bodyweightLbs).toFixed(2)}× BW
                                   </div>
                                 )}
 
                               </div>
-                              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '16px' }}>
+                              <div style={{ fontSize: '11px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.35)', marginBottom: '16px' }}>
                                 {tier === 'Elite Trajectory' ? 'Top 10% of athletes tested at PFA' : tier === 'Advanced' ? 'Above average for age group' : tier === 'On Track' ? 'Meeting expected standards' : 'Room to grow — keep training'}
                               </div>
 
@@ -1963,7 +1965,7 @@ const Report = () => {
                                     const isNext = idx === clearedCount && !meets
                                     return (
                                       <React.Fragment key={idx}>
-                                        {idx > 0 && <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>}
+                                        {idx > 0 && <div style={{ color: lightMode ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>}
                                         {isHere && meets ? (
                                           <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${tierColor}22`, border: `1.5px solid ${tierColor}`, color: tierColor, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
                                         ) : meets ? (
@@ -2021,7 +2023,7 @@ const Report = () => {
                                       const isNext = idx === clearedCount && !meets
                                       return (
                                         <React.Fragment key={t.label}>
-                                          {idx > 0 && <div style={{ color: 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>}
+                                          {idx > 0 && <div style={{ color: lightMode ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)', fontSize: '10px' }}>·</div>}
                                           {isHere ? (
                                             <div style={{ padding: '4px 10px', borderRadius: '999px', background: `${t.color}22`, border: `1.5px solid ${t.color}`, color: t.color, fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>YOU</div>
                                           ) : meets ? (
@@ -2040,7 +2042,7 @@ const Report = () => {
 
                               {/* Comparison card — next target */}
                               {hasBenchmarks && !hideBenchmarkChips && nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
-                                <div style={{ background: 'rgba(255,255,255,0.02)', borderLeft: '2px solid rgba(255,255,255,0.08)', borderRadius: '0 6px 6px 0', padding: '10px 12px', fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.7', marginBottom: '12px' }}>
+                                <div style={{ background: lightMode ? '#eef6ef' : 'rgba(255,255,255,0.02)', borderLeft: '2px solid rgba(63,174,82,0.3)', borderRadius: '0 6px 6px 0', padding: '10px 12px', fontSize: '12px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.5)', lineHeight: '1.7', marginBottom: '12px' }}>
                                   {(() => {
                                     const clearedLevels = visibleLevels.filter(({ idx }) => idx <= currentLevelIdx)
                                     const clearedNames = clearedLevels.map(({ lvl }) => lvl.replace('HC ', '').replace('/Pro','').replace('Olympic/','').replace('-age','').replace('CHL-age','CHL'))
@@ -2052,13 +2054,13 @@ const Report = () => {
                                     if (clearedLevels.length > 0) {
                                       return (
                                         <span>
-                                          {firstName} has already cleared the <strong style={{ color: 'white' }}>{clearedNames.join(', ')}</strong> benchmark{clearedLevels.length > 1 ? 's' : ''}. The next target is the <strong style={{ color: 'white' }}>{nextName} standard</strong> — just <strong style={{ color: '#3fae52' }}>{gapFormatted} away</strong>.
+                                          {firstName} has already cleared the <strong style={{ color: lightMode ? '#1a1a1a' : 'white' }}>{clearedNames.join(', ')}</strong> benchmark{clearedLevels.length > 1 ? 's' : ''}. The next target is the <strong style={{ color: lightMode ? '#1a1a1a' : 'white' }}>{nextName} standard</strong> — just <strong style={{ color: '#3fae52' }}>{gapFormatted} away</strong>.
                                         </span>
                                       )
                                     } else {
                                       return (
                                         <span>
-                                          The next target is the <strong style={{ color: 'white' }}>{nextName} standard</strong>. {profile?.full_name?.split(' ')[0]} is <strong style={{ color: '#3fae52' }}>{gapFormatted} away</strong> from hitting this benchmark.
+                                          The next target is the <strong style={{ color: lightMode ? '#1a1a1a' : 'white' }}>{nextName} standard</strong>. {profile?.full_name?.split(' ')[0]} is <strong style={{ color: '#3fae52' }}>{gapFormatted} away</strong> from hitting this benchmark.
                                         </span>
                                       )
                                     }
@@ -2068,12 +2070,12 @@ const Report = () => {
                               {hasBenchmarks && !hideBenchmarkChips && nextTarget && !isRelativeOnly && !bench.tieredTargets && nextTarget.value && athleteValue && (
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px' }}>
                                   <div style={{ padding: '10px 14px' }}>
-                                    <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Today</div>
+                                    <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Today</div>
                                     <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? '#111' : 'white' }}>{formatVal(tt, athleteValue)}</div>
                                   </div>
-                                  <div style={{ background: 'rgba(255,255,255,0.07)' }} />
+                                  <div style={{ background: lightMode ? '#e0e5e0' : 'rgba(255,255,255,0.07)' }} />
                                   <div style={{ padding: '10px 14px' }}>
-                                    <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>{nextTarget.tier ? `${nextTarget.level} ${nextTarget.tier}` : nextTarget.level}</div>
+                                    <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>{nextTarget.tier ? `${nextTarget.level} ${nextTarget.tier}` : nextTarget.level}</div>
                                     <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.2)' }}>{formatVal(tt, nextTarget.value)}</div>
                                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#3fae52', marginTop: '3px' }}>
                                       {isLower ? `${(athleteValue - nextTarget.value).toFixed(3)}s to go` : `${formatVal(tt, Math.abs(nextTarget.value - athleteValue))} to go`}
@@ -2085,11 +2087,11 @@ const Report = () => {
                             </div>
                           )
                         })()}
-                        {history.length > 1 && <LineChartCanvas testType={tt} history={history} />}
+                        {history.length > 1 && <LineChartCanvas testType={tt} history={history} lightMode={lightMode} />}
                         {tt === 'imtp' && (
                           <p style={{
                             fontSize: '11px',
-                            color: 'rgba(255,255,255,0.4)',
+                            color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)',
                             fontStyle: 'italic',
                             marginTop: '12px',
                             lineHeight: '1.5'
@@ -2101,7 +2103,7 @@ const Report = () => {
                           <div style={{ marginTop: '12px', borderTop: '1px solid rgba(63,174,82,0.1)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             {pfaBench && (
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                                <span style={{ color: 'rgba(255,255,255,0.4)' }}>PFA Average</span>
+                                <span style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)' }}>PFA Average</span>
                                 <span style={{ color: '#3fae52', fontWeight: '600' }}>{formatVal(tt, pfaBench.value)}</span>
                               </div>
                             )}
@@ -2142,7 +2144,7 @@ const Report = () => {
                               paddingTop: '10px',
                               borderTop: '1px solid rgba(63,174,82,0.1)',
                               fontSize: '12px',
-                              color: 'rgba(255,255,255,0.55)',
+                              color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.55)',
                               lineHeight: 1.6,
                               fontStyle: 'italic'
                             }}>
@@ -2157,12 +2159,17 @@ const Report = () => {
                             <>
                               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden', marginTop: '12px' }}>
                                 <div style={{ padding: '10px 14px' }}>
-                                  <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Today</div>
+                                  <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Today</div>
                                   <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? '#111' : 'white' }}>{pb.value} <span style={{ fontSize: '13px', fontWeight: '400' }}>{unit}</span></div>
+                                  {pb?.load_value && pb?.reps && (
+                                    <div style={{ fontSize: '10px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', marginTop: '3px' }}>
+                                      {pb.load_value} lbs × {pb.reps} reps
+                                    </div>
+                                  )}
                                 </div>
-                                <div style={{ background: 'rgba(255,255,255,0.07)' }} />
+                                <div style={{ background: lightMode ? '#e0e5e0' : 'rgba(255,255,255,0.07)' }} />
                                 <div style={{ padding: '10px 14px' }}>
-                                  <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>PEER AVG · {athleteProfile?.age_category?.toUpperCase()}</div>
+                                  <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>PEER AVG · {athleteProfile?.age_category?.toUpperCase()}</div>
                                   <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.2)' }}>{Number(peerAvgMap[tt]).toFixed(1)} <span style={{ fontSize: '13px', fontWeight: '400' }}>{unit}</span></div>
                                   {!isStrength && (
                                     <div style={{ fontSize: '11px', fontWeight: '700', color: pb.value >= peerAvgMap[tt] ? '#3fae52' : '#f59e0b', marginTop: '3px' }}>
@@ -2175,17 +2182,12 @@ const Report = () => {
                                 <div style={{ marginTop: '10px' }}>
                                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', overflow: 'hidden' }}>
                                     <div style={{ padding: '10px 14px' }}>
-                                      <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Relative Strength</div>
+                                      <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Relative Strength</div>
                                       <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? '#111' : 'white' }}>{(pb.value / latestMeasurement.weight).toFixed(2)}<span style={{ fontSize: '13px', fontWeight: '400' }}>× BW</span></div>
-                                      {pb.load_value && pb.reps && (
-                                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '3px' }}>
-                                          {pb.load_value} lbs × {pb.reps} reps
-                                        </div>
-                                      )}
                                     </div>
-                                    <div style={{ background: 'rgba(255,255,255,0.07)' }} />
+                                    <div style={{ background: lightMode ? '#e0e5e0' : 'rgba(255,255,255,0.07)' }} />
                                     <div style={{ padding: '10px 14px' }}>
-                                      <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>PEER AVG · {athleteProfile?.age_category?.toUpperCase()}</div>
+                                      <div style={{ fontSize: '9px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>PEER AVG · {athleteProfile?.age_category?.toUpperCase()}</div>
                                       <div style={{ fontSize: '20px', fontWeight: '900', color: lightMode ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.2)' }}>{peerRelStrengthMap[tt] ? peerRelStrengthMap[tt].toFixed(2) : '—'}<span style={{ fontSize: '13px', fontWeight: '400' }}>× BW</span></div>
                                       {peerRelStrengthMap[tt] && (
                                         <div style={{ fontSize: '11px', fontWeight: '700', color: (pb.value / latestMeasurement.weight) >= peerRelStrengthMap[tt] ? '#3fae52' : '#f59e0b', marginTop: '3px' }}>
@@ -2197,7 +2199,7 @@ const Report = () => {
                                     </div>
                                   </div>
                                   {tt === 'bench_press' && (
-                                    <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginTop: '6px', lineHeight: '1.5' }}>
+                                    <p style={{ fontSize: '10px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginTop: '6px', lineHeight: '1.5' }}>
                                       Relative strength compares how much an athlete lifts relative to their bodyweight — a higher multiplier means greater strength-to-weight ratio, which is a key indicator of athletic performance.
                                     </p>
                                   )}
@@ -2240,7 +2242,7 @@ const Report = () => {
           </div>
 
           {compScore && (
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginBottom: '24px', maxWidth: '680px' }}>
+            <p style={{ fontSize: '13px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginBottom: '24px', maxWidth: '680px' }}>
               {`These scores reflect ${firstName}'s physical development relative to other ${athleteProfile?.gender} ${athleteProfile?.age_category} athletes tested at Peak Fitness Athletics. Each score is calculated from standardized testing and normalized against ${pronoun} peer group — a score of 50 represents the peer average. ${firstName}'s overall score of ${compScore?.overall_score} places ${pronoun} ${compScore?.overall_score > 50 ? 'above' : 'below'} the average for ${pronoun} age group and level.`}
             </p>
           )}
@@ -2267,32 +2269,32 @@ const Report = () => {
                 <div
                   key={key}
                   style={{
-                    background: '#0d1a0d',
-                    border: `1px solid ${isOverall ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)'}`,
+                    background: lightMode ? '#f7f9f7' : '#0d1a0d',
+                    border: `1px solid ${isOverall ? (lightMode ? '#e0e5e0' : 'rgba(255,255,255,0.15)') : (lightMode ? '#e0e5e0' : 'rgba(255,255,255,0.08)')}`,
                     borderRadius: '10px',
                     padding: isOverall ? '16px 18px' : '14px 16px',
                     gridColumn: isMobile && isOverall ? '1 / span 2' : undefined,
                   }}
                 >
-                  <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: '6px' }}>{label}</div>
+                  <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', marginBottom: '6px' }}>{label}</div>
                   <div style={{ fontSize: isOverall ? '52px' : '36px', fontWeight: '900', lineHeight: '1', marginBottom: '10px', color: zoneColor }}>{s}</div>
                   <div style={{ position: 'relative', height: '8px', background: lightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', borderRadius: '999px', marginBottom: '6px', overflow: 'visible' }}>
                     <div style={{ position: 'absolute', top: 0, left: 0, width: '49%', height: '100%', background: 'rgba(239,68,68,0.5)', borderRadius: '999px 0 0 999px' }} />
                     <div style={{ position: 'absolute', top: 0, left: '49%', width: '26%', height: '100%', background: 'rgba(245,158,11,0.5)' }} />
                     <div style={{ position: 'absolute', top: 0, left: '75%', width: '25%', height: '100%', background: 'rgba(63,174,82,0.6)', borderRadius: '0 999px 999px 0' }} />
-                    <div style={{ position: 'absolute', top: '-3px', left: '50%', width: '1px', height: '14px', background: 'rgba(255,255,255,0.25)' }} />
-                    <div style={{ position: 'absolute', top: '50%', left: `${s}%`, transform: 'translate(-50%, -50%)', width: '14px', height: '14px', borderRadius: '50%', background: zoneColor, border: '2px solid #0a0f0a', zIndex: 10 }} />
+                    <div style={{ position: 'absolute', top: '-3px', left: '50%', width: '1px', height: '14px', background: lightMode ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)' }} />
+                    <div style={{ position: 'absolute', top: '50%', left: `${s}%`, transform: 'translate(-50%, -50%)', width: '14px', height: '14px', borderRadius: '50%', background: zoneColor, border: lightMode ? '2px solid #f7f9f7' : '2px solid #0a0f0a', zIndex: 10 }} />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)' }}>{isOverall ? 'Peer avg: 50' : 'avg: 50'}</div>
+                    <div style={{ fontSize: '9px', color: lightMode ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.25)' }}>{isOverall ? 'Peer avg: 50' : 'avg: 50'}</div>
                     <div style={{ fontSize: '9px', fontWeight: '700', color: zoneColor }}>{zoneLabel}</div>
                   </div>
                 </div>
               )
             })}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginRight: '4px' }}>Zones:</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', padding: '10px 14px', background: lightMode ? '#f7f9f7' : 'rgba(255,255,255,0.02)', border: lightMode ? '1px solid #e0e5e0' : '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: lightMode ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.25)', marginRight: '4px' }}>Zones:</div>
             {[
               { color: 'rgba(239,68,68,0.5)', label: 'Developing (0–49)' },
               { color: 'rgba(245,158,11,0.5)', label: 'Average (50–74)' },
@@ -2300,19 +2302,19 @@ const Report = () => {
             ].map(z => (
               <div key={z.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: z.color }} />
-                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>{z.label}</span>
+                <span style={{ fontSize: '10px', color: lightMode ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.35)' }}>{z.label}</span>
               </div>
             ))}
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.25)' }} />
-              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>Peer average</span>
+              <div style={{ width: '1px', height: '12px', background: lightMode ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)' }} />
+              <span style={{ fontSize: '10px', color: lightMode ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.35)' }}>Peer average</span>
             </div>
           </div>
 
           {(() => {
             if (insights?.scores_summary) {
               return (
-                <div style={{ fontSize: '13px', color: lightMode ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginTop: '16px', padding: '14px 16px', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(63,174,82,0.3)', borderRadius: '4px' }}>
+                <div style={{ fontSize: '13px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginTop: '16px', padding: '14px 16px', background: lightMode ? '#eef6ef' : 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(63,174,82,0.3)', borderRadius: '4px' }}>
                   {insights.scores_summary}
                 </div>
               )
@@ -2332,7 +2334,7 @@ const Report = () => {
             const top = sorted[0]
             const bottom = sorted[sorted.length - 1]
             return (
-              <div style={{ fontSize: '13px', color: lightMode ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginTop: '16px', padding: '14px 16px', background: lightMode ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(63,174,82,0.3)', borderRadius: '4px' }}>
+              <div style={{ fontSize: '13px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginTop: '16px', padding: '14px 16px', background: lightMode ? '#eef6ef' : 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(63,174,82,0.3)', borderRadius: '4px' }}>
                 {`${firstName}'s strongest category is ${top[0]} with a score of ${top[1]}, standing out among ${profile?.gender} ${profile?.age_category} peers. ${bottom[0]} is the current development focus with a score of ${bottom[1]} — an active priority in ${pronoun} training program.`}
               </div>
             )
@@ -2363,7 +2365,9 @@ const Report = () => {
               fontStyle: 'italic',
               lineHeight: 1.7,
               borderLeft: '3px solid #3fae52',
-              paddingLeft: '16px'
+              paddingLeft: '16px',
+              background: lightMode ? '#eef6ef' : 'transparent',
+              borderRadius: '6px'
             }}>
               {insights.what_to_watch}
             </div>
@@ -2393,7 +2397,9 @@ const Report = () => {
               fontStyle: 'italic',
               lineHeight: 1.7,
               borderLeft: '3px solid #3fae52',
-              paddingLeft: '16px'
+              paddingLeft: '16px',
+              background: lightMode ? '#eef6ef' : 'transparent',
+              borderRadius: '6px'
             }}>
               {insights.next_steps}
             </div>
@@ -2405,18 +2411,18 @@ const Report = () => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
             <div>
               <div style={{ color: '#3fae52', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px' }}>Testing Protocols & Methodology</div>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', lineHeight: 1.7 }}>
+              <p style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontSize: '12px', lineHeight: 1.7 }}>
                 All testing is conducted by certified PFA staff using standardized protocols consistent with CSC, NSCA, and Hockey Canada development standards. Results are normalized against peer cohorts of matching sport, age category, and competition level to provide meaningful context for development decisions.
               </p>
             </div>
             <div>
               <div style={{ color: '#3fae52', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '10px' }}>Scouting & Development Context</div>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', lineHeight: 1.7 }}>
+              <p style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontSize: '12px', lineHeight: 1.7 }}>
                 Physical performance data should be interpreted alongside technical, tactical, and psychological indicators. Composite scores reflect relative performance within peer groups and are intended to inform training priorities — not define athletic potential. Use in conjunction with coach evaluation for complete player profiling.
               </p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '20px', borderTop: lightMode ? '1px solid #e0e5e0' : '1px solid rgba(255,255,255,0.05)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <img src={PFA_LOGO} alt="Peak Athletics" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
               <div>
@@ -2424,7 +2430,7 @@ const Report = () => {
                 <div style={{ color: '#3fae52', fontSize: '12px' }}>info@peakfitnessdieppe.ca</div>
               </div>
             </div>
-            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>© 2026 Peak Fitness Athletics — All Rights Reserved</div>
+            <div style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', fontSize: '11px' }}>© 2026 Peak Fitness Athletics — All Rights Reserved</div>
           </div>
         </footer>
       </div>
