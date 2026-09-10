@@ -25,6 +25,7 @@ const Card = () => {
   const [photoMessage, setPhotoMessage] = useState('')
   const fileInputRef = useRef(null)
   const [compScore, setCompScore] = useState(null)
+  const [lightMode, setLightMode] = useState(false)
 
   const fetchResults = async () => {
     if (!profile?.id) return
@@ -441,8 +442,8 @@ const Card = () => {
 
   if (loading) {
     return (
-      <CardLayout>
-        <div className="min-h-screen flex items-center justify-center bg-[#0a0f0a] text-white">
+      <CardLayout lightMode={lightMode}>
+        <div className="min-h-screen flex items-center justify-center" style={{ background: lightMode ? '#ffffff' : '#0a0f0a', color: lightMode ? '#1a1a1a' : '#ffffff' }}>
           <div className="w-10 h-10 border-4 border-pfa-green border-t-transparent rounded-full animate-spin" aria-label="Loading" />
         </div>
       </CardLayout>
@@ -450,7 +451,7 @@ const Card = () => {
   }
 
   return (
-    <CardLayout>
+    <CardLayout lightMode={lightMode}>
       <div
         className="card-page"
         style={{
@@ -459,12 +460,20 @@ const Card = () => {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '16px'
+          padding: '16px',
+          background: lightMode ? '#ffffff' : '#0a0f0a',
+          color: lightMode ? '#1a1a1a' : '#ffffff'
         }}
       >
         <button
+          onClick={() => setLightMode(lm => !lm)}
+          style={{ background: lightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', border: `1px solid ${lightMode ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)'}`, borderRadius: '8px', color: lightMode ? '#333' : '#ccc', padding: '8px 14px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          {lightMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
+        </button>
+        <button
           onClick={signOut}
-          className="absolute top-4 right-4 text-sm text-white/70 hover:text-white bg-white/5 border border-pfa-border px-3 py-1 rounded-lg hidden sm:block"
+          className={`absolute top-4 right-4 text-sm px-3 py-1 rounded-lg hidden sm:block border border-pfa-border ${lightMode ? 'text-[#5a615a] hover:text-[#1a1a1a] bg-black/5' : 'text-white/70 hover:text-white bg-white/5'}`}
         >
           Sign Out
         </button>
@@ -498,11 +507,11 @@ const Card = () => {
                 zIndex: flipped ? 0 : 1,
                 overflow: 'hidden',
                 border: '3px solid transparent',
-                background: 'linear-gradient(135deg, #3fae52, #ffffff, #3fae52, #0a0f0a, #3fae52)',
+                background: lightMode ? 'linear-gradient(135deg, #3fae52, #ffffff, #3fae52, #f7f9f7, #3fae52)' : 'linear-gradient(135deg, #3fae52, #ffffff, #3fae52, #0a0f0a, #3fae52)',
                 backgroundOrigin: 'border-box',
               }}
             >
-              <div className="absolute inset-[3px] rounded-[12px] overflow-hidden" style={{ background: '#000' }}>
+              <div className="absolute inset-[3px] rounded-[12px] overflow-hidden" style={{ background: lightMode ? '#f7f9f7' : '#000' }}>
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
@@ -510,19 +519,19 @@ const Card = () => {
                     style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', position: 'absolute', top: 0, left: 0 }}
                   />
                 ) : (
-                  <div className="w-full h-full" style={{ background: 'linear-gradient(160deg, #0d1a0e 0%, #0a0f0a 100%)' }} />
+                  <div className="w-full h-full" style={{ background: lightMode ? 'linear-gradient(160deg, #f7f9f7 0%, #ffffff 100%)' : 'linear-gradient(160deg, #0d1a0e 0%, #0a0f0a 100%)' }} />
                 )}
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%, rgba(255,255,255,0.05) 100%)', pointerEvents: 'none' }} />
+                <div className="absolute inset-0" style={{ background: lightMode ? 'linear-gradient(135deg, rgba(0,0,0,0.03) 0%, transparent 50%, rgba(0,0,0,0.05) 100%)' : 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%, rgba(255,255,255,0.05) 100%)', pointerEvents: 'none' }} />
                 <img
                   src="https://iilysafrbbnklelzzqyh.supabase.co/storage/v1/object/public/Assets/Peak%20Athletics%20Logo%202.png"
                   alt="Peak Athletics"
                   style={{ position: 'absolute', top: '10px', left: '10px', width: '64px', height: '64px', objectFit: 'contain', zIndex: 10, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' }}
                 />
-                <div className="absolute top-3 right-3 text-[10px] text-white/30 font-semibold">{cardNumber}</div>
+                <div className={`absolute top-3 right-3 text-[10px] font-semibold ${lightMode ? 'text-[#5a615a]' : 'text-white/30'}`}>{cardNumber}</div>
                 <div className="absolute" style={{ bottom: '120px', left: '-10%', width: '120%', height: '160px', background: 'rgba(63,174,82,0.08)', transform: 'rotate(-8deg)', pointerEvents: 'none', zIndex: 1 }} />
-                <div className="absolute left-0 right-0" style={{ bottom: '140px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+                <div className="absolute left-0 right-0" style={{ bottom: '140px', background: lightMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
                   {testRankings.slice(0, 4).length === 0 ? (
-                    <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 'clamp(9px, 2.4vw, 12px)', textAlign: 'center', padding: '16px' }}>
+                    <div style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)', fontSize: 'clamp(9px, 2.4vw, 12px)', textAlign: 'center', padding: '16px' }}>
                       Complete your first test to unlock your stats.
                     </div>
                   ) : (
@@ -546,16 +555,16 @@ const Card = () => {
                             className="py-2"
                             style={idx < arr.length - 1 ? { borderRight: '1px solid rgba(63,174,82,0.3)' } : { textAlign: 'center' }}
                           >
-                            <div className="text-[8px] uppercase tracking-wide text-white/60 font-bold" style={{ marginBottom: '2px', textAlign: 'center', fontSize: 'clamp(8px, 1.8vw, 10px)' }}>
+                            <div className={`text-[8px] uppercase tracking-wide font-bold ${lightMode ? 'text-[#5a615a]' : 'text-white/60'}`} style={{ marginBottom: '2px', textAlign: 'center', fontSize: 'clamp(8px, 1.8vw, 10px)' }}>
                               {formatted.label}
                             </div>
-                            <div className="text-[15px] font-semibold" style={{ textAlign: 'center', color: '#fff', fontSize: 'clamp(12px, 3.4vw, 15px)' }}>
+                            <div className="text-[15px] font-semibold" style={{ textAlign: 'center', color: lightMode ? '#1a1a1a' : '#fff', fontSize: 'clamp(12px, 3.4vw, 15px)' }}>
                               {formatted.value}
-                              <span style={{ fontSize: 'clamp(8px, 2vw, 10px)', color: 'rgba(255,255,255,0.6)', marginLeft: '2px' }}>{formatted.unit}</span>
+                              <span style={{ fontSize: 'clamp(8px, 2vw, 10px)', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.6)', marginLeft: '2px' }}>{formatted.unit}</span>
                             </div>
                             <div
                               style={{
-                                color: '#fff',
+                                color: lightMode ? '#1a1a1a' : '#fff',
                                 fontWeight: 700,
                                 fontSize: 'clamp(11px, 3vw, 14px)',
                                 opacity: ranking.hasAnyData ? 1 : 0.35,
@@ -563,7 +572,7 @@ const Card = () => {
                             >
                               {ranking.season2025?.main || ranking.season2025}
                               {['squat', 'bench_press', 'trap_bar_deadlift'].includes(ranking.testType) && ranking.season2025?.load && ranking.season2025?.reps && (
-                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 'clamp(6px, 1.6vw, 8px)', marginTop: '2px' }}>
+                                <div style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.25)', fontSize: 'clamp(6px, 1.6vw, 8px)', marginTop: '2px' }}>
                                   {ranking.season2025.load} × {ranking.season2025.reps}
                                 </div>
                               )}
@@ -604,16 +613,16 @@ const Card = () => {
                       }}
                       style={{ background: 'rgba(63,174,82,0.9)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '12px auto 0', position: 'relative', zIndex: 10 }}
                     >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill={lightMode ? '#1a1a1a' : 'white'}>
                         <path d="M12 15.2A3.2 3.2 0 1 1 12 8.8a3.2 3.2 0 0 1 0 6.4zm7-11.2h-1.8l-1.4-2H8.2L6.8 4H5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3z" />
                       </svg>
                     </button>
-                    <div className="mt-2 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    <div className="mt-2 text-sm" style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.4)' }}>
                       Tap camera to add your photo
                     </div>
                   </div>
                 )}
-                <div className="absolute left-0 right-0 text-white" style={{ bottom: '0', background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0) 100%)', padding: '60px 16px 16px', textTransform: 'uppercase' }}>
+                <div className={`absolute left-0 right-0 ${lightMode ? 'text-[#1a1a1a]' : 'text-white'}`} style={{ bottom: '0', background: lightMode ? 'linear-gradient(to top, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.7) 60%, rgba(255,255,255,0) 100%)' : 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0) 100%)', padding: '60px 16px 16px', textTransform: 'uppercase' }}>
                   <div className="text-[28px] font-extrabold tracking-[0.1em] leading-tight" style={{ fontSize: 'clamp(14px, 4vw, 20px)' }}>{(profile?.full_name || 'Athlete').toUpperCase()}</div>
                   <div className="text-[11px]" style={{ color: '#3fae52', fontSize: 'clamp(9px, 2.4vw, 12px)' }}>{profile?.sport || 'Sport'}{profile?.position ? ` · ${profile.position}` : ''}</div>
                 </div>
@@ -636,7 +645,7 @@ const Card = () => {
                 overflowX: 'hidden',
                 scrollbarWidth: 'none',
                 msOverflowStyle: 'none',
-                background: 'linear-gradient(160deg, #0d1a0e 0%, #0a0f0a 60%, #0d1008 100%)',
+                background: lightMode ? 'linear-gradient(160deg, #f7f9f7 0%, #ffffff 60%, #f7f9f7 100%)' : 'linear-gradient(160deg, #0d1a0e 0%, #0a0f0a 60%, #0d1008 100%)',
                 padding: '16px',
                 boxSizing: 'border-box',
               }}
@@ -663,7 +672,7 @@ const Card = () => {
                   />
                   <span
                     style={{
-                      color: 'rgba(255,255,255,0.7)',
+                      color: lightMode ? '#1a1a1a' : 'rgba(255,255,255,0.7)',
                       fontSize: '11px',
                       fontWeight: '700',
                       letterSpacing: '0.15em',
@@ -702,14 +711,14 @@ const Card = () => {
                               display: 'grid',
                               gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
                               padding: '5px 0',
-                              borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                              borderBottom: i < 2 ? lightMode ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.04)' : 'none',
                             }}
                           >
-                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{row.label}</div>
-                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>{row.season2025}</div>
+                            <div style={{ color: lightMode ? '#1a1a1a' : 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{row.label}</div>
+                            <div style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>{row.season2025}</div>
                             <div
                               style={{
-                                color: row.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                                color: lightMode ? (row.season2026 !== '—' ? '#1a1a1a' : '#5a615a') : (row.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)'),
                                 fontSize: 'clamp(9px, 2vw, 11px)',
                                 fontWeight: row.season2026 !== '—' ? '700' : '400',
                                 textAlign: 'center',
@@ -744,27 +753,27 @@ const Card = () => {
                               display: 'grid',
                               gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
                               padding: '5px 0',
-                              borderBottom: i < seasonStats.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                              borderBottom: i < seasonStats.length - 1 ? lightMode ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.04)' : 'none',
                               opacity: stat.hasAnyData ? 1 : 0.35,
                             }}
                           >
-                            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>
+                            <div style={{ color: lightMode ? '#1a1a1a' : 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>
                               {stat.label}
                               {stat.notTested2026 && (
-                                <span style={{ color: 'rgba(255,255,255,0.35)', marginLeft: '2px' }}>*</span>
+                                <span style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.35)', marginLeft: '2px' }}>*</span>
                               )}
                             </div>
-                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>
+                            <div style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>
                               <div>{stat.season2025}</div>
                               {STRENGTH_LOAD_TESTS.includes(stat.testType) && stat.load2025 && stat.reps2025 && (
-                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 'clamp(6px, 1.6vw, 8px)', marginTop: '1px' }}>
+                                <div style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.25)', fontSize: 'clamp(6px, 1.6vw, 8px)', marginTop: '1px' }}>
                                   {stat.load2025} × {stat.reps2025}
                                 </div>
                               )}
                             </div>
                             <div
                               style={{
-                                color: stat.season2026 && stat.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                                color: lightMode ? (stat.season2026 && stat.season2026 !== '—' ? '#1a1a1a' : '#5a615a') : (stat.season2026 && stat.season2026 !== '—' ? '#ffffff' : 'rgba(255,255,255,0.25)'),
                                 fontSize: 'clamp(9px, 2vw, 11px)',
                                 fontWeight: stat.season2026 && stat.season2026 !== '—' ? '700' : '400',
                                 textAlign: 'center',
@@ -772,13 +781,13 @@ const Card = () => {
                             >
                               <div>
                                 {stat.notTested2026 ? (
-                                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>N/A</span>
+                                  <span style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)' }}>N/A</span>
                                 ) : (
                                   stat.season2026
                                 )}
                               </div>
                               {STRENGTH_LOAD_TESTS.includes(stat.testType) && stat.load2026 && stat.reps2026 && (
-                                <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 'clamp(6px, 1.6vw, 8px)', marginTop: '1px' }}>
+                                <div style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.25)', fontSize: 'clamp(6px, 1.6vw, 8px)', marginTop: '1px' }}>
                                   {stat.load2026} × {stat.reps2026}
                                 </div>
                               )}
@@ -789,8 +798,8 @@ const Card = () => {
                           style={{
                             marginTop: '8px',
                             paddingTop: '8px',
-                            borderTop: '1px solid rgba(255,255,255,0.06)',
-                            color: 'rgba(255,255,255,0.3)',
+                            borderTop: lightMode ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
+                            color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)',
                             fontSize: '8px',
                             lineHeight: '1.4',
                             fontStyle: 'italic',
@@ -799,7 +808,7 @@ const Card = () => {
                           * Squat, Bench Press, and Trap Bar Deadlift values represent an estimated one-repetition maximum (1RM), calculated from the load and repetitions completed during testing using a validated predictive formula.
                         </div>
                         {seasonStats.some(stat => stat.notTested2026) && (
-                          <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginTop: '6px', lineHeight: '1.4' }}>
+                          <p style={{ fontSize: '9px', color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginTop: '6px', lineHeight: '1.4' }}>
                             * Not re-tested in the current training cycle (2026)
                           </p>
                         )}
@@ -855,16 +864,16 @@ const Card = () => {
                                 display: 'grid',
                                 gridTemplateColumns: '1fr min(80px, 20vw) min(80px, 20vw)',
                                 padding: '5px 0',
-                                borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                                borderBottom: i < arr.length - 1 ? lightMode ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.04)' : 'none',
                               }}
                             >
-                              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{row.label}</div>
-                              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>
+                              <div style={{ color: lightMode ? '#1a1a1a' : 'rgba(255,255,255,0.7)', fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: '600' }}>{row.label}</div>
+                              <div style={{ color: lightMode ? '#5a615a' : 'rgba(255,255,255,0.5)', fontSize: 'clamp(9px, 2vw, 11px)', textAlign: 'center' }}>
                                 {score2025 !== null ? score2025 : '—'}
                               </div>
                               <div
                                 style={{
-                                  color: score2026 !== null ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                                  color: lightMode ? (score2026 !== null ? '#1a1a1a' : '#5a615a') : (score2026 !== null ? '#ffffff' : 'rgba(255,255,255,0.25)'),
                                   fontSize: 'clamp(9px, 2vw, 11px)',
                                   fontWeight: score2026 !== null ? '700' : '400',
                                   textAlign: 'center',
@@ -881,7 +890,7 @@ const Card = () => {
                   )
                 })()}
 
-                <div className="mt-auto text-xs flex items center justify-between text-white/60">
+                <div className={`mt-auto text-xs flex items center justify-between ${lightMode ? 'text-[#5a615a]' : 'text-white/60'}`}>
                   <span>{mostRecentDate ? `Last tested: ${mostRecentDate?.slice(0, 10)}` : 'No sessions yet'}</span>
                   <span style={{ color: '#3fae52' }}>{cardNumber}</span>
                 </div>
@@ -891,7 +900,7 @@ const Card = () => {
           {avatarUrl ? (
             <div
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginTop: '12px' }}
-              className="text-white/60 text-sm"
+              className={`text-sm ${lightMode ? 'text-[#5a615a]' : 'text-white/60'}`}
             >
               <button
                 type="button"
@@ -907,20 +916,20 @@ const Card = () => {
               <button
                 type="button"
                 onClick={removePhoto}
-                style={{ fontSize: '10px', padding: '4px 10px', background: 'rgba(255,64,64,0.85)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                style={{ fontSize: '10px', padding: '4px 10px', background: 'rgba(255,64,64,0.85)', color: lightMode ? '#1a1a1a' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
               >
                 Remove Photo
               </button>
               {photoMessage && <span style={{ fontSize: '10px', color: '#3fae52' }}>{photoMessage}</span>}
             </div>
           ) : (
-            <div className="text-white/60 text-sm">Tap to flip</div>
+            <div className={`text-sm ${lightMode ? 'text-[#5a615a]' : 'text-white/60'}`}>Tap to flip</div>
           )}
 
           {profile?.role !== 'athlete' && (
             <div
               onClick={() => navigate('/pro')}
-              className="mx-4 mb-4 cursor-pointer group rounded-xl border border-[#3fae52]/30 bg-[#0d1a0d] hover:border-[#3fae52]/70 hover:bg-[#0d1a0d] transition-all overflow-hidden"
+              className={`mx-4 mb-4 cursor-pointer group rounded-xl border border-[#3fae52]/30 transition-all overflow-hidden ${lightMode ? 'bg-[#f7f9f7] hover:bg-[#f7f9f7]' : 'bg-[#0d1a0d] hover:bg-[#0d1a0d]'}`}
             >
               <div className="flex items-center justify-between px-5 py-4">
                 <div>
@@ -928,8 +937,8 @@ const Card = () => {
                     <span className="text-xs font-bold uppercase tracking-widest text-[#3fae52]">PFA PRO</span>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#3fae52]/20 text-[#3fae52] uppercase tracking-wide">BETA</span>
                   </div>
-                  <div className="text-white font-bold text-sm">Access Your Training Programs</div>
-                  <div className="text-gray-500 text-xs mt-0.5">8-week dryland programs from the PFA coaching team</div>
+                  <div className={`font-bold text-sm ${lightMode ? 'text-[#1a1a1a]' : 'text-white'}`}>Access Your Training Programs</div>
+                  <div className={`text-xs mt-0.5 ${lightMode ? 'text-[#5a615a]' : 'text-gray-500'}`}>8-week dryland programs from the PFA coaching team</div>
                 </div>
                 <div className="text-[#3fae52] text-xl group-hover:translate-x-1 transition-transform">→</div>
               </div>
@@ -963,13 +972,13 @@ const Card = () => {
               width: '100%',
               maxWidth: '320px',
               marginTop: '10px',
-              background: 'rgba(255,255,255,0.08)',
-              color: 'white',
+              background: lightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)',
+              color: lightMode ? '#1a1a1a' : 'white',
               fontWeight: '700',
               fontSize: '13px',
               padding: '12px',
               borderRadius: '16px',
-              border: '1px solid rgba(255,255,255,0.15)',
+              border: lightMode ? '1px solid rgba(0,0,0,0.15)' : '1px solid rgba(255,255,255,0.15)',
               cursor: 'pointer',
               letterSpacing: '0.05em',
             }}
