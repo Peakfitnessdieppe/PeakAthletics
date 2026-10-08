@@ -1237,9 +1237,13 @@ const Admin = () => {
         const { password, ...updateData } = sanitizedUser
         await updateAdminUser(editingUser.id, updateData)
         if (editingUser.email !== updateData.email) {
+          const { data: { session } } = await supabase.auth.getSession()
           const res = await fetch('/.netlify/functions/admin-update-user-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session?.access_token}`,
+            },
             body: JSON.stringify({ userId: editingUser.id, email: updateData.email })
           })
           if (!res.ok) {
